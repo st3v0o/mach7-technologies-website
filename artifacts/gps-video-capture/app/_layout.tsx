@@ -23,16 +23,25 @@ const queryClient = new QueryClient();
 
 function UploadConnector() {
   const { logEntries } = useRecording();
-  const { enqueueFrames } = useUpload();
+  const { enqueueFrames, clearQueue, queueLoaded } = useUpload();
   const enqueuedIds = useRef(new Set<string>());
+  const prevLengthRef = useRef(logEntries.length);
 
   useEffect(() => {
+    if (!queueLoaded) return;
+
+    if (logEntries.length === 0 && prevLengthRef.current > 0) {
+      enqueuedIds.current.clear();
+      clearQueue();
+    }
+    prevLengthRef.current = logEntries.length;
+
     const newEntries = logEntries.filter((e) => e.sessionId && !enqueuedIds.current.has(e.id));
     if (newEntries.length > 0) {
       newEntries.forEach((e) => enqueuedIds.current.add(e.id));
       enqueueFrames(newEntries);
     }
-  }, [logEntries, enqueueFrames]);
+  }, [logEntries, enqueueFrames, clearQueue, queueLoaded]);
 
   return null;
 }

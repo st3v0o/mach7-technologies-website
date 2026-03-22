@@ -36,8 +36,10 @@ interface UploadContextType {
   failedCount: number;
   isProcessing: boolean;
   queue: UploadQueueItem[];
+  queueLoaded: boolean;
   enqueueFrames: (entries: LogEntry[]) => void;
   retryFailed: () => void;
+  clearQueue: () => void;
   getItemStatus: (id: string) => UploadStatus | null;
   getItemUrl: (id: string) => string | undefined;
 }
@@ -99,6 +101,7 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
   const [queue, setQueue] = useState<UploadQueueItem[]>([]);
   const [isOnline, setIsOnline] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [queueLoaded, setQueueLoaded] = useState(false);
   const processingRef = useRef(false);
   const queueRef = useRef<UploadQueueItem[]>([]);
 
@@ -108,7 +111,10 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     loadQueue();
-    if (Platform.OS === 'web') return;
+    if (Platform.OS === 'web') {
+      setQueueLoaded(true);
+      return;
+    }
 
     let unsubscribe: (() => void) | null = null;
     import('@react-native-community/netinfo').then((NetInfo) => {
@@ -138,6 +144,7 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
         setQueue(reset);
       }
     } catch {}
+    setQueueLoaded(true);
   };
 
   const persistQueue = async (q: UploadQueueItem[]) => {
@@ -201,9 +208,14 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
     }
   }, [isOnline, queue, processQueue]);
 
+  const clearQueue = useCallback(() => {
+    setQueue([]);
+    AsyncStorage.removeItem(QUEUE_STORAGE_KEY).catch(() => {});
+  }, []);
+
   const enqueueFrames = useCallback(
     (entries: LogEntry[]) => {
-      if (!SUPABASE_CONFIGURED || Platform.OS === 'web') return;
+      if (!SUPABASE_CONFIGURED || Platform.OS === 'web' || !queueLoaded) return;
 
       const existingIds = new Set(queueRef.current.map((i) => i.id));
       const newItems: UploadQueueItem[] = entries
@@ -224,7 +236,7 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
       if (newItems.length === 0) return;
       updateQueue((prev) => [...prev, ...newItems]);
     },
-    [updateQueue]
+    [updateQueue, queueLoaded]
   );
 
   const retryFailed = useCallback(() => {
@@ -262,8 +274,10 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
         failedCount,
         isProcessing,
         queue,
+        queueLoaded,
         enqueueFrames,
         retryFailed,
+        clearQueue,
         getItemStatus,
         getItemUrl,
       }}
