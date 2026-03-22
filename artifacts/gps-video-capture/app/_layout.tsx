@@ -22,18 +22,34 @@ SplashScreen.preventAutoHideAsync();
 const queryClient = new QueryClient();
 
 function UploadConnector() {
-  const { logEntries, sessionId } = useRecording();
+  const { logEntries } = useRecording();
   const { enqueueFrames } = useUpload();
   const enqueuedIds = useRef(new Set<string>());
 
   useEffect(() => {
-    if (!sessionId) return;
-    const newEntries = logEntries.filter((e) => !enqueuedIds.current.has(e.id));
+    const newEntries = logEntries.filter((e) => e.sessionId && !enqueuedIds.current.has(e.id));
     if (newEntries.length > 0) {
       newEntries.forEach((e) => enqueuedIds.current.add(e.id));
-      enqueueFrames(newEntries, sessionId);
+      enqueueFrames(newEntries);
     }
-  }, [logEntries, sessionId, enqueueFrames]);
+  }, [logEntries, enqueueFrames]);
+
+  return null;
+}
+
+function UploadSyncConnector() {
+  const { queue } = useUpload();
+  const { updateFrameUrl } = useRecording();
+  const syncedIds = useRef(new Set<string>());
+
+  useEffect(() => {
+    for (const item of queue) {
+      if (item.status === 'uploaded' && item.supabaseUrl && !syncedIds.current.has(item.id)) {
+        syncedIds.current.add(item.id);
+        updateFrameUrl(item.id, item.supabaseUrl);
+      }
+    }
+  }, [queue, updateFrameUrl]);
 
   return null;
 }
@@ -69,6 +85,7 @@ export default function RootLayout() {
           <UploadProvider>
             <RecordingProvider>
               <UploadConnector />
+              <UploadSyncConnector />
               <GestureHandlerRootView>
                 <KeyboardProvider>
                   <RootLayoutNav />

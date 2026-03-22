@@ -28,6 +28,8 @@ export interface LogEntry {
   videoSegment: string;
   localPath: string;
   videoPath: string;
+  sessionId: string;
+  supabaseUrl?: string;
 }
 
 export type GpsStatus = 'idle' | 'searching' | 'locked' | 'denied';
@@ -51,13 +53,14 @@ interface RecordingContextType {
     startTime: number,
     durationMs: number
   ) => Promise<void>;
+  updateFrameUrl: (id: string, url: string) => Promise<void>;
   shareLog: () => Promise<void>;
   clearLog: () => Promise<void>;
 }
 
 const RecordingContext = createContext<RecordingContextType | null>(null);
 const STORAGE_KEY = '@gps_capture_log';
-const CSV_HEADER = 'filename,timestamp,latitude,longitude,video_segment,local_path,video_path\n';
+const CSV_HEADER = 'filename,timestamp,latitude,longitude,video_segment,local_path,video_path,session_id,supabase_url\n';
 
 function findNearestGps(timestamp: number, points: GpsPoint[]): GpsPoint | null {
   if (points.length === 0) return null;
@@ -71,6 +74,12 @@ function findNearestGps(timestamp: number, points: GpsPoint[]): GpsPoint | null 
     }
   }
   return nearest;
+}
+
+function makeSessionId(): string {
+  const now = new Date();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `session_${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
 }
 
 async function getOrCreatePaths(): Promise<{ framesDir: string; videosDir: string; csvPath: string }> {
@@ -106,6 +115,7 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
   const [sessionId, setSessionId] = useState<string>('');
 
   const gpsPointsRef = useRef<GpsPoint[]>([]);
+  const sessionIdRef = useRef<string>('');
   const locationSubRef = useRef<Location.LocationSubscription | null>(null);
   const nativePathsRef = useRef<{ framesDir: string; videosDir: string; csvPath: string } | null>(null);
 
@@ -135,11 +145,9 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
     if (Platform.OS === 'web') return;
     setGpsStatus('searching');
     gpsPointsRef.current = [];
-    const now = new Date();
-    const pad = (n: number) => String(n).padStart(2, '0');
-    setSessionId(
-      `session_${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`
-    );
+    const sid = makeSessionId();
+    sessionIdRef.current = sid;
+    setSessionId(sid);
 
     const fgPerm = await Location.requestForegroundPermissionsAsync();
     if (!fgPerm.granted) {
@@ -189,6 +197,7 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
 
       const snapshotPoints = [...gpsPointsRef.current];
       const segmentName = `seg_${String(segmentNum).padStart(3, '0')}`;
+      const currentSession = sessionIdRef.current;
       const newEntries: LogEntry[] = [];
 
       try {
@@ -234,13 +243,14 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
                 videoSegment: segmentName,
                 localPath: destPath,
                 videoPath: videoDestPath,
+                sessionId: currentSession,
               };
               newEntries.push(entry);
 
               const lat = nearest.latitude.toFixed(7);
               const lon = nearest.longitude.toFixed(7);
               const ts = new Date(absTimestamp).toISOString();
-              csvAppend += `${filename},${ts},${lat},${lon},${segmentName},${destPath},${videoDestPath}\n`;
+              csvAppend += `${filename},${ts},${lat},${lon},${segmentName},${destPath},${videoDestPath},${currentSession},\n`;
 
               frameIndex++;
               setProcessingProgress(Math.min((t / durationMs) * 100, 99));
@@ -274,6 +284,38 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
     },
     []
   );
+
+  const updateFrameUrl = useCallback(async (id: string, url: string) => {
+    let updatedFilename = '';
+
+    setLogEntries((prev) => {
+      const updated = prev.map((e) => {
+        if (e.id === id) {
+          updatedFilename = e.filename;
+          return { ...e, supabaseUrl: url };
+        }
+        return e;
+      });
+      saveLog(updated);
+      return updated;
+    });
+
+    if (!updatedFilename || Platform.OS === 'web' || !nativePathsRef.current) return;
+
+    try {
+      const FileSystem = await import('expo-file-system/legacy');
+      const { csvPath } = nativePathsRef.current;
+      const content = await FileSystem.readAsStringAsync(csvPath).catch(() => '');
+      const lines = content.split('\n');
+      const updated = lines.map((line) => {
+        if (line.startsWith(updatedFilename + ',') && line.endsWith(',')) {
+          return line.slice(0, -1) + url;
+        }
+        return line;
+      });
+      await FileSystem.writeAsStringAsync(csvPath, updated.join('\n'));
+    } catch {}
+  }, []);
 
   const shareLog = useCallback(async () => {
     if (Platform.OS === 'web') return;
@@ -325,6 +367,7 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
         startGps,
         stopGps,
         processSegment,
+        updateFrameUrl,
         shareLog,
         clearLog,
       }}

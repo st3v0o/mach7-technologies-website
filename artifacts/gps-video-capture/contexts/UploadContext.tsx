@@ -36,7 +36,7 @@ interface UploadContextType {
   failedCount: number;
   isProcessing: boolean;
   queue: UploadQueueItem[];
-  enqueueFrames: (entries: LogEntry[], sessionId: string) => void;
+  enqueueFrames: (entries: LogEntry[]) => void;
   retryFailed: () => void;
   getItemStatus: (id: string) => UploadStatus | null;
   getItemUrl: (id: string) => string | undefined;
@@ -202,15 +202,15 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
   }, [isOnline, queue, processQueue]);
 
   const enqueueFrames = useCallback(
-    (entries: LogEntry[], sessionId: string) => {
+    (entries: LogEntry[]) => {
       if (!SUPABASE_CONFIGURED || Platform.OS === 'web') return;
 
       const existingIds = new Set(queueRef.current.map((i) => i.id));
       const newItems: UploadQueueItem[] = entries
-        .filter((e) => !existingIds.has(e.id))
+        .filter((e) => !existingIds.has(e.id) && Boolean(e.sessionId))
         .map((e) => ({
           id: e.id,
-          sessionId,
+          sessionId: e.sessionId,
           filename: e.filename,
           localPath: e.localPath,
           timestamp: e.timestamp,

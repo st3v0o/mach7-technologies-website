@@ -111,17 +111,19 @@ function FrameRow({ entry, index }: { entry: LogEntry; index: number }) {
 }
 
 function UploadStatusBanner() {
-  const {
-    supabaseConfigured,
-    isOnline,
-    pendingCount,
-    uploadedCount,
-    failedCount,
-    isProcessing,
-    retryFailed,
-  } = useUpload();
+  const { supabaseConfigured, isOnline, isProcessing, queue, retryFailed } = useUpload();
+  const { sessionId } = useRecording();
 
   if (!supabaseConfigured) return null;
+
+  const sessionQueue = sessionId ? queue.filter((i) => i.sessionId === sessionId) : queue;
+  const pendingCount = sessionQueue.filter((i) => i.status === 'pending' || i.status === 'uploading').length;
+  const uploadedCount = sessionQueue.filter((i) => i.status === 'uploaded').length;
+  const failedCount = sessionQueue.filter((i) => i.status === 'failed').length;
+
+  const totalAll = queue.length;
+  const uploadedAll = queue.filter((i) => i.status === 'uploaded').length;
+  const isCurrentSession = Boolean(sessionId);
 
   return (
     <View style={styles.uploadBanner}>
@@ -132,7 +134,11 @@ function UploadStatusBanner() {
           color={isOnline ? Colors.blue : Colors.textTertiary}
         />
         <Text style={[styles.uploadBannerText, { color: isOnline ? Colors.blue : Colors.textTertiary }]}>
-          {isOnline ? 'Supabase sync' : 'Offline'}
+          {isOnline
+            ? isCurrentSession
+              ? 'Session sync'
+              : `All-time: ${uploadedAll}/${totalAll}`
+            : 'Offline — queued'}
         </Text>
         {isProcessing && (
           <ActivityIndicator size="small" color={Colors.blue} style={{ marginLeft: 4 }} />
