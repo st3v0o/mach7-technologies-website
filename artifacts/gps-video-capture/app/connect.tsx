@@ -1,7 +1,12 @@
-import { Image, Linking, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-const EXPO_URL = 'exp://9815bcbe-9608-4faf-9115-f3e74e40fc22-00-3opqmqomuutt9.expo.worf.replit.dev';
-const QR_API = `https://api.qrserver.com/v1/create-qr-code/?size=280x280&margin=10&data=${encodeURIComponent(EXPO_URL)}`;
+const expoDomain = process.env.EXPO_PUBLIC_EXPO_DEV_DOMAIN ?? '';
+const EXPO_URL = expoDomain
+  ? `exp://${expoDomain}`
+  : 'exp://<dev-domain> — restart the app server to see the real URL';
+const QR_API = expoDomain
+  ? `https://api.qrserver.com/v1/create-qr-code/?size=280x280&margin=10&data=${encodeURIComponent(`exp://${expoDomain}`)}`
+  : null;
 
 export default function ConnectScreen() {
   return (
@@ -10,7 +15,13 @@ export default function ConnectScreen() {
       <Text style={styles.subtitle}>Open your iPhone Camera app and scan this QR code</Text>
 
       <View style={styles.qrBox}>
-        <Image source={{ uri: QR_API }} style={styles.qr} resizeMode="contain" />
+        {QR_API ? (
+          <Image source={{ uri: QR_API }} style={styles.qr} resizeMode="contain" />
+        ) : (
+          <View style={[styles.qr, styles.qrPlaceholder]}>
+            <Text style={styles.qrPlaceholderText}>QR unavailable{'\n'}use URL below</Text>
+          </View>
+        )}
       </View>
 
       <Text style={styles.orText}>— or enter this URL manually in Expo Go —</Text>
@@ -23,10 +34,11 @@ export default function ConnectScreen() {
         {'1. Open the Camera app on your iPhone\n2. Point it at the QR code above\n3. Tap the notification to open in Expo Go\n\nMake sure Expo Go is installed from the App Store.'}
       </Text>
 
-      {Platform.OS === 'web' && (
-        <TouchableOpacity style={styles.button} onPress={() => Linking.openURL(EXPO_URL)}>
-          <Text style={styles.buttonText}>Open on this device</Text>
-        </TouchableOpacity>
+      {Platform.OS !== 'ios' && Platform.OS !== 'android' && (
+        <Text style={styles.webNote}>
+          This page is only for connecting Expo Go.{'\n'}
+          The full app runs on your iPhone.
+        </Text>
       )}
     </ScrollView>
   );
@@ -69,6 +81,18 @@ const styles = StyleSheet.create({
     width: 280,
     height: 280,
   },
+  qrPlaceholder: {
+    backgroundColor: '#eeeeee',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 8,
+  },
+  qrPlaceholderText: {
+    color: '#666666',
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
   orText: {
     fontSize: 13,
     color: '#555555',
@@ -96,17 +120,13 @@ const styles = StyleSheet.create({
     color: '#777777',
     lineHeight: 22,
     textAlign: 'center',
-    marginBottom: 32,
+    marginBottom: 24,
   },
-  button: {
-    backgroundColor: '#ff3b30',
-    borderRadius: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 32,
-  },
-  buttonText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '600',
+  webNote: {
+    fontSize: 13,
+    color: '#555555',
+    textAlign: 'center',
+    lineHeight: 20,
+    fontStyle: 'italic',
   },
 });

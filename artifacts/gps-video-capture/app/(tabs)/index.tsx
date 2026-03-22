@@ -83,6 +83,7 @@ export default function CaptureScreen() {
   const elapsedIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const currentSegNumRef = useRef(0);
   const segmentDurationMsRef = useRef(DEFAULT_SEGMENT_MS);
+  const micGrantedRef = useRef(micPermission?.granted ?? false);
 
   const [isRecording, setIsRecording] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -149,7 +150,7 @@ export default function CaptureScreen() {
 
       let result: { uri: string } | undefined;
       try {
-        result = await cameraRef.current?.recordAsync({ mute: false });
+        result = await cameraRef.current?.recordAsync({ mute: !micGrantedRef.current });
       } catch {
         clearTimers();
         break;
@@ -177,13 +178,20 @@ export default function CaptureScreen() {
   }, [clearTimers, processSegment, adaptSegmentDuration]);
 
   const handleStartRecording = useCallback(async () => {
+    // Ensure mic permission is resolved before recording; fall back to muted if denied
+    if (!micPermission?.granted) {
+      const result = await requestMicPermission();
+      micGrantedRef.current = result.granted;
+    } else {
+      micGrantedRef.current = true;
+    }
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     isRecordingRef.current = true;
     setIsRecording(true);
     currentSegNumRef.current = segmentCount;
     startGps(); // start in parallel — recording does not wait for GPS lock
     runRecordingLoop();
-  }, [startGps, runRecordingLoop, segmentCount]);
+  }, [micPermission, requestMicPermission, startGps, runRecordingLoop, segmentCount]);
 
   const handleStopRecording = useCallback(async () => {
     await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
