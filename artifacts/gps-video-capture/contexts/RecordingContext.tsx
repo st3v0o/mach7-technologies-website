@@ -134,7 +134,7 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
     setGpsStatus('searching');
     gpsPointsRef.current = [];
 
-    const [fgPerm] = await Location.requestForegroundPermissionsAsync();
+    const fgPerm = await Location.requestForegroundPermissionsAsync();
     if (!fgPerm.granted) {
       setGpsStatus('denied');
       return;

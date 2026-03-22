@@ -17,8 +17,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Colors from '@/constants/colors';
 import { useRecording } from '@/contexts/RecordingContext';
 
-const SEGMENT_DURATION_MS = 90_000;
-const MB_PER_SECOND = 2.8;
+const TARGET_SEGMENT_BYTES = 250 * 1024 * 1024; // 250 MB
+const DEFAULT_SEGMENT_MS = 90_000;              // initial guess before bitrate is known
+const MIN_SEGMENT_MS = 30_000;
+const MAX_SEGMENT_MS = 300_000;
 
 function formatTime(seconds: number): string {
   const m = Math.floor(seconds / 60);
@@ -55,9 +57,7 @@ function GpsStatusDot({ status }: { status: string }) {
     Colors.textTertiary;
 
   return (
-    <Animated.View
-      style={[styles.statusDot, { backgroundColor: color, opacity: pulseAnim }]}
-    />
+    <Animated.View style={[styles.statusDot, { backgroundColor: color, opacity: pulseAnim }]} />
   );
 }
 
@@ -82,9 +82,11 @@ export default function CaptureScreen() {
   const segmentTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const elapsedIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const currentSegNumRef = useRef(0);
+  const segmentDurationMsRef = useRef(DEFAULT_SEGMENT_MS);
 
   const [isRecording, setIsRecording] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [currentSegmentMs, setCurrentSegmentMs] = useState(DEFAULT_SEGMENT_MS);
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const pulseLoop = useRef<Animated.CompositeAnimation | null>(null);
 
@@ -110,10 +112,27 @@ export default function CaptureScreen() {
     elapsedIntervalRef.current = null;
   }, []);
 
+  // After a segment saves, measure its actual size and adapt the duration for the
+  // next segment so we target ~250 MB per chunk (instead of a fixed time guess).
+  const adaptSegmentDuration = useCallback(async (uri: string, actualDurationMs: number) => {
+    if (Platform.OS === 'web') return;
+    try {
+      const FileSystem = await import('expo-file-system/legacy');
+      const info = await FileSystem.getInfoAsync(uri, { size: true });
+      if (info.exists && 'size' in info && info.size > 0) {
+        const bytesPerMs = info.size / actualDurationMs;
+        const nextMs = Math.round(TARGET_SEGMENT_BYTES / bytesPerMs);
+        segmentDurationMsRef.current = Math.max(MIN_SEGMENT_MS, Math.min(MAX_SEGMENT_MS, nextMs));
+        setCurrentSegmentMs(segmentDurationMsRef.current);
+      }
+    } catch {}
+  }, []);
+
   const runRecordingLoop = useCallback(async () => {
     while (isRecordingRef.current) {
       currentSegNumRef.current += 1;
       const segNum = currentSegNumRef.current;
+      const segDuration = segmentDurationMsRef.current;
       const startTime = Date.now();
 
       setElapsedSeconds(0);
@@ -125,7 +144,7 @@ export default function CaptureScreen() {
         if (isRecordingRef.current) {
           cameraRef.current?.stopRecording();
         }
-      }, SEGMENT_DURATION_MS);
+      }, segDuration);
       segmentTimerRef.current = autoStopTimer;
 
       let result: { uri: string } | undefined;
@@ -138,26 +157,31 @@ export default function CaptureScreen() {
 
       clearTimeout(autoStopTimer);
       clearInterval(elapsedIntervalRef.current!);
+      elapsedIntervalRef.current = null;
+
+      const actualDurationMs = Date.now() - startTime;
 
       if (result?.uri) {
-        processSegment(result.uri, segNum, startTime);
+        // Adapt duration for next segment based on measured bitrate, then process
+        // (both happen in background — recording loop restarts immediately)
+        adaptSegmentDuration(result.uri, actualDurationMs);
+        processSegment(result.uri, segNum, startTime, actualDurationMs);
       }
 
+      // No artificial delay — restart the next segment immediately
       if (!isRecordingRef.current) break;
-
-      await new Promise<void>((r) => setTimeout(r, 500));
     }
 
     setIsRecording(false);
     setElapsedSeconds(0);
-  }, [clearTimers, processSegment]);
+  }, [clearTimers, processSegment, adaptSegmentDuration]);
 
   const handleStartRecording = useCallback(async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     isRecordingRef.current = true;
     setIsRecording(true);
     currentSegNumRef.current = segmentCount;
-    await startGps();
+    startGps(); // start in parallel — recording does not wait for GPS lock
     runRecordingLoop();
   }, [startGps, runRecordingLoop, segmentCount]);
 
@@ -169,11 +193,8 @@ export default function CaptureScreen() {
     stopGps();
   }, [clearTimers, stopGps]);
 
-  const estimatedMB = Math.min(
-    Math.round(elapsedSeconds * MB_PER_SECOND),
-    250
-  );
-  const segmentProgress = Math.min(elapsedSeconds / (SEGMENT_DURATION_MS / 1000), 1);
+  const segmentProgress = Math.min(elapsedSeconds / (currentSegmentMs / 1000), 1);
+  const estimatedMB = Math.round(elapsedSeconds * (TARGET_SEGMENT_BYTES / currentSegmentMs / 1000) / (1024 * 1024));
 
   if (!cameraPermission || !micPermission) {
     return (
@@ -229,10 +250,11 @@ export default function CaptureScreen() {
                gpsStatus === 'searching' ? 'ACQUIRING' :
                gpsStatus === 'denied' ? 'GPS DENIED' : 'GPS OFF'}
             </Text>
-            {currentGps?.accuracy != null && (
-              <Text style={styles.gpsAccuracy}>
-                ±{Math.round(currentGps.accuracy)}m
-              </Text>
+            {gpsStatus === 'searching' && (
+              <Text style={styles.gpsHint}>Recording runs — GPS matches when locked</Text>
+            )}
+            {currentGps?.accuracy != null && gpsStatus === 'locked' && (
+              <Text style={styles.gpsAccuracy}>±{Math.round(currentGps.accuracy)}m</Text>
             )}
           </View>
           {currentGps ? (
@@ -247,7 +269,11 @@ export default function CaptureScreen() {
               )}
             </View>
           ) : (
-            <Text style={styles.noGps}>Waiting for GPS signal...</Text>
+            <Text style={styles.noGps}>
+              {gpsStatus === 'searching'
+                ? 'Searching… works best outdoors'
+                : 'Waiting for GPS signal...'}
+            </Text>
           )}
         </BlurView>
       </View>
@@ -257,7 +283,7 @@ export default function CaptureScreen() {
           <BlurView intensity={80} tint="dark" style={styles.processingBlur}>
             <Ionicons name="cog" size={14} color={Colors.amber} />
             <Text style={styles.processingText}>
-              Processing segment... {Math.round(processingProgress)}%
+              Extracting frames… {Math.round(processingProgress)}%
             </Text>
           </BlurView>
         </View>
@@ -294,7 +320,7 @@ export default function CaptureScreen() {
               <View
                 style={[
                   styles.progressBar,
-                  { width: `${segmentProgress * 100}%` as any },
+                  { width: `${Math.round(segmentProgress * 100)}%` as `${number}%` },
                 ]}
               />
             </View>
@@ -342,7 +368,7 @@ export default function CaptureScreen() {
 
           {!isRecording && (
             <Text style={styles.hintText}>
-              Auto-saves every 90s (~250 MB)
+              Auto-saves every ~250 MB · frames tagged with GPS
             </Text>
           )}
         </BlurView>
@@ -426,6 +452,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     marginBottom: 4,
+    flexWrap: 'wrap',
   },
   statusDot: {
     width: 8,
@@ -437,6 +464,12 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_600SemiBold',
     fontSize: 11,
     letterSpacing: 1.2,
+  },
+  gpsHint: {
+    color: Colors.textTertiary,
+    fontFamily: 'Inter_400Regular',
+    fontSize: 10,
+    flex: 1,
   },
   gpsAccuracy: {
     color: Colors.textSecondary,
