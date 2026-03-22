@@ -27,6 +27,7 @@ export interface LogEntry {
   longitude: number;
   videoSegment: string;
   localPath: string;
+  videoPath: string;
 }
 
 export type GpsStatus = 'idle' | 'searching' | 'locked' | 'denied';
@@ -43,14 +44,19 @@ interface RecordingContextType {
   gpsPointsRef: React.MutableRefObject<GpsPoint[]>;
   startGps: () => Promise<void>;
   stopGps: () => void;
-  processSegment: (uri: string, segmentNum: number, startTime: number) => Promise<void>;
+  processSegment: (
+    uri: string,
+    segmentNum: number,
+    startTime: number,
+    durationMs: number
+  ) => Promise<void>;
   shareLog: () => Promise<void>;
   clearLog: () => Promise<void>;
 }
 
 const RecordingContext = createContext<RecordingContextType | null>(null);
 const STORAGE_KEY = '@gps_capture_log';
-const CSV_HEADER = 'filename,timestamp,latitude,longitude,video_segment,local_path\n';
+const CSV_HEADER = 'filename,timestamp,latitude,longitude,video_segment,local_path,video_path\n';
 
 function findNearestGps(timestamp: number, points: GpsPoint[]): GpsPoint | null {
   if (points.length === 0) return null;
@@ -66,20 +72,26 @@ function findNearestGps(timestamp: number, points: GpsPoint[]): GpsPoint | null 
   return nearest;
 }
 
-async function nativeSetup() {
+async function getOrCreatePaths(): Promise<{ framesDir: string; videosDir: string; csvPath: string }> {
   const FileSystem = await import('expo-file-system/legacy');
-  const dir = FileSystem.documentDirectory + 'gps-capture/frames/';
-  const csv = FileSystem.documentDirectory + 'gps-capture/log.csv';
+  const base = FileSystem.documentDirectory + 'gps-capture/';
+  const framesDir = base + 'frames/';
+  const videosDir = base + 'segments/';
+  const csvPath = base + 'log.csv';
 
-  const dirInfo = await FileSystem.getInfoAsync(dir);
-  if (!dirInfo.exists) {
-    await FileSystem.makeDirectoryAsync(dir, { intermediates: true });
+  const framesDirInfo = await FileSystem.getInfoAsync(framesDir);
+  if (!framesDirInfo.exists) {
+    await FileSystem.makeDirectoryAsync(framesDir, { intermediates: true });
   }
-  const csvInfo = await FileSystem.getInfoAsync(csv);
+  const videosDirInfo = await FileSystem.getInfoAsync(videosDir);
+  if (!videosDirInfo.exists) {
+    await FileSystem.makeDirectoryAsync(videosDir, { intermediates: true });
+  }
+  const csvInfo = await FileSystem.getInfoAsync(csvPath);
   if (!csvInfo.exists) {
-    await FileSystem.writeAsStringAsync(csv, CSV_HEADER);
+    await FileSystem.writeAsStringAsync(csvPath, CSV_HEADER);
   }
-  return { dir, csv };
+  return { framesDir, videosDir, csvPath };
 }
 
 export function RecordingProvider({ children }: { children: React.ReactNode }) {
@@ -93,14 +105,14 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
 
   const gpsPointsRef = useRef<GpsPoint[]>([]);
   const locationSubRef = useRef<Location.LocationSubscription | null>(null);
-  const nativePathsRef = useRef<{ dir: string; csv: string } | null>(null);
+  const nativePathsRef = useRef<{ framesDir: string; videosDir: string; csvPath: string } | null>(null);
 
   useEffect(() => {
     loadLog();
     if (Platform.OS !== 'web') {
-      nativeSetup().then((paths) => {
-        nativePathsRef.current = paths;
-      }).catch(() => {});
+      getOrCreatePaths()
+        .then((p) => { nativePathsRef.current = p; })
+        .catch(() => {});
     }
   }, []);
 
@@ -161,7 +173,7 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const processSegment = useCallback(
-    async (uri: string, segmentNum: number, startTime: number) => {
+    async (uri: string, segmentNum: number, startTime: number, durationMs: number) => {
       if (Platform.OS === 'web') return;
 
       setProcessingStatus('processing');
@@ -177,17 +189,20 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
         const VideoThumbnails = await import('expo-video-thumbnails');
 
         if (!nativePathsRef.current) {
-          nativePathsRef.current = await nativeSetup();
+          nativePathsRef.current = await getOrCreatePaths();
         }
-        const { dir: framesDir, csv: csvPath } = nativePathsRef.current;
+        const { framesDir, videosDir, csvPath } = nativePathsRef.current;
 
-        const maxExtractDuration = 300000;
+        // Persist the video segment to named permanent storage
+        const videoDestPath = videosDir + `${segmentName}.mp4`;
+        await FileSystem.copyAsync({ from: uri, to: videoDestPath });
+
+        // Extract frames at 1fps over exact segment duration
         const step = 1000;
         let csvAppend = '';
         let frameIndex = 0;
-        let t = 0;
 
-        while (t <= maxExtractDuration) {
+        for (let t = 0; t <= durationMs; t += step) {
           try {
             const thumb = await VideoThumbnails.getThumbnailAsync(uri, {
               time: t,
@@ -211,21 +226,21 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
                 longitude: nearest.longitude,
                 videoSegment: segmentName,
                 localPath: destPath,
+                videoPath: videoDestPath,
               };
               newEntries.push(entry);
 
               const lat = nearest.latitude.toFixed(7);
               const lon = nearest.longitude.toFixed(7);
               const ts = new Date(absTimestamp).toISOString();
-              csvAppend += `${filename},${ts},${lat},${lon},${segmentName},${destPath}\n`;
+              csvAppend += `${filename},${ts},${lat},${lon},${segmentName},${destPath},${videoDestPath}\n`;
 
               frameIndex++;
-              setProcessingProgress(Math.min((t / 90000) * 100, 99));
+              setProcessingProgress(Math.min((t / durationMs) * 100, 99));
               setTotalFrames((n) => n + 1);
             }
-
-            t += step;
           } catch {
+            // Frame at this timestamp unavailable — stop extraction
             break;
           }
         }
@@ -256,11 +271,10 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
   const shareLog = useCallback(async () => {
     if (Platform.OS === 'web') return;
     try {
-      const FileSystem = await import('expo-file-system/legacy');
       if (!nativePathsRef.current) {
-        nativePathsRef.current = await nativeSetup();
+        nativePathsRef.current = await getOrCreatePaths();
       }
-      const { csv: csvPath } = nativePathsRef.current;
+      const { csvPath } = nativePathsRef.current;
       const canShare = await Sharing.isAvailableAsync();
       if (canShare) {
         await Sharing.shareAsync(csvPath, {
@@ -280,10 +294,11 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
       try {
         const FileSystem = await import('expo-file-system/legacy');
         if (nativePathsRef.current) {
-          await FileSystem.deleteAsync(nativePathsRef.current.csv, { idempotent: true });
-          await FileSystem.deleteAsync(nativePathsRef.current.dir, { idempotent: true });
+          await FileSystem.deleteAsync(nativePathsRef.current.csvPath, { idempotent: true });
+          await FileSystem.deleteAsync(nativePathsRef.current.framesDir, { idempotent: true });
+          await FileSystem.deleteAsync(nativePathsRef.current.videosDir, { idempotent: true });
         }
-        nativePathsRef.current = await nativeSetup();
+        nativePathsRef.current = await getOrCreatePaths();
       } catch {}
     }
   }, []);
