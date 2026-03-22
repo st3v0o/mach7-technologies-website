@@ -1,0 +1,27 @@
+kind = "mobile"
+previewPath = "/"
+title = "GPS Video Capture"
+version = "1.0.0"
+id = "artifacts/gps-video-capture"
+router = "expo-domain"
+
+[[integratedSkills]]
+name = "expo"
+version = "1.0.0"
+
+[[services]]
+ensurePreviewReachable = "/status"
+name = "expo"
+paths = [ "/" ]
+localPort = 23739
+
+[services.development]
+run = "pnpm --filter @workspace/gps-video-capture run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/gps-video-capture", "run", "build" ]
+run = [ "pnpm", "--filter", "@workspace/gps-video-capture", "run", "serve" ]
+
+[services.env]
+PORT = "23739"
+BASE_PATH = "/"
