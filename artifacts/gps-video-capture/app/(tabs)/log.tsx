@@ -3,6 +3,7 @@ import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import React, { useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   FlatList,
   Platform,
@@ -15,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import Colors from '@/constants/colors';
 import { LogEntry, useRecording } from '@/contexts/RecordingContext';
+import { useUpload } from '@/contexts/UploadContext';
 
 function formatTimestamp(ms: number): string {
   const d = new Date(ms);
@@ -26,6 +28,46 @@ function formatCoordShort(lat: number, lon: number): string {
   const latDir = lat >= 0 ? 'N' : 'S';
   const lonDir = lon >= 0 ? 'E' : 'W';
   return `${Math.abs(lat).toFixed(5)}°${latDir}  ${Math.abs(lon).toFixed(5)}°${lonDir}`;
+}
+
+function UploadBadge({ frameId }: { frameId: string }) {
+  const { getItemStatus, supabaseConfigured } = useUpload();
+  if (!supabaseConfigured) return null;
+
+  const status = getItemStatus(frameId);
+  if (!status) return null;
+
+  if (status === 'uploading') {
+    return <ActivityIndicator size="small" color={Colors.blue} style={styles.uploadBadge} />;
+  }
+  if (status === 'uploaded') {
+    return (
+      <Ionicons
+        name="cloud-done-outline"
+        size={14}
+        color={Colors.gpsGreen}
+        style={styles.uploadBadge}
+      />
+    );
+  }
+  if (status === 'failed') {
+    return (
+      <Ionicons
+        name="cloud-offline-outline"
+        size={14}
+        color={Colors.accent}
+        style={styles.uploadBadge}
+      />
+    );
+  }
+  return (
+    <Ionicons
+      name="cloud-upload-outline"
+      size={14}
+      color={Colors.amber}
+      style={styles.uploadBadge}
+    />
+  );
 }
 
 function FrameRow({ entry, index }: { entry: LogEntry; index: number }) {
@@ -58,8 +100,75 @@ function FrameRow({ entry, index }: { entry: LogEntry; index: number }) {
         </View>
       </View>
 
-      <View style={styles.segmentBadge}>
-        <Text style={styles.segmentBadgeText}>{entry.videoSegment.replace('seg_', '')}</Text>
+      <View style={styles.rowRight}>
+        <View style={styles.segmentBadge}>
+          <Text style={styles.segmentBadgeText}>{entry.videoSegment.replace('seg_', '')}</Text>
+        </View>
+        <UploadBadge frameId={entry.id} />
+      </View>
+    </View>
+  );
+}
+
+function UploadStatusBanner() {
+  const {
+    supabaseConfigured,
+    isOnline,
+    pendingCount,
+    uploadedCount,
+    failedCount,
+    isProcessing,
+    retryFailed,
+  } = useUpload();
+
+  if (!supabaseConfigured) return null;
+
+  return (
+    <View style={styles.uploadBanner}>
+      <View style={styles.uploadBannerLeft}>
+        <Ionicons
+          name={isOnline ? 'cloud-outline' : 'cloud-offline-outline'}
+          size={13}
+          color={isOnline ? Colors.blue : Colors.textTertiary}
+        />
+        <Text style={[styles.uploadBannerText, { color: isOnline ? Colors.blue : Colors.textTertiary }]}>
+          {isOnline ? 'Supabase sync' : 'Offline'}
+        </Text>
+        {isProcessing && (
+          <ActivityIndicator size="small" color={Colors.blue} style={{ marginLeft: 4 }} />
+        )}
+      </View>
+      <View style={styles.uploadBannerRight}>
+        {uploadedCount > 0 && (
+          <View style={[styles.uploadChip, styles.uploadChipGreen]}>
+            <Ionicons name="cloud-done-outline" size={11} color={Colors.gpsGreen} />
+            <Text style={[styles.uploadChipText, { color: Colors.gpsGreen }]}>{uploadedCount}</Text>
+          </View>
+        )}
+        {pendingCount > 0 && (
+          <View style={[styles.uploadChip, styles.uploadChipAmber]}>
+            <Ionicons name="cloud-upload-outline" size={11} color={Colors.amber} />
+            <Text style={[styles.uploadChipText, { color: Colors.amber }]}>{pendingCount}</Text>
+          </View>
+        )}
+        {failedCount > 0 && (
+          <Pressable
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              retryFailed();
+            }}
+            style={({ pressed }) => [
+              styles.uploadChip,
+              styles.uploadChipRed,
+              pressed && { opacity: 0.7 },
+            ]}
+          >
+            <Ionicons name="refresh-outline" size={11} color={Colors.accent} />
+            <Text style={[styles.uploadChipText, { color: Colors.accent }]}>
+              Retry {failedCount}
+            </Text>
+          </Pressable>
+        )}
       </View>
     </View>
   );
@@ -140,6 +249,8 @@ export default function LogScreen() {
           )}
         </View>
       </View>
+
+      <UploadStatusBanner />
 
       {processingStatus === 'processing' && (
         <View style={styles.processingBanner}>
@@ -243,6 +354,55 @@ const styles = StyleSheet.create({
   actionBtnText: {
     fontFamily: 'Inter_500Medium',
     fontSize: 13,
+  },
+  uploadBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: 'rgba(10, 132, 255, 0.05)',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(10, 132, 255, 0.1)',
+  },
+  uploadBannerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  uploadBannerText: {
+    fontFamily: 'Inter_500Medium',
+    fontSize: 12,
+  },
+  uploadBannerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  uploadChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  uploadChipGreen: {
+    borderColor: 'rgba(48, 209, 88, 0.3)',
+    backgroundColor: 'rgba(48, 209, 88, 0.08)',
+  },
+  uploadChipAmber: {
+    borderColor: 'rgba(255, 159, 10, 0.3)',
+    backgroundColor: 'rgba(255, 159, 10, 0.08)',
+  },
+  uploadChipRed: {
+    borderColor: 'rgba(255, 59, 48, 0.3)',
+    backgroundColor: 'rgba(255, 59, 48, 0.08)',
+  },
+  uploadChipText: {
+    fontFamily: 'Inter_500Medium',
+    fontSize: 11,
   },
   processingBanner: {
     flexDirection: 'row',
@@ -391,12 +551,16 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_400Regular',
     fontSize: 11,
   },
+  rowRight: {
+    alignItems: 'center',
+    gap: 6,
+    marginLeft: 8,
+  },
   segmentBadge: {
     backgroundColor: Colors.card,
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 4,
-    marginLeft: 8,
     borderWidth: 1,
     borderColor: Colors.border,
   },
@@ -404,5 +568,8 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     fontFamily: 'Inter_600SemiBold',
     fontSize: 11,
+  },
+  uploadBadge: {
+    opacity: 0.9,
   },
 });

@@ -41,6 +41,7 @@ interface RecordingContextType {
   totalFrames: number;
   segmentCount: number;
   logEntries: LogEntry[];
+  sessionId: string;
   gpsPointsRef: React.MutableRefObject<GpsPoint[]>;
   startGps: () => Promise<void>;
   stopGps: () => void;
@@ -102,6 +103,7 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
   const [totalFrames, setTotalFrames] = useState(0);
   const [segmentCount, setSegmentCount] = useState(0);
   const [logEntries, setLogEntries] = useState<LogEntry[]>([]);
+  const [sessionId, setSessionId] = useState<string>('');
 
   const gpsPointsRef = useRef<GpsPoint[]>([]);
   const locationSubRef = useRef<Location.LocationSubscription | null>(null);
@@ -133,6 +135,11 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
     if (Platform.OS === 'web') return;
     setGpsStatus('searching');
     gpsPointsRef.current = [];
+    const now = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    setSessionId(
+      `session_${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`
+    );
 
     const fgPerm = await Location.requestForegroundPermissionsAsync();
     if (!fgPerm.granted) {
@@ -313,6 +320,7 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
         totalFrames,
         segmentCount,
         logEntries,
+        sessionId,
         gpsPointsRef,
         startGps,
         stopGps,

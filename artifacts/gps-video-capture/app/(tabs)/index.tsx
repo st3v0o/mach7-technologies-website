@@ -202,7 +202,8 @@ export default function CaptureScreen() {
   }, [clearTimers, stopGps]);
 
   const segmentProgress = Math.min(elapsedSeconds / (currentSegmentMs / 1000), 1);
-  const estimatedMB = Math.round(elapsedSeconds * (TARGET_SEGMENT_BYTES / currentSegmentMs / 1000) / (1024 * 1024));
+  // fraction of segment elapsed × 250 MB target
+  const estimatedMB = Math.round((elapsedSeconds / (currentSegmentMs / 1000)) * 250);
 
   if (!cameraPermission || !micPermission) {
     return (

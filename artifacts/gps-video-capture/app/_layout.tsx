@@ -8,17 +8,35 @@ import {
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { ErrorBoundary } from '@/components/ErrorBoundary';
-import { RecordingProvider } from '@/contexts/RecordingContext';
+import { UploadProvider, useUpload } from '@/contexts/UploadContext';
+import { RecordingProvider, useRecording } from '@/contexts/RecordingContext';
 
 SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient();
+
+function UploadConnector() {
+  const { logEntries, sessionId } = useRecording();
+  const { enqueueFrames } = useUpload();
+  const enqueuedIds = useRef(new Set<string>());
+
+  useEffect(() => {
+    if (!sessionId) return;
+    const newEntries = logEntries.filter((e) => !enqueuedIds.current.has(e.id));
+    if (newEntries.length > 0) {
+      newEntries.forEach((e) => enqueuedIds.current.add(e.id));
+      enqueueFrames(newEntries, sessionId);
+    }
+  }, [logEntries, sessionId, enqueueFrames]);
+
+  return null;
+}
 
 function RootLayoutNav() {
   return (
@@ -48,13 +66,16 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <ErrorBoundary>
         <QueryClientProvider client={queryClient}>
-          <RecordingProvider>
-            <GestureHandlerRootView>
-              <KeyboardProvider>
-                <RootLayoutNav />
-              </KeyboardProvider>
-            </GestureHandlerRootView>
-          </RecordingProvider>
+          <UploadProvider>
+            <RecordingProvider>
+              <UploadConnector />
+              <GestureHandlerRootView>
+                <KeyboardProvider>
+                  <RootLayoutNav />
+                </KeyboardProvider>
+              </GestureHandlerRootView>
+            </RecordingProvider>
+          </UploadProvider>
         </QueryClientProvider>
       </ErrorBoundary>
     </SafeAreaProvider>
