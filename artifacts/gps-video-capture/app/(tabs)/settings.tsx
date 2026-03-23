@@ -12,19 +12,18 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import Colors from '@/constants/colors';
 import {
+  DYNAMIC_FEET_LABELS,
   DYNAMIC_METERS_OPTIONS,
   FIXED_FPS_OPTIONS,
+  MPH_PER_MPS,
+  metersToFeet,
   useSettings,
 } from '@/contexts/SettingsContext';
 
 function fpsLabel(fps: number): string {
-  if (fps < 1) return `${Math.round(1 / fps)}s interval`;
+  if (fps < 1) return `1 / ${Math.round(1 / fps)}s`;
   if (fps === 1) return '1 fps';
   return `${fps} fps`;
-}
-
-function metersLabel(m: number): string {
-  return `${m}m`;
 }
 
 function OptionPill({
@@ -84,9 +83,22 @@ function ModeButton({
   );
 }
 
+function selectedFeetIndex(dynamicMeters: number): number {
+  let closest = 0;
+  let minDiff = Infinity;
+  DYNAMIC_METERS_OPTIONS.forEach((m, i) => {
+    const diff = Math.abs(m - dynamicMeters);
+    if (diff < minDiff) { minDiff = diff; closest = i; }
+  });
+  return closest;
+}
+
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const { settings, updateSettings } = useSettings();
+
+  const selectedFtIdx = selectedFeetIndex(settings.dynamicMeters);
+  const selectedFtLabel = DYNAMIC_FEET_LABELS[selectedFtIdx];
 
   const fixedDesc =
     settings.fixedFps < 1
@@ -95,7 +107,13 @@ export default function SettingsScreen() {
       ? 'One frame per second'
       : `${settings.fixedFps} frames per second`;
 
-  const dynamicDesc = `One frame every ${settings.dynamicMeters} meters traveled`;
+  const dynamicDesc = `One frame every ${selectedFtLabel} traveled`;
+
+  function exampleFps(mph: number): string {
+    const mps = mph / MPH_PER_MPS;
+    const fps = mps / settings.dynamicMeters;
+    return `~${fps.toFixed(1)} fps`;
+  }
 
   return (
     <ScrollView
@@ -157,14 +175,14 @@ export default function SettingsScreen() {
 
       {settings.frameMode === 'dynamic' && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>METERS PER FRAME</Text>
+          <Text style={styles.sectionTitle}>FEET PER FRAME</Text>
           <View style={styles.card}>
             <View style={styles.pillRow}>
-              {DYNAMIC_METERS_OPTIONS.map((m) => (
+              {DYNAMIC_METERS_OPTIONS.map((m, i) => (
                 <OptionPill
                   key={m}
-                  label={metersLabel(m)}
-                  selected={settings.dynamicMeters === m}
+                  label={DYNAMIC_FEET_LABELS[i]}
+                  selected={selectedFtIdx === i}
                   onPress={() => updateSettings({ dynamicMeters: m })}
                 />
               ))}
@@ -185,31 +203,23 @@ export default function SettingsScreen() {
             <Text style={styles.infoTitle}>How Dynamic Mode Works</Text>
           </View>
           <Text style={styles.infoBody}>
-            In distance mode, the app uses live GPS speed to decide when to extract a frame. A frame
-            is saved every time you travel the set number of meters — so you get consistent spatial
-            coverage regardless of speed.
+            In distance mode, the app uses live GPS speed to decide when to extract a frame. A
+            frame is saved every time you travel the set distance — so you get consistent spatial
+            coverage regardless of how fast you're moving.
           </Text>
           <View style={styles.infoExamples}>
             <View style={styles.infoExample}>
-              <Text style={styles.infoExampleSpeed}>30 km/h</Text>
-              <Text style={styles.infoExampleFps}>
-                {settings.frameMode === 'dynamic'
-                  ? `≈ ${((30 / 3.6) / settings.dynamicMeters).toFixed(1)} fps`
-                  : '≈ 0.8 fps at 10m'}
-              </Text>
+              <Text style={styles.infoExampleSpeed}>20 mph</Text>
+              <Text style={styles.infoExampleFps}>{exampleFps(20)}</Text>
             </View>
             <View style={styles.infoExampleDivider} />
             <View style={styles.infoExample}>
-              <Text style={styles.infoExampleSpeed}>100 km/h</Text>
-              <Text style={styles.infoExampleFps}>
-                {settings.frameMode === 'dynamic'
-                  ? `≈ ${((100 / 3.6) / settings.dynamicMeters).toFixed(1)} fps`
-                  : '≈ 2.8 fps at 10m'}
-              </Text>
+              <Text style={styles.infoExampleSpeed}>60 mph</Text>
+              <Text style={styles.infoExampleFps}>{exampleFps(60)}</Text>
             </View>
             <View style={styles.infoExampleDivider} />
             <View style={styles.infoExample}>
-              <Text style={styles.infoExampleSpeed}>0 km/h</Text>
+              <Text style={styles.infoExampleSpeed}>0 mph</Text>
               <Text style={styles.infoExampleFps}>No frames</Text>
             </View>
           </View>

@@ -22,14 +22,30 @@ const SettingsContext = createContext<SettingsContextType | null>(null);
 
 const SETTINGS_KEY = '@gps_capture_settings';
 
+export const FEET_PER_METER = 3.28084;
+export const MPH_PER_MPS = 2.23694;
+
+export function metersToFeet(m: number): number {
+  return m * FEET_PER_METER;
+}
+
+export function feetToMeters(ft: number): number {
+  return ft / FEET_PER_METER;
+}
+
+const DYNAMIC_FEET_OPTIONS = [25, 50, 100, 250, 500];
+
 export const DEFAULT_SETTINGS: FrameSettings = {
   frameMode: 'fixed',
   fixedFps: 1,
-  dynamicMeters: 10,
+  dynamicMeters: feetToMeters(50),
 };
 
 export const FIXED_FPS_OPTIONS = [0.25, 0.5, 1, 2, 4];
-export const DYNAMIC_METERS_OPTIONS = [5, 10, 25, 50, 100];
+
+export const DYNAMIC_METERS_OPTIONS = DYNAMIC_FEET_OPTIONS.map(feetToMeters);
+
+export const DYNAMIC_FEET_LABELS = DYNAMIC_FEET_OPTIONS.map((ft) => `${ft} ft`);
 
 export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const [settings, setSettings] = useState<FrameSettings>(DEFAULT_SETTINGS);

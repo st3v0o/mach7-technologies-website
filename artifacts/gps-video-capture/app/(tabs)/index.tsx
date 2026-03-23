@@ -16,7 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import Colors from '@/constants/colors';
 import { useRecording } from '@/contexts/RecordingContext';
-import { useSettings } from '@/contexts/SettingsContext';
+import { FEET_PER_METER, MPH_PER_MPS, useSettings } from '@/contexts/SettingsContext';
 
 const TARGET_SEGMENT_BYTES = 250 * 1024 * 1024; // 250 MB
 const DEFAULT_SEGMENT_MS = 90_000;              // initial guess before bitrate is known
@@ -27,6 +27,16 @@ function formatTime(seconds: number): string {
   const m = Math.floor(seconds / 60);
   const s = seconds % 60;
   return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
+function rateLabel(frameMode: string, fixedFps: number, dynamicMeters: number, speed: number | null | undefined): string {
+  if (frameMode === 'fixed') {
+    if (fixedFps < 1) return `1/${Math.round(1 / fixedFps)}s`;
+    return `${fixedFps} fps`;
+  }
+  if (speed == null || speed < 0.1) return '— fps';
+  const fps = speed / dynamicMeters;
+  return `~${fps.toFixed(1)} fps`;
 }
 
 function formatCoord(val: number, isLat: boolean): string {
@@ -268,7 +278,7 @@ export default function CaptureScreen() {
               <Text style={styles.gpsHint}>Recording runs — GPS matches when locked</Text>
             )}
             {currentGps?.accuracy != null && gpsStatus === 'locked' && (
-              <Text style={styles.gpsAccuracy}>±{Math.round(currentGps.accuracy)}m</Text>
+              <Text style={styles.gpsAccuracy}>±{Math.round(currentGps.accuracy * FEET_PER_METER)}ft</Text>
             )}
           </View>
           {currentGps ? (
@@ -278,7 +288,7 @@ export default function CaptureScreen() {
               <Text style={styles.coord}>{formatCoord(currentGps.longitude, false)}</Text>
               {currentGps.speed != null && currentGps.speed > 0 && (
                 <Text style={styles.speed}>
-                  {'  '}{(currentGps.speed * 3.6).toFixed(1)} km/h
+                  {'  '}{(currentGps.speed * MPH_PER_MPS).toFixed(1)} mph
                 </Text>
               )}
             </View>
@@ -320,6 +330,13 @@ export default function CaptureScreen() {
               <View style={styles.segInfoItem}>
                 <Text style={styles.segLabel}>EST. SIZE</Text>
                 <Text style={styles.segValue}>{estimatedMB} MB</Text>
+              </View>
+              <View style={styles.segInfoDivider} />
+              <View style={styles.segInfoItem}>
+                <Text style={styles.segLabel}>RATE</Text>
+                <Text style={styles.segValue}>
+                  {rateLabel(settings.frameMode, settings.fixedFps, settings.dynamicMeters, currentGps?.speed)}
+                </Text>
               </View>
               <View style={styles.segInfoDivider} />
               <View style={styles.segInfoItem}>
@@ -577,7 +594,7 @@ const styles = StyleSheet.create({
   segValue: {
     color: Colors.text,
     fontFamily: 'Inter_700Bold',
-    fontSize: 16,
+    fontSize: 13,
   },
   progressBarContainer: {
     height: 2,
