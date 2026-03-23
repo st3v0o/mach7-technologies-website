@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import Colors from '@/constants/colors';
 import { useRecording } from '@/contexts/RecordingContext';
+import { useSettings } from '@/contexts/SettingsContext';
 
 const TARGET_SEGMENT_BYTES = 250 * 1024 * 1024; // 250 MB
 const DEFAULT_SEGMENT_MS = 90_000;              // initial guess before bitrate is known
@@ -76,6 +77,10 @@ export default function CaptureScreen() {
     stopGps,
     processSegment,
   } = useRecording();
+
+  const { settings } = useSettings();
+  const settingsRef = useRef(settings);
+  useEffect(() => { settingsRef.current = settings; }, [settings]);
 
   const cameraRef = useRef<CameraView>(null);
   const isRecordingRef = useRef(false);
@@ -166,7 +171,7 @@ export default function CaptureScreen() {
         // Adapt duration for next segment based on measured bitrate, then process
         // (both happen in background — recording loop restarts immediately)
         adaptSegmentDuration(result.uri, actualDurationMs);
-        processSegment(result.uri, segNum, startTime, actualDurationMs);
+        processSegment(result.uri, segNum, startTime, actualDurationMs, settingsRef.current);
       }
 
       // No artificial delay — restart the next segment immediately

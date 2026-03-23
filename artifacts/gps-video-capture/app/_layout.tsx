@@ -14,6 +14,7 @@ import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { SettingsProvider } from '@/contexts/SettingsContext';
 import { UploadProvider, useUpload } from '@/contexts/UploadContext';
 import { RecordingProvider, useRecording } from '@/contexts/RecordingContext';
 
@@ -91,17 +92,19 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <ErrorBoundary>
         <QueryClientProvider client={queryClient}>
-          <UploadProvider>
-            <RecordingProvider>
-              <UploadConnector />
-              <UploadSyncConnector />
-              <GestureHandlerRootView>
-                <KeyboardProvider>
-                  <RootLayoutNav />
-                </KeyboardProvider>
-              </GestureHandlerRootView>
-            </RecordingProvider>
-          </UploadProvider>
+          <SettingsProvider>
+            <UploadProvider>
+              <RecordingProvider>
+                <UploadConnector />
+                <UploadSyncConnector />
+                <GestureHandlerRootView>
+                  <KeyboardProvider>
+                    <RootLayoutNav />
+                  </KeyboardProvider>
+                </GestureHandlerRootView>
+              </RecordingProvider>
+            </UploadProvider>
+          </SettingsProvider>
         </QueryClientProvider>
       </ErrorBoundary>
     </SafeAreaProvider>

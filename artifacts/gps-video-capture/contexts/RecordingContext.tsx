@@ -11,6 +11,8 @@ import React, {
 } from 'react';
 import { Platform } from 'react-native';
 
+import { FrameSettings } from './SettingsContext';
+
 export interface GpsPoint {
   timestamp: number;
   latitude: number;
@@ -51,7 +53,8 @@ interface RecordingContextType {
     uri: string,
     segmentNum: number,
     startTime: number,
-    durationMs: number
+    durationMs: number,
+    frameSettings: FrameSettings
   ) => Promise<void>;
   updateFrameUrl: (id: string, url: string) => Promise<void>;
   shareLog: () => Promise<void>;
@@ -188,7 +191,13 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const processSegment = useCallback(
-    async (uri: string, segmentNum: number, startTime: number, durationMs: number) => {
+    async (
+      uri: string,
+      segmentNum: number,
+      startTime: number,
+      durationMs: number,
+      frameSettings: FrameSettings
+    ) => {
       if (Platform.OS === 'web') return;
 
       setProcessingStatus('processing');
@@ -213,12 +222,35 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
         const videoDestPath = videosDir + `${segmentName}.mp4`;
         await FileSystem.copyAsync({ from: uri, to: videoDestPath });
 
-        // Extract frames at 1fps over exact segment duration
-        const step = 1000;
+        // Build the list of timestamps at which to extract frames
+        const extractTimesMs: number[] = [];
+
+        if (frameSettings.frameMode === 'fixed') {
+          // Fixed rate: step by the interval between frames
+          const stepMs = Math.round(1000 / frameSettings.fixedFps);
+          for (let t = 0; t <= durationMs; t += stepMs) {
+            extractTimesMs.push(t);
+          }
+        } else {
+          // Dynamic: accumulate GPS distance and extract once per target meters
+          let distanceAccumulator = 0;
+          extractTimesMs.push(0); // always capture first frame
+          for (let t = 1000; t <= durationMs; t += 1000) {
+            const absTimestamp = startTime + t;
+            const nearest = findNearestGps(absTimestamp, snapshotPoints);
+            const speed = nearest?.speed ?? 0; // m/s
+            distanceAccumulator += speed * 1; // 1 second interval
+            if (distanceAccumulator >= frameSettings.dynamicMeters) {
+              extractTimesMs.push(t);
+              distanceAccumulator = 0;
+            }
+          }
+        }
+
         let csvAppend = '';
         let frameIndex = 0;
 
-        for (let t = 0; t <= durationMs; t += step) {
+        for (const t of extractTimesMs) {
           try {
             const thumb = await VideoThumbnails.getThumbnailAsync(uri, {
               time: t,
