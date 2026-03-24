@@ -22,6 +22,7 @@ interface DetectionContextType {
 
   isDetecting: boolean;
   currentEvent: DetectionEvent | null;
+  currentDetection: Detection | null;
   savedEvents: DetectionEvent[];
   lastCommittedEvent: DetectionEvent | null;
 
@@ -39,6 +40,7 @@ export function DetectionProvider({ children }: { children: React.ReactNode }) {
   const [detectionEnabled, setDetectionEnabled] = useState(false);
   const [isDetecting, setIsDetecting] = useState(false);
   const [currentEvent, setCurrentEvent] = useState<DetectionEvent | null>(null);
+  const [currentDetection, setCurrentDetection] = useState<Detection | null>(null);
   const [savedEvents, setSavedEvents] = useState<DetectionEvent[]>([]);
   const [lastCommittedEvent, setLastCommittedEvent] = useState<DetectionEvent | null>(null);
 
@@ -50,6 +52,7 @@ export function DetectionProvider({ children }: { children: React.ReactNode }) {
     eventTimeoutRef.current = null;
     currentEventRef.current = null;
     setCurrentEvent(null);
+    setCurrentDetection(null);
     setIsDetecting(false);
   }, []);
 
@@ -64,6 +67,7 @@ export function DetectionProvider({ children }: { children: React.ReactNode }) {
     setLastCommittedEvent(committed);
     currentEventRef.current = null;
     setCurrentEvent(null);
+    setCurrentDetection(null);
     setIsDetecting(false);
   }, []);
 
@@ -82,6 +86,7 @@ export function DetectionProvider({ children }: { children: React.ReactNode }) {
           }
         }
         setIsDetecting(false);
+        setCurrentDetection(null);
         return;
       }
 
@@ -92,6 +97,7 @@ export function DetectionProvider({ children }: { children: React.ReactNode }) {
       }
 
       setIsDetecting(true);
+      setCurrentDetection(top);
       const score = scoreDetection(top);
 
       setCurrentEvent((prev) => {
@@ -125,6 +131,7 @@ export function DetectionProvider({ children }: { children: React.ReactNode }) {
         setDetectionEnabled,
         isDetecting,
         currentEvent,
+        currentDetection,
         savedEvents,
         lastCommittedEvent,
         reportResult,

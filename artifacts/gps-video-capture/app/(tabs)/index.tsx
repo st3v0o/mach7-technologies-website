@@ -10,6 +10,7 @@ import {
   Pressable,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -18,7 +19,7 @@ import Colors from '@/constants/colors';
 import { useDetection } from '@/contexts/DetectionContext';
 import { useRecording } from '@/contexts/RecordingContext';
 import { FEET_PER_METER, MPH_PER_MPS, useSettings } from '@/contexts/SettingsContext';
-import { runDetection } from '@/lib/detectionModel';
+import { Detection, runDetection } from '@/lib/detectionModel';
 
 const TARGET_SEGMENT_BYTES = 250 * 1024 * 1024; // 250 MB
 const DEFAULT_SEGMENT_MS = 90_000;              // initial guess before bitrate is known
@@ -74,8 +75,234 @@ function GpsStatusDot({ status }: { status: string }) {
   );
 }
 
+const CORNER_ARM = 22;
+const CORNER_THICK = 3;
+const LOCK_COLOR = '#00FF88';
+const LOCK_GLOW = 'rgba(0,255,136,0.45)';
+
+function LockOnOverlay({
+  detection,
+  screenW,
+  screenH,
+}: {
+  detection: Detection | null;
+  screenW: number;
+  screenH: number;
+}) {
+  const enterAnim = useRef(new Animated.Value(0)).current;
+  const sweepAnim = useRef(new Animated.Value(0)).current;
+  const prevActive = useRef(false);
+
+  useEffect(() => {
+    const active = !!detection;
+    if (active === prevActive.current) return;
+    prevActive.current = active;
+    if (active) {
+      Animated.spring(enterAnim, {
+        toValue: 1,
+        friction: 5,
+        tension: 110,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      Animated.timing(enterAnim, {
+        toValue: 0,
+        duration: 250,
+        easing: Easing.out(Easing.ease),
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [!!detection, enterAnim]);
+
+  useEffect(() => {
+    if (!detection) {
+      sweepAnim.setValue(0);
+      return;
+    }
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(sweepAnim, { toValue: 1, duration: 1300, easing: Easing.inOut(Easing.ease), useNativeDriver: false }),
+        Animated.timing(sweepAnim, { toValue: 0, duration: 1300, easing: Easing.inOut(Easing.ease), useNativeDriver: false }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [!!detection, sweepAnim]);
+
+  const scaleInterp = enterAnim.interpolate({ inputRange: [0, 1], outputRange: [1.08, 1] });
+
+  const bbox = detection?.bbox ?? { x: 0.15, y: 0.15, width: 0.7, height: 0.7 };
+  const bLeft = bbox.x * screenW;
+  const bTop = bbox.y * screenH;
+  const bW = Math.max(bbox.width * screenW, 40);
+  const bH = Math.max(bbox.height * screenH, 40);
+
+  const sweepY = sweepAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, bH - 2],
+  });
+
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={[
+        StyleSheet.absoluteFill,
+        { opacity: enterAnim, transform: [{ scale: scaleInterp }] },
+      ]}
+    >
+      <View style={{ position: 'absolute', left: bLeft, top: bTop, width: bW, height: bH }}>
+        <View style={[loStyles.cornerTL]} />
+        <View style={[loStyles.cornerTR]} />
+        <View style={[loStyles.cornerBL]} />
+        <View style={[loStyles.cornerBR]} />
+
+        <Animated.View
+          style={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            height: 2,
+            backgroundColor: LOCK_GLOW,
+            transform: [{ translateY: sweepY }],
+          }}
+        />
+
+        {detection && (
+          <View style={loStyles.labelChip}>
+            <Animated.View
+              style={[
+                loStyles.labelDot,
+                { opacity: sweepAnim.interpolate({ inputRange: [0, 0.5, 1], outputRange: [1, 0.4, 1] }) },
+              ]}
+            />
+            <Text style={loStyles.labelText} numberOfLines={1}>
+              {detection.label.toUpperCase()}
+            </Text>
+            <View style={loStyles.labelDivider} />
+            <Text style={loStyles.confText}>{Math.round(detection.confidence * 100)}%</Text>
+            <Text style={loStyles.lockedTag}>LOCKED</Text>
+          </View>
+        )}
+      </View>
+
+      {detection && (
+        <>
+          <View style={[loStyles.crossH, { top: bTop + bH / 2 - 0.5, left: bLeft + bW / 2 - 10 }]} />
+          <View style={[loStyles.crossV, { top: bTop + bH / 2 - 10, left: bLeft + bW / 2 - 0.5 }]} />
+        </>
+      )}
+    </Animated.View>
+  );
+}
+
+const loStyles = StyleSheet.create({
+  cornerTL: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: CORNER_ARM,
+    height: CORNER_ARM,
+    borderTopWidth: CORNER_THICK,
+    borderLeftWidth: CORNER_THICK,
+    borderTopColor: LOCK_COLOR,
+    borderLeftColor: LOCK_COLOR,
+  },
+  cornerTR: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: CORNER_ARM,
+    height: CORNER_ARM,
+    borderTopWidth: CORNER_THICK,
+    borderRightWidth: CORNER_THICK,
+    borderTopColor: LOCK_COLOR,
+    borderRightColor: LOCK_COLOR,
+  },
+  cornerBL: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    width: CORNER_ARM,
+    height: CORNER_ARM,
+    borderBottomWidth: CORNER_THICK,
+    borderLeftWidth: CORNER_THICK,
+    borderBottomColor: LOCK_COLOR,
+    borderLeftColor: LOCK_COLOR,
+  },
+  cornerBR: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: CORNER_ARM,
+    height: CORNER_ARM,
+    borderBottomWidth: CORNER_THICK,
+    borderRightWidth: CORNER_THICK,
+    borderBottomColor: LOCK_COLOR,
+    borderRightColor: LOCK_COLOR,
+  },
+  labelChip: {
+    position: 'absolute',
+    bottom: -40,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(0,0,0,0.78)',
+    borderWidth: 1.5,
+    borderColor: LOCK_COLOR,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    alignSelf: 'center',
+  },
+  labelDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: LOCK_COLOR,
+  },
+  labelText: {
+    color: LOCK_COLOR,
+    fontFamily: 'Inter_700Bold',
+    fontSize: 13,
+    letterSpacing: 0.8,
+    flexShrink: 1,
+  },
+  labelDivider: {
+    width: 1,
+    height: 12,
+    backgroundColor: 'rgba(0,255,136,0.35)',
+  },
+  confText: {
+    color: LOCK_COLOR,
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 12,
+  },
+  lockedTag: {
+    color: 'rgba(0,255,136,0.6)',
+    fontFamily: 'Inter_400Regular',
+    fontSize: 9,
+    letterSpacing: 1.2,
+  },
+  crossH: {
+    position: 'absolute',
+    width: 20,
+    height: 1,
+    backgroundColor: LOCK_COLOR,
+  },
+  crossV: {
+    position: 'absolute',
+    width: 1,
+    height: 20,
+    backgroundColor: LOCK_COLOR,
+  },
+});
+
 export default function CaptureScreen() {
   const insets = useSafeAreaInsets();
+  const { width: screenW, height: screenH } = useWindowDimensions();
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const [micPermission, requestMicPermission] = useMicrophonePermissions();
   const {
@@ -129,6 +356,7 @@ export default function CaptureScreen() {
     setDetectionEnabled,
     isDetecting,
     currentEvent,
+    currentDetection,
     lastCommittedEvent,
     reportResult,
     clearCurrentEvent,
@@ -337,33 +565,13 @@ export default function CaptureScreen() {
         </View>
       )}
 
-      {/* Detection scanning overlay */}
+      {/* Lock-on targeting overlay */}
       {detectionEnabled && isRecording && (
-        <Animated.View
-          pointerEvents="none"
-          style={[
-            StyleSheet.absoluteFill,
-            styles.scanOverlay,
-            {
-              borderColor: isDetecting ? Colors.gpsGreen : 'rgba(48,209,88,0.35)',
-              opacity: isDetecting ? scanAnim : 0.5,
-            },
-          ]}
+        <LockOnOverlay
+          detection={currentDetection}
+          screenW={screenW}
+          screenH={screenH}
         />
-      )}
-
-      {/* Sign detected badge */}
-      {isDetecting && currentEvent && (
-        <View style={styles.detectionBadge} pointerEvents="none">
-          <View style={styles.detectionBadgeDot} />
-          <Text style={styles.detectionBadgeLabel} numberOfLines={1}>
-            {currentEvent.label || 'Sign detected'}
-          </Text>
-          <Text style={styles.detectionBadgeConf}>
-            {Math.round(currentEvent.confidence * 100)}%
-          </Text>
-          <Text style={styles.detectionBadgeHint}> · tracking best angle</Text>
-        </View>
       )}
 
       <View style={[styles.topOverlay, { paddingTop: insets.top + 4 }]}>
@@ -817,48 +1025,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     marginTop: 10,
     letterSpacing: 0.3,
-  },
-  scanOverlay: {
-    borderWidth: 3,
-    borderRadius: 0,
-    margin: 0,
-  },
-  detectionBadge: {
-    position: 'absolute',
-    top: '40%',
-    left: 20,
-    right: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.72)',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.gpsGreen,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    gap: 8,
-  },
-  detectionBadgeDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: Colors.gpsGreen,
-  },
-  detectionBadgeLabel: {
-    color: Colors.gpsGreen,
-    fontFamily: 'Inter_700Bold',
-    fontSize: 14,
-    flex: 1,
-  },
-  detectionBadgeConf: {
-    color: Colors.gpsGreen,
-    fontFamily: 'Inter_600SemiBold',
-    fontSize: 13,
-  },
-  detectionBadgeHint: {
-    color: Colors.textSecondary,
-    fontFamily: 'Inter_400Regular',
-    fontSize: 12,
   },
   detectionRow: {
     alignItems: 'center',
