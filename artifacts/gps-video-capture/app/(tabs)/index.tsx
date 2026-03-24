@@ -15,8 +15,10 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import Colors from '@/constants/colors';
+import { useDetection } from '@/contexts/DetectionContext';
 import { useRecording } from '@/contexts/RecordingContext';
 import { FEET_PER_METER, MPH_PER_MPS, useSettings } from '@/contexts/SettingsContext';
+import { runDetection } from '@/lib/detectionModel';
 
 const TARGET_SEGMENT_BYTES = 250 * 1024 * 1024; // 250 MB
 const DEFAULT_SEGMENT_MS = 90_000;              // initial guess before bitrate is known
@@ -120,6 +122,62 @@ export default function CaptureScreen() {
       pulseAnim.setValue(1);
     }
   }, [isRecording, pulseAnim]);
+
+  const {
+    detectionEnabled,
+    setDetectionEnabled,
+    isDetecting,
+    currentEvent,
+    reportResult,
+    clearCurrentEvent,
+  } = useDetection();
+
+  const detectionIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const scanAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (isDetecting) {
+      const loop = Animated.loop(
+        Animated.sequence([
+          Animated.timing(scanAnim, { toValue: 1, duration: 600, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
+          Animated.timing(scanAnim, { toValue: 0.3, duration: 600, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
+        ])
+      );
+      loop.start();
+      return () => loop.stop();
+    } else {
+      scanAnim.setValue(detectionEnabled ? 0.25 : 0);
+    }
+  }, [isDetecting, detectionEnabled, scanAnim]);
+
+  useEffect(() => {
+    if (isRecording && detectionEnabled && Platform.OS !== 'web') {
+      detectionIntervalRef.current = setInterval(async () => {
+        try {
+          if (!cameraRef.current) return;
+          const photo = await (cameraRef.current as any).takePictureAsync({
+            quality: 0.4,
+            skipProcessing: true,
+          });
+          if (!photo?.uri) return;
+          const result = await runDetection(photo.uri);
+          reportResult(result, photo.uri);
+        } catch {}
+      }, 900);
+    } else {
+      if (detectionIntervalRef.current) {
+        clearInterval(detectionIntervalRef.current);
+        detectionIntervalRef.current = null;
+      }
+      if (!isRecording) clearCurrentEvent();
+    }
+    return () => {
+      if (detectionIntervalRef.current) {
+        clearInterval(detectionIntervalRef.current);
+        detectionIntervalRef.current = null;
+      }
+    };
+  }, [isRecording, detectionEnabled, reportResult, clearCurrentEvent]);
 
   const clearTimers = useCallback(() => {
     if (segmentTimerRef.current) clearTimeout(segmentTimerRef.current);
@@ -265,6 +323,35 @@ export default function CaptureScreen() {
         </View>
       )}
 
+      {/* Detection scanning overlay */}
+      {detectionEnabled && isRecording && (
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            StyleSheet.absoluteFill,
+            styles.scanOverlay,
+            {
+              borderColor: isDetecting ? Colors.gpsGreen : 'rgba(48,209,88,0.35)',
+              opacity: isDetecting ? scanAnim : 0.5,
+            },
+          ]}
+        />
+      )}
+
+      {/* Sign detected badge */}
+      {isDetecting && currentEvent && (
+        <View style={styles.detectionBadge} pointerEvents="none">
+          <View style={styles.detectionBadgeDot} />
+          <Text style={styles.detectionBadgeLabel} numberOfLines={1}>
+            {currentEvent.label || 'Sign detected'}
+          </Text>
+          <Text style={styles.detectionBadgeConf}>
+            {Math.round(currentEvent.confidence * 100)}%
+          </Text>
+          <Text style={styles.detectionBadgeHint}> · tracking best angle</Text>
+        </View>
+      )}
+
       <View style={[styles.topOverlay, { paddingTop: insets.top + 4 }]}>
         <BlurView intensity={60} tint="dark" style={styles.blurCard}>
           <View style={styles.gpsRow}>
@@ -397,11 +484,43 @@ export default function CaptureScreen() {
             </View>
           </View>
 
-          {!isRecording && (
-            <Text style={styles.hintText}>
-              Auto-saves every ~250 MB · frames tagged with GPS
-            </Text>
-          )}
+          <View style={styles.detectionRow}>
+            {!isRecording ? (
+              <Pressable
+                onPress={() => setDetectionEnabled(!detectionEnabled)}
+                style={({ pressed }) => [
+                  styles.detectToggle,
+                  detectionEnabled && styles.detectToggleOn,
+                  pressed && { opacity: 0.75 },
+                ]}
+              >
+                <Ionicons
+                  name={detectionEnabled ? 'eye' : 'eye-outline'}
+                  size={15}
+                  color={detectionEnabled ? Colors.gpsGreen : Colors.textSecondary}
+                />
+                <Text style={[styles.detectToggleText, detectionEnabled && styles.detectToggleTextOn]}>
+                  Real-Time Detection
+                </Text>
+                <View style={[styles.detectTogglePill, detectionEnabled && styles.detectTogglePillOn]}>
+                  <Text style={[styles.detectTogglePillText, detectionEnabled && styles.detectTogglePillTextOn]}>
+                    {detectionEnabled ? 'ON' : 'OFF'}
+                  </Text>
+                </View>
+              </Pressable>
+            ) : detectionEnabled ? (
+              <View style={styles.aiActiveRow}>
+                <Animated.View style={[styles.aiDot, { opacity: isDetecting ? scanAnim : 0.5 }]} />
+                <Text style={styles.aiActiveLabel}>
+                  {isDetecting ? 'SIGN DETECTED' : 'AI SCANNING'}
+                </Text>
+              </View>
+            ) : (
+              <Text style={styles.hintText}>
+                Auto-saves every ~250 MB · frames tagged with GPS
+              </Text>
+            )}
+          </View>
         </BlurView>
       </View>
     </View>
@@ -684,5 +803,115 @@ const styles = StyleSheet.create({
     fontSize: 11,
     marginTop: 10,
     letterSpacing: 0.3,
+  },
+  scanOverlay: {
+    borderWidth: 3,
+    borderRadius: 0,
+    margin: 0,
+  },
+  detectionBadge: {
+    position: 'absolute',
+    top: '40%',
+    left: 20,
+    right: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.72)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.gpsGreen,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    gap: 8,
+  },
+  detectionBadgeDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: Colors.gpsGreen,
+  },
+  detectionBadgeLabel: {
+    color: Colors.gpsGreen,
+    fontFamily: 'Inter_700Bold',
+    fontSize: 14,
+    flex: 1,
+  },
+  detectionBadgeConf: {
+    color: Colors.gpsGreen,
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 13,
+  },
+  detectionBadgeHint: {
+    color: Colors.textSecondary,
+    fontFamily: 'Inter_400Regular',
+    fontSize: 12,
+  },
+  detectionRow: {
+    alignItems: 'center',
+    paddingTop: 6,
+    paddingBottom: 2,
+    minHeight: 36,
+    justifyContent: 'center',
+  },
+  detectToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 20,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  detectToggleOn: {
+    borderColor: Colors.gpsGreen,
+    backgroundColor: Colors.gpsDim,
+  },
+  detectToggleText: {
+    color: Colors.textSecondary,
+    fontFamily: 'Inter_500Medium',
+    fontSize: 13,
+  },
+  detectToggleTextOn: {
+    color: Colors.gpsGreen,
+  },
+  detectTogglePill: {
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 8,
+    backgroundColor: Colors.card,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  detectTogglePillOn: {
+    backgroundColor: Colors.gpsGreen,
+    borderColor: Colors.gpsGreen,
+  },
+  detectTogglePillText: {
+    color: Colors.textTertiary,
+    fontFamily: 'Inter_700Bold',
+    fontSize: 10,
+    letterSpacing: 0.5,
+  },
+  detectTogglePillTextOn: {
+    color: '#000',
+  },
+  aiActiveRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  aiDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: Colors.gpsGreen,
+  },
+  aiActiveLabel: {
+    color: Colors.gpsGreen,
+    fontFamily: 'Inter_700Bold',
+    fontSize: 11,
+    letterSpacing: 1.2,
   },
 });
