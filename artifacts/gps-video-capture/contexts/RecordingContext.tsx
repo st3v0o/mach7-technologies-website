@@ -32,6 +32,8 @@ export interface LogEntry {
   videoPath: string;
   sessionId: string;
   supabaseUrl?: string;
+  detectionLabel?: string;
+  detectionConfidence?: number;
 }
 
 export type GpsStatus = 'idle' | 'searching' | 'locked' | 'denied';
@@ -56,6 +58,7 @@ interface RecordingContextType {
     durationMs: number,
     frameSettings: FrameSettings
   ) => Promise<void>;
+  saveDetectionFrame: (uri: string, timestamp: number, label: string, confidence: number) => Promise<void>;
   updateFrameUrl: (id: string, url: string) => Promise<void>;
   shareLog: () => Promise<void>;
   clearLog: () => Promise<void>;
@@ -63,7 +66,7 @@ interface RecordingContextType {
 
 const RecordingContext = createContext<RecordingContextType | null>(null);
 const STORAGE_KEY = '@gps_capture_log';
-const CSV_HEADER = 'filename,timestamp,latitude,longitude,video_segment,local_path,video_path,session_id,supabase_url\n';
+const CSV_HEADER = 'filename,timestamp,latitude,longitude,video_segment,local_path,video_path,session_id,supabase_url,detection_label,detection_confidence\n';
 
 function findNearestGps(timestamp: number, points: GpsPoint[]): GpsPoint | null {
   if (points.length === 0) return null;
@@ -317,6 +320,61 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
     []
   );
 
+  const saveDetectionFrame = useCallback(
+    async (uri: string, timestamp: number, label: string, confidence: number) => {
+      if (Platform.OS === 'web') return;
+
+      const snapshotPoints = [...gpsPointsRef.current];
+      const nearest = findNearestGps(timestamp, snapshotPoints);
+      if (!nearest) return;
+
+      try {
+        const FileSystem = await import('expo-file-system/legacy');
+
+        if (!nativePathsRef.current) {
+          nativePathsRef.current = await getOrCreatePaths();
+        }
+        const { framesDir, csvPath } = nativePathsRef.current;
+
+        const safeLabel = label.replace(/[^a-zA-Z0-9_]/g, '_').slice(0, 30);
+        const filename = `det_${safeLabel}_${timestamp}.jpg`;
+        const destPath = framesDir + filename;
+
+        await FileSystem.copyAsync({ from: uri, to: destPath });
+
+        const entry: LogEntry = {
+          id: Date.now().toString() + Math.random().toString(36).substr(2, 6),
+          filename,
+          timestamp,
+          latitude: nearest.latitude,
+          longitude: nearest.longitude,
+          videoSegment: 'detection',
+          localPath: destPath,
+          videoPath: '',
+          sessionId: sessionIdRef.current,
+          detectionLabel: label,
+          detectionConfidence: confidence,
+        };
+
+        const lat = nearest.latitude.toFixed(7);
+        const lon = nearest.longitude.toFixed(7);
+        const ts = new Date(timestamp).toISOString();
+        const csvRow = `${filename},${ts},${lat},${lon},detection,${destPath},,${sessionIdRef.current},,${label},${confidence.toFixed(3)}\n`;
+
+        const existing = await FileSystem.readAsStringAsync(csvPath).catch(() => CSV_HEADER);
+        await FileSystem.writeAsStringAsync(csvPath, existing + csvRow);
+
+        setLogEntries((prev) => {
+          const updated = [...prev, entry];
+          saveLog(updated);
+          return updated;
+        });
+        setTotalFrames((n) => n + 1);
+      } catch {}
+    },
+    []
+  );
+
   const updateFrameUrl = useCallback(async (id: string, url: string) => {
     let updatedFilename = '';
 
@@ -399,6 +457,7 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
         startGps,
         stopGps,
         processSegment,
+        saveDetectionFrame,
         updateFrameUrl,
         shareLog,
         clearLog,

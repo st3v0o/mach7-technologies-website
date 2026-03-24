@@ -88,6 +88,7 @@ export default function CaptureScreen() {
     startGps,
     stopGps,
     processSegment,
+    saveDetectionFrame,
   } = useRecording();
 
   const { settings } = useSettings();
@@ -128,9 +129,22 @@ export default function CaptureScreen() {
     setDetectionEnabled,
     isDetecting,
     currentEvent,
+    lastCommittedEvent,
     reportResult,
     clearCurrentEvent,
+    clearLastCommittedEvent,
   } = useDetection();
+
+  useEffect(() => {
+    if (!lastCommittedEvent?.bestFrameUri) return;
+    saveDetectionFrame(
+      lastCommittedEvent.bestFrameUri,
+      lastCommittedEvent.startedAt,
+      lastCommittedEvent.label || 'sign',
+      lastCommittedEvent.confidence
+    );
+    clearLastCommittedEvent();
+  }, [lastCommittedEvent, saveDetectionFrame, clearLastCommittedEvent]);
 
   const detectionIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const scanAnim = useRef(new Animated.Value(0)).current;

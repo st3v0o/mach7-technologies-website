@@ -23,9 +23,11 @@ interface DetectionContextType {
   isDetecting: boolean;
   currentEvent: DetectionEvent | null;
   savedEvents: DetectionEvent[];
+  lastCommittedEvent: DetectionEvent | null;
 
   reportResult: (result: DetectionResult, frameUri: string) => void;
   clearCurrentEvent: () => void;
+  clearLastCommittedEvent: () => void;
 }
 
 const DetectionContext = createContext<DetectionContextType | null>(null);
@@ -38,6 +40,7 @@ export function DetectionProvider({ children }: { children: React.ReactNode }) {
   const [isDetecting, setIsDetecting] = useState(false);
   const [currentEvent, setCurrentEvent] = useState<DetectionEvent | null>(null);
   const [savedEvents, setSavedEvents] = useState<DetectionEvent[]>([]);
+  const [lastCommittedEvent, setLastCommittedEvent] = useState<DetectionEvent | null>(null);
 
   const eventTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const currentEventRef = useRef<DetectionEvent | null>(null);
@@ -50,9 +53,15 @@ export function DetectionProvider({ children }: { children: React.ReactNode }) {
     setIsDetecting(false);
   }, []);
 
+  const clearLastCommittedEvent = useCallback(() => {
+    setLastCommittedEvent(null);
+  }, []);
+
   const commitEvent = useCallback(() => {
     if (!currentEventRef.current) return;
-    setSavedEvents((prev) => [...prev, currentEventRef.current!]);
+    const committed = currentEventRef.current;
+    setSavedEvents((prev) => [...prev, committed]);
+    setLastCommittedEvent(committed);
     currentEventRef.current = null;
     setCurrentEvent(null);
     setIsDetecting(false);
@@ -117,8 +126,10 @@ export function DetectionProvider({ children }: { children: React.ReactNode }) {
         isDetecting,
         currentEvent,
         savedEvents,
+        lastCommittedEvent,
         reportResult,
         clearCurrentEvent,
+        clearLastCommittedEvent,
       }}
     >
       {children}

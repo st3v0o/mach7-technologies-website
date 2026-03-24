@@ -101,9 +101,18 @@ function FrameRow({ entry, index }: { entry: LogEntry; index: number }) {
       </View>
 
       <View style={styles.rowRight}>
-        <View style={styles.segmentBadge}>
-          <Text style={styles.segmentBadgeText}>{entry.videoSegment.replace('seg_', '')}</Text>
-        </View>
+        {entry.detectionLabel ? (
+          <View style={styles.detectionBadge}>
+            <Ionicons name="eye" size={10} color={Colors.gpsGreen} />
+            <Text style={styles.detectionBadgeText} numberOfLines={1}>
+              {entry.detectionLabel}
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.segmentBadge}>
+            <Text style={styles.segmentBadgeText}>{entry.videoSegment.replace('seg_', '')}</Text>
+          </View>
+        )}
         <UploadBadge frameId={entry.id} />
       </View>
     </View>
@@ -574,6 +583,24 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     fontFamily: 'Inter_600SemiBold',
     fontSize: 11,
+  },
+  detectionBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(0,255,136,0.08)',
+    borderWidth: 1,
+    borderColor: Colors.gpsGreen,
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    maxWidth: 110,
+  },
+  detectionBadgeText: {
+    color: Colors.gpsGreen,
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 11,
+    flexShrink: 1,
   },
   uploadBadge: {
     opacity: 0.9,
