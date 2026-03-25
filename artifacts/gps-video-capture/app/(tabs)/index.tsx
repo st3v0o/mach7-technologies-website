@@ -1,4 +1,4 @@
-import { Feather, Ionicons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { CameraView, useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
 import * as Haptics from 'expo-haptics';
@@ -717,7 +717,7 @@ export default function CaptureScreen() {
             <View style={styles.controlSide}>
               {(segmentCount > 0 || processingStatus === 'processing') && (
                 <View style={styles.segCountBadge}>
-                  <Feather name="layers" size={12} color={Colors.textSecondary} />
+                  <Ionicons name="layers-outline" size={12} color={Colors.textSecondary} />
                   <Text style={styles.segCountText}>{segmentCount}</Text>
                 </View>
               )}

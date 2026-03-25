@@ -3,7 +3,7 @@ import { isLiquidGlassAvailable } from 'expo-glass-effect';
 import { Tabs } from 'expo-router';
 import { Icon, Label, NativeTabs } from 'expo-router/unstable-native-tabs';
 import { SymbolView } from 'expo-symbols';
-import { Feather, Ionicons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 
@@ -68,7 +68,7 @@ function ClassicTabLayout() {
             isIOS ? (
               <SymbolView name="record.circle" tintColor={color} size={24} />
             ) : (
-              <Feather name="video" size={22} color={color} />
+              <Ionicons name="videocam-outline" size={22} color={color} />
             ),
         }}
       />
@@ -80,7 +80,7 @@ function ClassicTabLayout() {
             isIOS ? (
               <SymbolView name="list.bullet.rectangle" tintColor={color} size={24} />
             ) : (
-              <Feather name="list" size={22} color={color} />
+              <Ionicons name="list-outline" size={22} color={color} />
             ),
         }}
       />

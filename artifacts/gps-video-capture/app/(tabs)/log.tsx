@@ -1,4 +1,4 @@
-import { Feather, Ionicons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import React, { useState } from 'react';
@@ -83,7 +83,7 @@ function FrameRow({ entry, index }: { entry: LogEntry; index: number }) {
           />
         ) : (
           <View style={[styles.thumbImage, styles.thumbPlaceholder]}>
-            <Feather name="image" size={16} color={Colors.textTertiary} />
+            <Ionicons name="image-outline" size={16} color={Colors.textTertiary} />
           </View>
         )}
         <View style={styles.frameIndexBadge}>
@@ -244,7 +244,7 @@ export default function LogScreen() {
               ]}
               testID="share-button"
             >
-              <Feather name="share" size={16} color={Colors.blue} />
+              <Ionicons name="share-outline" size={16} color={Colors.blue} />
               <Text style={[styles.actionBtnText, { color: Colors.blue }]}>
                 {isSharing ? 'Sharing...' : 'Export CSV'}
               </Text>
@@ -259,7 +259,7 @@ export default function LogScreen() {
                 pressed && { opacity: 0.7 },
               ]}
             >
-              <Feather name="trash-2" size={16} color={Colors.accent} />
+              <Ionicons name="trash-outline" size={16} color={Colors.accent} />
             </Pressable>
           )}
         </View>
