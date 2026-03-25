@@ -13,7 +13,6 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import Colors from '@/constants/colors';
@@ -303,7 +302,8 @@ const loStyles = StyleSheet.create({
 
 export default function CaptureScreen() {
   const insets = useSafeAreaInsets();
-  const tabBarHeight = useBottomTabBarHeight();
+  // iOS tab bar is 49pt; add the safe-area bottom inset (home indicator) on top
+  const tabBarHeight = 49 + insets.bottom;
   const { width: screenW, height: screenH } = useWindowDimensions();
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const [micPermission, requestMicPermission] = useMicrophonePermissions();
