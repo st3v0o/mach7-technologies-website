@@ -402,10 +402,12 @@ export default function CaptureScreen() {
   }, [isDetecting, detectionEnabled, scanAnim]);
 
   useEffect(() => {
-    if (isRecording && detectionEnabled && Platform.OS !== 'web') {
+    if (detectionEnabled && Platform.OS !== 'web') {
       if (!hasApiKey) {
         setApiCallState('nokey');
+        return;
       }
+      console.log('[Detection] interval starting');
       detectionIntervalRef.current = setInterval(async () => {
         try {
           if (!cameraRef.current) return;
@@ -418,8 +420,9 @@ export default function CaptureScreen() {
           setApiCallState('ok');
           setApiLastMs(result.inferenceMs);
           setApiLastCount(result.detections.length);
-          reportResult(result, photo.uri);
-        } catch {
+          if (isRecording) reportResult(result, photo.uri);
+        } catch (e) {
+          console.log('[Detection] takePicture error:', e);
           setApiCallState('err');
         }
       }, 900);
@@ -436,7 +439,7 @@ export default function CaptureScreen() {
         detectionIntervalRef.current = null;
       }
     };
-  }, [isRecording, detectionEnabled, reportResult, clearCurrentEvent]);
+  }, [isRecording, detectionEnabled, hasApiKey, reportResult, clearCurrentEvent]);
 
   const clearTimers = useCallback(() => {
     if (segmentTimerRef.current) clearTimeout(segmentTimerRef.current);
