@@ -411,8 +411,7 @@ export default function CaptureScreen() {
           if (!cameraRef.current) return;
           setApiCallState('calling');
           const photo = await (cameraRef.current as any).takePictureAsync({
-            quality: 0.4,
-            skipProcessing: true,
+            quality: 0.7,
           });
           if (!photo?.uri) { setApiCallState('err'); return; }
           const result = await runDetection(photo.uri);

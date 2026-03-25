@@ -89,9 +89,12 @@ export async function runDetection(frameUri: string): Promise<DetectionResult> {
       });
     }
 
+    // Roboflow inference URL is /{model}/{version} — workspace is NOT part of the path
     const url =
-      `https://detect.roboflow.com/${workspace}/${model}/${version}` +
+      `https://detect.roboflow.com/${model}/${version}` +
       `?api_key=${apiKey}`;
+
+    console.log('[Detection] POST', url.replace(apiKey, '***'));
 
     const response = await fetch(url, {
       method: 'POST',
@@ -99,22 +102,28 @@ export async function runDetection(frameUri: string): Promise<DetectionResult> {
       body: `image=${encodeURIComponent(base64)}`,
     });
 
+    const rawText = await response.text();
+    console.log('[Detection] HTTP', response.status, rawText.slice(0, 300));
+
     if (!response.ok) {
       return { detections: [], inferenceMs: Date.now() - start };
     }
 
-    const data: RoboflowResponse = await response.json();
+    const data: RoboflowResponse = JSON.parse(rawText);
 
     const imgW = data.image?.width  ?? 1;
     const imgH = data.image?.height ?? 1;
 
-    const detections: Detection[] = (data.predictions ?? [])
+    const allPredictions = data.predictions ?? [];
+    console.log('[Detection] raw predictions:', allPredictions.length,
+      allPredictions.map((p) => `${p.class}@${(p.confidence * 100).toFixed(0)}%`).join(', '));
+
+    const detections: Detection[] = allPredictions
       .filter((p) => p.confidence >= MIN_CONFIDENCE)
       .map((p) => ({
         label: p.class ?? 'sign',
         confidence: p.confidence,
         bbox: {
-          // Roboflow returns center x/y; convert to top-left normalized
           x: Math.max(0, (p.x - p.width  / 2) / imgW),
           y: Math.max(0, (p.y - p.height / 2) / imgH),
           width:  Math.min(1, p.width  / imgW),
@@ -123,7 +132,8 @@ export async function runDetection(frameUri: string): Promise<DetectionResult> {
       }));
 
     return { detections, inferenceMs: Date.now() - start };
-  } catch {
+  } catch (e) {
+    console.log('[Detection] error:', e);
     return { detections: [], inferenceMs: Date.now() - start };
   }
 }
