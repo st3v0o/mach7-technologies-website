@@ -13,6 +13,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import Colors from '@/constants/colors';
@@ -302,6 +303,7 @@ const loStyles = StyleSheet.create({
 
 export default function CaptureScreen() {
   const insets = useSafeAreaInsets();
+  const tabBarHeight = useBottomTabBarHeight();
   const { width: screenW, height: screenH } = useWindowDimensions();
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const [micPermission, requestMicPermission] = useMicrophonePermissions();
@@ -333,6 +335,13 @@ export default function CaptureScreen() {
   const [isRecording, setIsRecording] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [currentSegmentMs, setCurrentSegmentMs] = useState(DEFAULT_SEGMENT_MS);
+
+  type ApiCallState = 'idle' | 'calling' | 'ok' | 'err' | 'nokey';
+  const [apiCallState, setApiCallState] = useState<ApiCallState>('idle');
+  const [apiLastMs, setApiLastMs] = useState(0);
+  const [apiLastCount, setApiLastCount] = useState(0);
+  const hasApiKey = !!process.env.EXPO_PUBLIC_ROBOFLOW_API_KEY;
+
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const pulseLoop = useRef<Animated.CompositeAnimation | null>(null);
 
@@ -394,17 +403,26 @@ export default function CaptureScreen() {
 
   useEffect(() => {
     if (isRecording && detectionEnabled && Platform.OS !== 'web') {
+      if (!hasApiKey) {
+        setApiCallState('nokey');
+      }
       detectionIntervalRef.current = setInterval(async () => {
         try {
           if (!cameraRef.current) return;
+          setApiCallState('calling');
           const photo = await (cameraRef.current as any).takePictureAsync({
             quality: 0.4,
             skipProcessing: true,
           });
-          if (!photo?.uri) return;
+          if (!photo?.uri) { setApiCallState('err'); return; }
           const result = await runDetection(photo.uri);
+          setApiCallState('ok');
+          setApiLastMs(result.inferenceMs);
+          setApiLastCount(result.detections.length);
           reportResult(result, photo.uri);
-        } catch {}
+        } catch {
+          setApiCallState('err');
+        }
       }, 900);
     } else {
       if (detectionIntervalRef.current) {
@@ -622,7 +640,7 @@ export default function CaptureScreen() {
         </View>
       )}
 
-      <View style={[styles.bottomOverlay, { paddingBottom: insets.bottom + 16 }]}>
+      <View style={[styles.bottomOverlay, { paddingBottom: tabBarHeight + 12 }]}>
         <BlurView intensity={60} tint="dark" style={styles.bottomBlur}>
           {isRecording && (
             <View style={styles.segmentInfoRow}>
@@ -732,10 +750,32 @@ export default function CaptureScreen() {
               </Pressable>
             ) : detectionEnabled ? (
               <View style={styles.aiActiveRow}>
-                <Animated.View style={[styles.aiDot, { opacity: isDetecting ? scanAnim : 0.5 }]} />
-                <Text style={styles.aiActiveLabel}>
-                  {isDetecting ? 'SIGN DETECTED' : 'AI SCANNING'}
-                </Text>
+                {apiCallState === 'nokey' ? (
+                  <>
+                    <Ionicons name="warning-outline" size={12} color={Colors.amber} />
+                    <Text style={[styles.aiActiveLabel, { color: Colors.amber }]}>NO API KEY SET</Text>
+                  </>
+                ) : apiCallState === 'err' ? (
+                  <>
+                    <Ionicons name="close-circle-outline" size={12} color={Colors.accent} />
+                    <Text style={[styles.aiActiveLabel, { color: Colors.accent }]}>API ERROR</Text>
+                  </>
+                ) : (
+                  <>
+                    <Animated.View style={[styles.aiDot, {
+                      opacity: scanAnim,
+                      backgroundColor: isDetecting ? Colors.gpsGreen : apiCallState === 'calling' ? Colors.amber : Colors.textTertiary,
+                    }]} />
+                    <Text style={[styles.aiActiveLabel, isDetecting && { color: Colors.gpsGreen }]}>
+                      {isDetecting ? 'SIGN DETECTED' : apiCallState === 'calling' ? 'CALLING API…' : 'AI SCANNING'}
+                    </Text>
+                    {apiCallState === 'ok' && (
+                      <Text style={styles.aiStatText}>
+                        {apiLastCount > 0 ? `${apiLastCount} hit${apiLastCount > 1 ? 's' : ''}` : '0 hits'} · {apiLastMs}ms
+                      </Text>
+                    )}
+                  </>
+                )}
               </View>
             ) : (
               <Text style={styles.hintText}>
@@ -1089,9 +1129,15 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.gpsGreen,
   },
   aiActiveLabel: {
-    color: Colors.gpsGreen,
+    color: Colors.textSecondary,
     fontFamily: 'Inter_700Bold',
     fontSize: 11,
     letterSpacing: 1.2,
+  },
+  aiStatText: {
+    color: Colors.textTertiary,
+    fontFamily: 'Inter_400Regular',
+    fontSize: 10,
+    letterSpacing: 0.3,
   },
 });
