@@ -1,9 +1,15 @@
 // ---------------------------------------------------------------------------
-// Detection Model — Placeholder
+// Detection Model — Roboflow Hosted Inference
 // ---------------------------------------------------------------------------
-// Replace `runDetection` with your actual lightweight model inference.
-// The rest of this file (types, scoring, NMS) is production-ready.
+// Uses the Roboflow cloud inference API (no native modules required).
+// Credentials are read from EXPO_PUBLIC_* environment variables:
+//   EXPO_PUBLIC_ROBOFLOW_API_KEY  — your Roboflow API key
+//   EXPO_PUBLIC_ROBOFLOW_WORKSPACE — workspace slug (e.g. "invasive-detctor")
+//   EXPO_PUBLIC_ROBOFLOW_MODEL    — model/project slug (e.g. "bike-lane-ankwj")
+//   EXPO_PUBLIC_ROBOFLOW_VERSION  — model version number (e.g. "1")
 // ---------------------------------------------------------------------------
+
+import { Platform } from 'react-native';
 
 export interface BoundingBox {
   x: number;      // normalized 0–1, left edge
@@ -24,28 +30,102 @@ export interface DetectionResult {
 }
 
 // ---------------------------------------------------------------------------
-// TODO: Load your model once (e.g. TFLite, CoreML, ONNX) and run inference
-// on the provided frame URI. Return detected signs with bounding boxes.
-//
-// Suggested approach for a TFLite model:
-//   import * as tf from '@tensorflow/tfjs';
-//   import { decodeJpeg } from '@tensorflow/tfjs-react-native';
-//   ...
-//
-// Until a model is wired in, this returns an empty result so the rest of
-// the detection pipeline can be exercised end-to-end in development.
+// Roboflow prediction shape (raw API response)
 // ---------------------------------------------------------------------------
-export async function runDetection(_frameUri: string): Promise<DetectionResult> {
+interface RoboflowPrediction {
+  x: number;          // center x, pixels
+  y: number;          // center y, pixels
+  width: number;      // pixels
+  height: number;     // pixels
+  confidence: number; // 0–1
+  class: string;
+  class_id?: number;
+}
+
+interface RoboflowResponse {
+  time?: number;
+  image?: { width: number; height: number };
+  predictions?: RoboflowPrediction[];
+}
+
+// ---------------------------------------------------------------------------
+// Minimum confidence threshold — predictions below this are ignored
+// ---------------------------------------------------------------------------
+const MIN_CONFIDENCE = 0.35;
+
+// ---------------------------------------------------------------------------
+// runDetection
+// POST the frame URI as base64 to the Roboflow hosted inference endpoint.
+// Returns normalized Detection objects ready for the lock-on overlay.
+// ---------------------------------------------------------------------------
+export async function runDetection(frameUri: string): Promise<DetectionResult> {
   const start = Date.now();
 
-  // ── Plug model inference here ──────────────────────────────────────────
-  // Example:
-  //   const imageTensor = await loadFrameAsTensor(_frameUri);
-  //   const predictions = await model.predict(imageTensor);
-  //   return { detections: parsePredictions(predictions), inferenceMs: Date.now() - start };
-  // ──────────────────────────────────────────────────────────────────────
+  const apiKey   = process.env.EXPO_PUBLIC_ROBOFLOW_API_KEY;
+  const workspace = process.env.EXPO_PUBLIC_ROBOFLOW_WORKSPACE;
+  const model    = process.env.EXPO_PUBLIC_ROBOFLOW_MODEL;
+  const version  = process.env.EXPO_PUBLIC_ROBOFLOW_VERSION ?? '1';
 
-  return { detections: [], inferenceMs: Date.now() - start };
+  if (!apiKey || !workspace || !model) {
+    return { detections: [], inferenceMs: Date.now() - start };
+  }
+
+  try {
+    let base64: string;
+
+    if (Platform.OS !== 'web') {
+      const FileSystem = await import('expo-file-system/legacy');
+      base64 = await FileSystem.readAsStringAsync(frameUri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+    } else {
+      // Web: fetch the blob and convert
+      const blob = await fetch(frameUri).then((r) => r.blob());
+      base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    }
+
+    const url =
+      `https://detect.roboflow.com/${workspace}/${model}/${version}` +
+      `?api_key=${apiKey}`;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `image=${encodeURIComponent(base64)}`,
+    });
+
+    if (!response.ok) {
+      return { detections: [], inferenceMs: Date.now() - start };
+    }
+
+    const data: RoboflowResponse = await response.json();
+
+    const imgW = data.image?.width  ?? 1;
+    const imgH = data.image?.height ?? 1;
+
+    const detections: Detection[] = (data.predictions ?? [])
+      .filter((p) => p.confidence >= MIN_CONFIDENCE)
+      .map((p) => ({
+        label: p.class ?? 'sign',
+        confidence: p.confidence,
+        bbox: {
+          // Roboflow returns center x/y; convert to top-left normalized
+          x: Math.max(0, (p.x - p.width  / 2) / imgW),
+          y: Math.max(0, (p.y - p.height / 2) / imgH),
+          width:  Math.min(1, p.width  / imgW),
+          height: Math.min(1, p.height / imgH),
+        },
+      }));
+
+    return { detections, inferenceMs: Date.now() - start };
+  } catch {
+    return { detections: [], inferenceMs: Date.now() - start };
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -57,9 +137,8 @@ export async function runDetection(_frameUri: string): Promise<DetectionResult> 
 // ---------------------------------------------------------------------------
 export function scoreDetection(d: Detection): number {
   const area = d.bbox.width * d.bbox.height;
-  const cx = d.bbox.x + d.bbox.width / 2;
+  const cx = d.bbox.x + d.bbox.width  / 2;
   const cy = d.bbox.y + d.bbox.height / 2;
-  // centrality: 1.0 = perfectly centred, 0.0 = at a corner
   const centrality = Math.max(
     0,
     1 - Math.sqrt((cx - 0.5) ** 2 + (cy - 0.5) ** 2) * Math.SQRT2
