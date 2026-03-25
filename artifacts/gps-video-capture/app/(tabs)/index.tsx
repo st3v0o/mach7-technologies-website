@@ -386,6 +386,27 @@ export default function CaptureScreen() {
   const detectionIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const scanAnim = useRef(new Animated.Value(0)).current;
 
+  // Stable ref so runRecordingLoop always sees the latest detection state
+  const detectionEnabledRef = useRef(detectionEnabled);
+  const reportResultRef = useRef(reportResult);
+  useEffect(() => { detectionEnabledRef.current = detectionEnabled; }, [detectionEnabled]);
+  useEffect(() => { reportResultRef.current = reportResult; }, [reportResult]);
+
+  const onSegmentFrameReady = useCallback(async (frameUri: string, _timestamp: number) => {
+    if (!detectionEnabledRef.current || !hasApiKey) return;
+    try {
+      setApiCallState('calling');
+      const result = await runDetection(frameUri);
+      setApiCallState('ok');
+      setApiLastMs(result.inferenceMs);
+      setApiLastCount(result.detections.length);
+      reportResultRef.current(result, frameUri);
+    } catch (e) {
+      console.log('[Detection] segment frame error:', e);
+      setApiCallState('err');
+    }
+  }, [hasApiKey]);
+
   useEffect(() => {
     if (isDetecting) {
       const loop = Animated.loop(
@@ -401,13 +422,16 @@ export default function CaptureScreen() {
     }
   }, [isDetecting, detectionEnabled, scanAnim]);
 
+  // Detection during PREVIEW (not recording): takePictureAsync works fine when
+  // recordAsync is not running. During recording, detection is driven by
+  // processSegment's onFrameReady callback instead (see call site below).
   useEffect(() => {
-    if (detectionEnabled && Platform.OS !== 'web') {
+    if (detectionEnabled && !isRecording && Platform.OS !== 'web') {
       if (!hasApiKey) {
         setApiCallState('nokey');
         return;
       }
-      console.log('[Detection] interval starting');
+      console.log('[Detection] preview interval starting');
       detectionIntervalRef.current = setInterval(async () => {
         try {
           if (!cameraRef.current) return;
@@ -420,7 +444,7 @@ export default function CaptureScreen() {
           setApiCallState('ok');
           setApiLastMs(result.inferenceMs);
           setApiLastCount(result.detections.length);
-          if (isRecording) reportResult(result, photo.uri);
+          reportResult(result, photo.uri);
         } catch (e) {
           console.log('[Detection] takePicture error:', e);
           setApiCallState('err');
@@ -431,7 +455,7 @@ export default function CaptureScreen() {
         clearInterval(detectionIntervalRef.current);
         detectionIntervalRef.current = null;
       }
-      if (!isRecording) clearCurrentEvent();
+      if (!isRecording && !detectionEnabled) clearCurrentEvent();
     }
     return () => {
       if (detectionIntervalRef.current) {
@@ -501,7 +525,7 @@ export default function CaptureScreen() {
         // Adapt duration for next segment based on measured bitrate, then process
         // (both happen in background — recording loop restarts immediately)
         adaptSegmentDuration(result.uri, actualDurationMs);
-        processSegment(result.uri, segNum, startTime, actualDurationMs, settingsRef.current);
+        processSegment(result.uri, segNum, startTime, actualDurationMs, settingsRef.current, onSegmentFrameReady);
       }
 
       // No artificial delay — restart the next segment immediately
@@ -510,7 +534,7 @@ export default function CaptureScreen() {
 
     setIsRecording(false);
     setElapsedSeconds(0);
-  }, [clearTimers, processSegment, adaptSegmentDuration]);
+  }, [clearTimers, processSegment, adaptSegmentDuration, onSegmentFrameReady]);
 
   const handleStartRecording = useCallback(async () => {
     // Ensure mic permission is resolved before recording; fall back to muted if denied

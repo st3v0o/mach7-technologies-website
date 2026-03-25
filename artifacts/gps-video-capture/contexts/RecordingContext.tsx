@@ -56,7 +56,8 @@ interface RecordingContextType {
     segmentNum: number,
     startTime: number,
     durationMs: number,
-    frameSettings: FrameSettings
+    frameSettings: FrameSettings,
+    onFrameReady?: (frameUri: string, timestamp: number) => void
   ) => Promise<void>;
   saveDetectionFrame: (uri: string, timestamp: number, label: string, confidence: number) => Promise<void>;
   updateFrameUrl: (id: string, url: string) => Promise<void>;
@@ -199,7 +200,8 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
       segmentNum: number,
       startTime: number,
       durationMs: number,
-      frameSettings: FrameSettings
+      frameSettings: FrameSettings,
+      onFrameReady?: (frameUri: string, timestamp: number) => void
     ) => {
       if (Platform.OS === 'web') return;
 
@@ -268,6 +270,11 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
               const destPath = framesDir + filename;
 
               await FileSystem.copyAsync({ from: thumb.uri, to: destPath });
+
+              // Fire detection callback with the saved frame (non-blocking)
+              if (onFrameReady) {
+                onFrameReady(destPath, absTimestamp);
+              }
 
               const entry: LogEntry = {
                 id: Date.now().toString() + Math.random().toString(36).substr(2, 6),
