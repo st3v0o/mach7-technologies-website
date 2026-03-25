@@ -5,7 +5,9 @@ import React, { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Dimensions,
   FlatList,
+  Modal,
   Platform,
   Pressable,
   StyleSheet,
@@ -17,6 +19,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Colors from '@/constants/colors';
 import { LogEntry, useRecording } from '@/contexts/RecordingContext';
 import { useUpload } from '@/contexts/UploadContext';
+
+const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 
 function formatTimestamp(ms: number): string {
   const d = new Date(ms);
@@ -30,6 +34,12 @@ function formatCoordShort(lat: number, lon: number): string {
   return `${Math.abs(lat).toFixed(5)}°${latDir}  ${Math.abs(lon).toFixed(5)}°${lonDir}`;
 }
 
+function formatCoordFull(lat: number, lon: number): string {
+  const latDir = lat >= 0 ? 'N' : 'S';
+  const lonDir = lon >= 0 ? 'E' : 'W';
+  return `${Math.abs(lat).toFixed(7)}° ${latDir}  /  ${Math.abs(lon).toFixed(7)}° ${lonDir}`;
+}
+
 function UploadBadge({ frameId }: { frameId: string }) {
   const { getItemStatus, supabaseConfigured } = useUpload();
   if (!supabaseConfigured) return null;
@@ -41,38 +51,155 @@ function UploadBadge({ frameId }: { frameId: string }) {
     return <ActivityIndicator size="small" color={Colors.blue} style={styles.uploadBadge} />;
   }
   if (status === 'uploaded') {
-    return (
-      <Ionicons
-        name="cloud-done-outline"
-        size={14}
-        color={Colors.gpsGreen}
-        style={styles.uploadBadge}
-      />
-    );
+    return <Ionicons name="cloud-done-outline" size={14} color={Colors.gpsGreen} style={styles.uploadBadge} />;
   }
   if (status === 'failed') {
-    return (
-      <Ionicons
-        name="cloud-offline-outline"
-        size={14}
-        color={Colors.accent}
-        style={styles.uploadBadge}
-      />
-    );
+    return <Ionicons name="cloud-offline-outline" size={14} color={Colors.accent} style={styles.uploadBadge} />;
   }
+  return <Ionicons name="cloud-upload-outline" size={14} color={Colors.amber} style={styles.uploadBadge} />;
+}
+
+function FrameDetailModal({ entry, onClose }: { entry: LogEntry; onClose: () => void }) {
+  const insets = useSafeAreaInsets();
+  const hasDetection = Boolean(entry.detectionLabel);
+  const confidence = entry.detectionConfidence ?? 0;
+
   return (
-    <Ionicons
-      name="cloud-upload-outline"
-      size={14}
-      color={Colors.amber}
-      style={styles.uploadBadge}
-    />
+    <Modal
+      visible
+      animationType="fade"
+      statusBarTranslucent
+      onRequestClose={onClose}
+    >
+      <View style={modalStyles.container}>
+
+        {/* Full-screen frame image */}
+        {Platform.OS !== 'web' ? (
+          <Image
+            source={{ uri: entry.localPath }}
+            style={StyleSheet.absoluteFill}
+            contentFit="contain"
+            transition={150}
+          />
+        ) : (
+          <View style={[StyleSheet.absoluteFill, modalStyles.webPlaceholder]}>
+            <Ionicons name="image-outline" size={60} color={Colors.textTertiary} />
+          </View>
+        )}
+
+        {/* Dark gradient top bar */}
+        <View style={[modalStyles.topBar, { paddingTop: insets.top + 8 }]}>
+          <Pressable
+            onPress={onClose}
+            style={({ pressed }) => [modalStyles.closeBtn, pressed && { opacity: 0.6 }]}
+            hitSlop={12}
+          >
+            <Ionicons name="close" size={22} color="#fff" />
+          </Pressable>
+
+          <View style={modalStyles.topMeta}>
+            <Text style={modalStyles.topFilename} numberOfLines={1}>{entry.filename}</Text>
+            <Text style={modalStyles.topTime}>{formatTimestamp(entry.timestamp)}</Text>
+          </View>
+
+          {/* Segment badge top-right */}
+          <View style={modalStyles.segChip}>
+            <Text style={modalStyles.segChipText}>{entry.videoSegment.replace('seg_', 'SEG ')}</Text>
+          </View>
+        </View>
+
+        {/* Detection lock-on overlay — shown when detection exists */}
+        {hasDetection && (
+          <View style={modalStyles.detectionOverlay} pointerEvents="none">
+            {/* Corner brackets */}
+            <View style={modalStyles.bracketTL}>
+              <View style={[modalStyles.bracketH, { left: 0, top: 0 }]} />
+              <View style={[modalStyles.bracketV, { left: 0, top: 0 }]} />
+            </View>
+            <View style={modalStyles.bracketTR}>
+              <View style={[modalStyles.bracketH, { right: 0, top: 0 }]} />
+              <View style={[modalStyles.bracketV, { right: 0, top: 0 }]} />
+            </View>
+            <View style={modalStyles.bracketBL}>
+              <View style={[modalStyles.bracketH, { left: 0, bottom: 0 }]} />
+              <View style={[modalStyles.bracketV, { left: 0, bottom: 0 }]} />
+            </View>
+            <View style={modalStyles.bracketBR}>
+              <View style={[modalStyles.bracketH, { right: 0, bottom: 0 }]} />
+              <View style={[modalStyles.bracketV, { right: 0, bottom: 0 }]} />
+            </View>
+
+            {/* Center crosshair */}
+            <View style={modalStyles.crosshairH} />
+            <View style={modalStyles.crosshairV} />
+
+            {/* LOCKED chip */}
+            <View style={modalStyles.lockedChip}>
+              <Text style={modalStyles.lockedText}>LOCKED</Text>
+            </View>
+
+            {/* Label + confidence */}
+            <View style={modalStyles.detectionLabel}>
+              <Ionicons name="eye" size={13} color={Colors.gpsGreen} />
+              <Text style={modalStyles.detectionLabelText}>
+                {entry.detectionLabel!.toUpperCase()}
+              </Text>
+              <Text style={modalStyles.detectionConfText}>
+                {(confidence * 100).toFixed(0)}%
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {/* Bottom info panel */}
+        <View style={[modalStyles.bottomPanel, { paddingBottom: insets.bottom + 16 }]}>
+          <View style={modalStyles.gpsRow}>
+            <Ionicons name="location" size={14} color={Colors.gpsGreen} />
+            <Text style={modalStyles.gpsText}>{formatCoordFull(entry.latitude, entry.longitude)}</Text>
+          </View>
+
+          <View style={modalStyles.metaRow}>
+            <View style={modalStyles.metaItem}>
+              <Text style={modalStyles.metaLabel}>SESSION</Text>
+              <Text style={modalStyles.metaValue} numberOfLines={1}>{entry.sessionId.slice(-8).toUpperCase()}</Text>
+            </View>
+            <View style={modalStyles.metaDivider} />
+            <View style={modalStyles.metaItem}>
+              <Text style={modalStyles.metaLabel}>SEGMENT</Text>
+              <Text style={modalStyles.metaValue}>{entry.videoSegment.replace('seg_', '')}</Text>
+            </View>
+            {hasDetection && (
+              <>
+                <View style={modalStyles.metaDivider} />
+                <View style={modalStyles.metaItem}>
+                  <Text style={[modalStyles.metaLabel, { color: Colors.gpsGreen }]}>DETECTION</Text>
+                  <Text style={[modalStyles.metaValue, { color: Colors.gpsGreen }]}>
+                    {(confidence * 100).toFixed(0)}% CONF
+                  </Text>
+                </View>
+              </>
+            )}
+          </View>
+        </View>
+      </View>
+    </Modal>
   );
 }
 
-function FrameRow({ entry, index }: { entry: LogEntry; index: number }) {
+function FrameRow({
+  entry,
+  index,
+  onPress,
+}: {
+  entry: LogEntry;
+  index: number;
+  onPress: () => void;
+}) {
   return (
-    <View style={styles.rowContainer}>
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [styles.rowContainer, pressed && { backgroundColor: Colors.card }]}
+    >
       <View style={styles.frameThumb}>
         {Platform.OS !== 'web' ? (
           <Image
@@ -114,8 +241,9 @@ function FrameRow({ entry, index }: { entry: LogEntry; index: number }) {
           </View>
         )}
         <UploadBadge frameId={entry.id} />
+        <Ionicons name="chevron-forward" size={14} color={Colors.textTertiary} />
       </View>
-    </View>
+    </Pressable>
   );
 }
 
@@ -193,6 +321,7 @@ export default function LogScreen() {
   const insets = useSafeAreaInsets();
   const { logEntries, shareLog, clearLog, processingStatus, totalFrames, segmentCount } = useRecording();
   const [isSharing, setIsSharing] = useState(false);
+  const [selectedEntry, setSelectedEntry] = useState<LogEntry | null>(null);
 
   const handleShare = async () => {
     if (Platform.OS === 'web') return;
@@ -304,7 +433,16 @@ export default function LogScreen() {
         <FlatList
           data={logEntries}
           keyExtractor={(item) => item.id}
-          renderItem={({ item, index }) => <FrameRow entry={item} index={index} />}
+          renderItem={({ item, index }) => (
+            <FrameRow
+              entry={item}
+              index={index}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setSelectedEntry(item);
+              }}
+            />
+          )}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           contentContainerStyle={[
             styles.listContent,
@@ -312,6 +450,13 @@ export default function LogScreen() {
           ]}
           showsVerticalScrollIndicator={false}
           scrollEnabled={logEntries.length > 0}
+        />
+      )}
+
+      {selectedEntry && (
+        <FrameDetailModal
+          entry={selectedEntry}
+          onClose={() => setSelectedEntry(null)}
         />
       )}
     </View>
@@ -604,5 +749,224 @@ const styles = StyleSheet.create({
   },
   uploadBadge: {
     opacity: 0.9,
+  },
+});
+
+const BRACKET_LEN = 28;
+const BRACKET_THICK = 3;
+const BRACKET_COLOR = Colors.gpsGreen;
+const BOX_SIZE = SCREEN_W * 0.55;
+
+const modalStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#000',
+  },
+  webPlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#111',
+  },
+  topBar: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    gap: 12,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+  },
+  closeBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2,
+  },
+  topMeta: {
+    flex: 1,
+  },
+  topFilename: {
+    color: '#fff',
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 13,
+  },
+  topTime: {
+    color: 'rgba(255,255,255,0.6)',
+    fontFamily: 'Inter_400Regular',
+    fontSize: 11,
+    marginTop: 2,
+  },
+  segChip: {
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    marginTop: 2,
+  },
+  segChipText: {
+    color: 'rgba(255,255,255,0.75)',
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 11,
+    letterSpacing: 0.5,
+  },
+  detectionOverlay: {
+    position: 'absolute',
+    top: SCREEN_H / 2 - BOX_SIZE / 2,
+    left: SCREEN_W / 2 - BOX_SIZE / 2,
+    width: BOX_SIZE,
+    height: BOX_SIZE,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bracketTL: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: BRACKET_LEN,
+    height: BRACKET_LEN,
+  },
+  bracketTR: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: BRACKET_LEN,
+    height: BRACKET_LEN,
+  },
+  bracketBL: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    width: BRACKET_LEN,
+    height: BRACKET_LEN,
+  },
+  bracketBR: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: BRACKET_LEN,
+    height: BRACKET_LEN,
+  },
+  bracketH: {
+    position: 'absolute',
+    width: BRACKET_LEN,
+    height: BRACKET_THICK,
+    backgroundColor: BRACKET_COLOR,
+    shadowColor: BRACKET_COLOR,
+    shadowOpacity: 0.8,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  bracketV: {
+    position: 'absolute',
+    width: BRACKET_THICK,
+    height: BRACKET_LEN,
+    backgroundColor: BRACKET_COLOR,
+    shadowColor: BRACKET_COLOR,
+    shadowOpacity: 0.8,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  crosshairH: {
+    position: 'absolute',
+    width: 20,
+    height: 1,
+    backgroundColor: BRACKET_COLOR,
+    opacity: 0.7,
+  },
+  crosshairV: {
+    position: 'absolute',
+    width: 1,
+    height: 20,
+    backgroundColor: BRACKET_COLOR,
+    opacity: 0.7,
+  },
+  lockedChip: {
+    position: 'absolute',
+    top: -22,
+    backgroundColor: Colors.gpsGreen,
+    borderRadius: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  lockedText: {
+    color: '#000',
+    fontFamily: 'Inter_700Bold',
+    fontSize: 10,
+    letterSpacing: 1.5,
+  },
+  detectionLabel: {
+    position: 'absolute',
+    bottom: -30,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    borderWidth: 1,
+    borderColor: Colors.gpsGreen,
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  detectionLabelText: {
+    color: Colors.gpsGreen,
+    fontFamily: 'Inter_700Bold',
+    fontSize: 12,
+    letterSpacing: 1,
+  },
+  detectionConfText: {
+    color: 'rgba(255,255,255,0.6)',
+    fontFamily: 'Inter_500Medium',
+    fontSize: 11,
+  },
+  bottomPanel: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    gap: 12,
+  },
+  gpsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  gpsText: {
+    color: Colors.gpsGreen,
+    fontFamily: 'Inter_500Medium',
+    fontSize: 13,
+    letterSpacing: 0.3,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  metaItem: {
+    gap: 2,
+  },
+  metaLabel: {
+    color: 'rgba(255,255,255,0.4)',
+    fontFamily: 'Inter_500Medium',
+    fontSize: 9,
+    letterSpacing: 1,
+  },
+  metaValue: {
+    color: 'rgba(255,255,255,0.85)',
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 12,
+  },
+  metaDivider: {
+    width: 1,
+    height: 28,
+    backgroundColor: 'rgba(255,255,255,0.15)',
   },
 });
