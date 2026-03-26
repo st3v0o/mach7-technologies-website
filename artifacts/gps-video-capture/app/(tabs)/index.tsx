@@ -332,6 +332,19 @@ export default function CaptureScreen() {
   const segmentDurationMsRef = useRef(DEFAULT_SEGMENT_MS);
   const micGrantedRef = useRef(micPermission?.granted ?? false);
 
+  // Auto-request permissions on mount so the user isn't stuck on a gate screen
+  useEffect(() => {
+    if (cameraPermission && !cameraPermission.granted && cameraPermission.status !== 'denied') {
+      requestCameraPermission();
+    }
+  }, [cameraPermission?.status]);
+
+  useEffect(() => {
+    if (micPermission && !micPermission.granted && micPermission.status !== 'denied') {
+      requestMicPermission();
+    }
+  }, [micPermission?.status]);
+
   const [isRecording, setIsRecording] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [currentSegmentMs, setCurrentSegmentMs] = useState(DEFAULT_SEGMENT_MS);
