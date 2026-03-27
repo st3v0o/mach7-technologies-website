@@ -333,7 +333,9 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
 
       const snapshotPoints = [...gpsPointsRef.current];
       const nearest = findNearestGps(timestamp, snapshotPoints);
-      if (!nearest) return;
+      // Save even when GPS hasn't acquired yet — use 0,0 as placeholder
+      const gpsLat = nearest?.latitude ?? 0;
+      const gpsLon = nearest?.longitude ?? 0;
 
       try {
         const FileSystem = await import('expo-file-system/legacy');
@@ -353,8 +355,8 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
           id: Date.now().toString() + Math.random().toString(36).substr(2, 6),
           filename,
           timestamp,
-          latitude: nearest.latitude,
-          longitude: nearest.longitude,
+          latitude: gpsLat,
+          longitude: gpsLon,
           videoSegment: 'detection',
           localPath: destPath,
           videoPath: '',
@@ -363,8 +365,8 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
           detectionConfidence: confidence,
         };
 
-        const lat = nearest.latitude.toFixed(7);
-        const lon = nearest.longitude.toFixed(7);
+        const lat = gpsLat.toFixed(7);
+        const lon = gpsLon.toFixed(7);
         const ts = new Date(timestamp).toISOString();
         const csvRow = `${filename},${ts},${lat},${lon},detection,${destPath},,${sessionIdRef.current},,${label},${confidence.toFixed(3)}\n`;
 

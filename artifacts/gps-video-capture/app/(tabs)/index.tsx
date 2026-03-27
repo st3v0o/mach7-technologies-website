@@ -491,7 +491,7 @@ export default function CaptureScreen() {
     if (Platform.OS === 'web') return;
     try {
       const FileSystem = await import('expo-file-system/legacy');
-      const info = await FileSystem.getInfoAsync(uri, { size: true });
+      const info = await (FileSystem.getInfoAsync as any)(uri, { size: true });
       if (info.exists && 'size' in info && info.size > 0) {
         const bytesPerMs = info.size / actualDurationMs;
         const nextMs = Math.round(TARGET_SEGMENT_BYTES / bytesPerMs);
@@ -522,7 +522,7 @@ export default function CaptureScreen() {
 
       let result: { uri: string } | undefined;
       try {
-        result = await cameraRef.current?.recordAsync({ mute: !micGrantedRef.current });
+        result = await (cameraRef.current as any)?.recordAsync({ mute: !micGrantedRef.current });
       } catch {
         clearTimers();
         break;
@@ -622,8 +622,8 @@ export default function CaptureScreen() {
         </View>
       )}
 
-      {/* Lock-on targeting overlay */}
-      {detectionEnabled && isRecording && (
+      {/* Lock-on targeting overlay — shown in both preview and recording modes */}
+      {detectionEnabled && (
         <LockOnOverlay
           detection={currentDetection}
           screenW={screenW}
