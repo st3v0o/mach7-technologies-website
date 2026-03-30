@@ -123,6 +123,9 @@ export async function runDetection(frameUri: string): Promise<DetectionResult> {
 
     const detections: Detection[] = allPredictions
       .filter((p) => p.confidence >= MIN_CONFIDENCE)
+      // Reject predictions that span most of the image — those are background
+      // regions (e.g. a full lane) rather than individual signs.
+      .filter((p) => (p.width / imgW) < 0.75 && (p.height / imgH) < 0.75)
       .map((p) => ({
         label: p.class ?? 'sign',
         confidence: p.confidence,

@@ -134,18 +134,24 @@ function LockOnOverlay({
   const bbox = detection?.bbox ?? { x: 0.15, y: 0.15, width: 0.7, height: 0.7 };
 
   // Map normalised Roboflow bbox (0–1) → camera view pixels.
-  // We use cameraW×cameraH directly; if the captured photo aspect ratio differs
-  // from the preview the box may shift slightly, but it will always stay on-screen.
-  // Clamp so the box + label never escape the visible camera area.
-  const rawLeft = bbox.x * cameraW;
-  const rawTop  = bbox.y * cameraH;
-  const rawW    = Math.max(bbox.width  * cameraW, 40);
-  const rawH    = Math.max(bbox.height * cameraH, 40);
+  // Cap to 60% of the camera dimension so a full-frame region (e.g. a detected
+  // lane) never fills the whole screen.  When the cap triggers we re-centre the
+  // box on the original detection centre so it still points at the right spot.
+  const MAX_BOX_W = cameraW * 0.60;
+  const MAX_BOX_H = cameraH * 0.60;
 
-  const bW = Math.min(rawW, cameraW);
-  const bH = Math.min(rawH, cameraH);
-  const bLeft = Math.max(0, Math.min(rawLeft, cameraW - bW));
-  const bTop  = Math.max(0, Math.min(rawTop,  cameraH - bH - 50)); // 50 = label chip height
+  const rawW = Math.max(bbox.width  * cameraW, 40);
+  const rawH = Math.max(bbox.height * cameraH, 40);
+  const bW   = Math.min(rawW, MAX_BOX_W);
+  const bH   = Math.min(rawH, MAX_BOX_H);
+
+  // Centre of the original detection in camera pixels
+  const cxPx = (bbox.x + bbox.width  / 2) * cameraW;
+  const cyPx = (bbox.y + bbox.height / 2) * cameraH;
+
+  // Top-left after capping, kept inside the camera area
+  const bLeft = Math.max(0, Math.min(cxPx - bW / 2, cameraW - bW));
+  const bTop  = Math.max(0, Math.min(cyPx - bH / 2, cameraH - bH - 50)); // 50 = label chip
 
   const sweepY = sweepAnim.interpolate({
     inputRange: [0, 1],
