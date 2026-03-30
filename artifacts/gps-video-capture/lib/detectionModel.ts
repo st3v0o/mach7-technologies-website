@@ -27,6 +27,9 @@ export interface Detection {
 export interface DetectionResult {
   detections: Detection[];
   inferenceMs: number;
+  /** Dimensions of the image as processed by Roboflow (used for overlay coordinate mapping) */
+  imageWidth: number;
+  imageHeight: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -67,7 +70,7 @@ export async function runDetection(frameUri: string): Promise<DetectionResult> {
   const version  = process.env.EXPO_PUBLIC_ROBOFLOW_VERSION ?? '1';
 
   if (!apiKey || !workspace || !model) {
-    return { detections: [], inferenceMs: Date.now() - start };
+    return { detections: [], inferenceMs: Date.now() - start, imageWidth: 640, imageHeight: 640 };
   }
 
   try {
@@ -106,13 +109,13 @@ export async function runDetection(frameUri: string): Promise<DetectionResult> {
     console.log('[Detection] HTTP', response.status, rawText.slice(0, 300));
 
     if (!response.ok) {
-      return { detections: [], inferenceMs: Date.now() - start };
+      return { detections: [], inferenceMs: Date.now() - start, imageWidth: 640, imageHeight: 640 };
     }
 
     const data: RoboflowResponse = JSON.parse(rawText);
 
-    const imgW = data.image?.width  ?? 1;
-    const imgH = data.image?.height ?? 1;
+    const imgW = data.image?.width  ?? 640;
+    const imgH = data.image?.height ?? 640;
 
     const allPredictions = data.predictions ?? [];
     console.log('[Detection] raw predictions:', allPredictions.length,
@@ -131,10 +134,10 @@ export async function runDetection(frameUri: string): Promise<DetectionResult> {
         },
       }));
 
-    return { detections, inferenceMs: Date.now() - start };
+    return { detections, inferenceMs: Date.now() - start, imageWidth: imgW, imageHeight: imgH };
   } catch (e) {
     console.log('[Detection] error:', e);
-    return { detections: [], inferenceMs: Date.now() - start };
+    return { detections: [], inferenceMs: Date.now() - start, imageWidth: 640, imageHeight: 640 };
   }
 }
 

@@ -82,12 +82,16 @@ const LOCK_GLOW = 'rgba(0,255,136,0.45)';
 
 function LockOnOverlay({
   detection,
-  screenW,
-  screenH,
+  cameraW,
+  cameraH,
+  imgW,
+  imgH,
 }: {
   detection: Detection | null;
-  screenW: number;
-  screenH: number;
+  cameraW: number;
+  cameraH: number;
+  imgW: number;
+  imgH: number;
 }) {
   const enterAnim = useRef(new Animated.Value(0)).current;
   const sweepAnim = useRef(new Animated.Value(0)).current;
@@ -132,10 +136,22 @@ function LockOnOverlay({
   const scaleInterp = enterAnim.interpolate({ inputRange: [0, 1], outputRange: [1.08, 1] });
 
   const bbox = detection?.bbox ?? { x: 0.15, y: 0.15, width: 0.7, height: 0.7 };
-  const bLeft = bbox.x * screenW;
-  const bTop = bbox.y * screenH;
-  const bW = Math.max(bbox.width * screenW, 40);
-  const bH = Math.max(bbox.height * screenH, 40);
+
+  // Cover-mode transform: map from image-normalised coords → camera preview pixels.
+  // The CameraView fills cameraW×cameraH with resizeMode="cover", so the image is
+  // scaled to fill the larger dimension and cropped on the other axis.
+  const safeImgW = imgW > 0 ? imgW : 640;
+  const safeImgH = imgH > 0 ? imgH : 640;
+  const coverScale = Math.max(cameraW / safeImgW, cameraH / safeImgH);
+  const scaledW = safeImgW * coverScale;
+  const scaledH = safeImgH * coverScale;
+  const offsetX = (scaledW - cameraW) / 2;
+  const offsetY = (scaledH - cameraH) / 2;
+
+  const bLeft = Math.max(0, bbox.x * scaledW - offsetX);
+  const bTop  = Math.max(0, bbox.y * scaledH - offsetY);
+  const bW = Math.max(bbox.width  * scaledW, 40);
+  const bH = Math.max(bbox.height * scaledH, 40);
 
   const sweepY = sweepAnim.interpolate({
     inputRange: [0, 1],
@@ -355,6 +371,10 @@ export default function CaptureScreen() {
   const [apiLastCount, setApiLastCount] = useState(0);
   const hasApiKey = !!process.env.EXPO_PUBLIC_ROBOFLOW_API_KEY;
 
+  // Dimensions of the most-recently-processed detection image (from Roboflow response).
+  // Used by LockOnOverlay to apply a correct cover-mode coordinate transform.
+  const [imgDims, setImgDims] = useState({ w: 640, h: 640 });
+
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const pulseLoop = useRef<Animated.CompositeAnimation | null>(null);
 
@@ -413,6 +433,9 @@ export default function CaptureScreen() {
       setApiCallState('ok');
       setApiLastMs(result.inferenceMs);
       setApiLastCount(result.detections.length);
+      if (result.imageWidth > 0 && result.imageHeight > 0) {
+        setImgDims({ w: result.imageWidth, h: result.imageHeight });
+      }
       reportResultRef.current(result, frameUri);
     } catch (e) {
       console.log('[Detection] segment frame error:', e);
@@ -457,6 +480,9 @@ export default function CaptureScreen() {
           setApiCallState('ok');
           setApiLastMs(result.inferenceMs);
           setApiLastCount(result.detections.length);
+          if (result.imageWidth > 0 && result.imageHeight > 0) {
+            setImgDims({ w: result.imageWidth, h: result.imageHeight });
+          }
           reportResult(result, photo.uri);
         } catch (e) {
           console.log('[Detection] takePicture error:', e);
@@ -626,8 +652,10 @@ export default function CaptureScreen() {
       {detectionEnabled && (
         <LockOnOverlay
           detection={currentDetection}
-          screenW={screenW}
-          screenH={screenH}
+          cameraW={screenW}
+          cameraH={screenH - tabBarHeight}
+          imgW={imgDims.w}
+          imgH={imgDims.h}
         />
       )}
 
