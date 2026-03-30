@@ -34,7 +34,7 @@ interface DetectionContextType {
 const DetectionContext = createContext<DetectionContextType | null>(null);
 
 // After this many milliseconds with no detections, the current event ends.
-const EVENT_TIMEOUT_MS = 2000;
+const EVENT_TIMEOUT_MS = 1200;
 
 export function DetectionProvider({ children }: { children: React.ReactNode }) {
   const [detectionEnabled, setDetectionEnabled] = useState(false);
@@ -94,6 +94,12 @@ export function DetectionProvider({ children }: { children: React.ReactNode }) {
       if (eventTimeoutRef.current) {
         clearTimeout(eventTimeoutRef.current);
         eventTimeoutRef.current = null;
+      }
+
+      // If the detected class changed, commit the previous event immediately
+      // so each distinct sign type generates its own log entry.
+      if (currentEventRef.current && currentEventRef.current.label !== top.label) {
+        commitEvent();
       }
 
       setIsDetecting(true);

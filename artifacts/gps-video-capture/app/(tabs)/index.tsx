@@ -84,14 +84,10 @@ function LockOnOverlay({
   detection,
   cameraW,
   cameraH,
-  imgW,
-  imgH,
 }: {
   detection: Detection | null;
   cameraW: number;
   cameraH: number;
-  imgW: number;
-  imgH: number;
 }) {
   const enterAnim = useRef(new Animated.Value(0)).current;
   const sweepAnim = useRef(new Animated.Value(0)).current;
@@ -137,21 +133,19 @@ function LockOnOverlay({
 
   const bbox = detection?.bbox ?? { x: 0.15, y: 0.15, width: 0.7, height: 0.7 };
 
-  // Cover-mode transform: map from image-normalised coords → camera preview pixels.
-  // The CameraView fills cameraW×cameraH with resizeMode="cover", so the image is
-  // scaled to fill the larger dimension and cropped on the other axis.
-  const safeImgW = imgW > 0 ? imgW : 640;
-  const safeImgH = imgH > 0 ? imgH : 640;
-  const coverScale = Math.max(cameraW / safeImgW, cameraH / safeImgH);
-  const scaledW = safeImgW * coverScale;
-  const scaledH = safeImgH * coverScale;
-  const offsetX = (scaledW - cameraW) / 2;
-  const offsetY = (scaledH - cameraH) / 2;
+  // Map normalised Roboflow bbox (0–1) → camera view pixels.
+  // We use cameraW×cameraH directly; if the captured photo aspect ratio differs
+  // from the preview the box may shift slightly, but it will always stay on-screen.
+  // Clamp so the box + label never escape the visible camera area.
+  const rawLeft = bbox.x * cameraW;
+  const rawTop  = bbox.y * cameraH;
+  const rawW    = Math.max(bbox.width  * cameraW, 40);
+  const rawH    = Math.max(bbox.height * cameraH, 40);
 
-  const bLeft = Math.max(0, bbox.x * scaledW - offsetX);
-  const bTop  = Math.max(0, bbox.y * scaledH - offsetY);
-  const bW = Math.max(bbox.width  * scaledW, 40);
-  const bH = Math.max(bbox.height * scaledH, 40);
+  const bW = Math.min(rawW, cameraW);
+  const bH = Math.min(rawH, cameraH);
+  const bLeft = Math.max(0, Math.min(rawLeft, cameraW - bW));
+  const bTop  = Math.max(0, Math.min(rawTop,  cameraH - bH - 50)); // 50 = label chip height
 
   const sweepY = sweepAnim.interpolate({
     inputRange: [0, 1],
@@ -371,10 +365,6 @@ export default function CaptureScreen() {
   const [apiLastCount, setApiLastCount] = useState(0);
   const hasApiKey = !!process.env.EXPO_PUBLIC_ROBOFLOW_API_KEY;
 
-  // Dimensions of the most-recently-processed detection image (from Roboflow response).
-  // Used by LockOnOverlay to apply a correct cover-mode coordinate transform.
-  const [imgDims, setImgDims] = useState({ w: 640, h: 640 });
-
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const pulseLoop = useRef<Animated.CompositeAnimation | null>(null);
 
@@ -433,9 +423,6 @@ export default function CaptureScreen() {
       setApiCallState('ok');
       setApiLastMs(result.inferenceMs);
       setApiLastCount(result.detections.length);
-      if (result.imageWidth > 0 && result.imageHeight > 0) {
-        setImgDims({ w: result.imageWidth, h: result.imageHeight });
-      }
       reportResultRef.current(result, frameUri);
     } catch (e) {
       console.log('[Detection] segment frame error:', e);
@@ -480,9 +467,6 @@ export default function CaptureScreen() {
           setApiCallState('ok');
           setApiLastMs(result.inferenceMs);
           setApiLastCount(result.detections.length);
-          if (result.imageWidth > 0 && result.imageHeight > 0) {
-            setImgDims({ w: result.imageWidth, h: result.imageHeight });
-          }
           reportResult(result, photo.uri);
         } catch (e) {
           console.log('[Detection] takePicture error:', e);
@@ -646,17 +630,6 @@ export default function CaptureScreen() {
           <Ionicons name="videocam" size={64} color={Colors.textTertiary} />
           <Text style={styles.webText}>Camera preview unavailable on web</Text>
         </View>
-      )}
-
-      {/* Lock-on targeting overlay — shown in both preview and recording modes */}
-      {detectionEnabled && (
-        <LockOnOverlay
-          detection={currentDetection}
-          cameraW={screenW}
-          cameraH={screenH - tabBarHeight}
-          imgW={imgDims.w}
-          imgH={imgDims.h}
-        />
       )}
 
       <View style={[styles.topOverlay, { paddingTop: insets.top + 4 }]}>
@@ -852,6 +825,15 @@ export default function CaptureScreen() {
           </View>
         </BlurView>
       </View>
+
+      {/* Lock-on targeting overlay — rendered last so it always sits on top */}
+      {detectionEnabled && (
+        <LockOnOverlay
+          detection={currentDetection}
+          cameraW={screenW}
+          cameraH={screenH - tabBarHeight}
+        />
+      )}
     </View>
   );
 }
