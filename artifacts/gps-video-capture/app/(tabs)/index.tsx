@@ -29,6 +29,13 @@ const DEFAULT_SEGMENT_MS = 90_000;              // initial guess before bitrate 
 const MIN_SEGMENT_MS = 30_000;
 const MAX_SEGMENT_MS = 300_000;
 
+const ZOOM_STEPS = [
+  { label: '1×', value: 0.0 },
+  { label: '2×', value: 0.25 },
+  { label: '4×', value: 0.55 },
+  { label: '8×', value: 1.0 },
+] as const;
+
 function formatTime(seconds: number): string {
   const m = Math.floor(seconds / 60);
   const s = seconds % 60;
@@ -351,6 +358,7 @@ export default function CaptureScreen() {
 
   // ── Zoom ──────────────────────────────────────────────────────────────────
   const [zoom, setZoom] = useState(0);
+  const [activeStepIdx, setActiveStepIdx] = useState(0); // which preset button is lit
   const zoomRef = useRef(0);
   const zoomBaseRef = useRef(0);
   const zoomPillOpacity = useRef(new Animated.Value(0)).current;
@@ -364,15 +372,28 @@ export default function CaptureScreen() {
     }, 1500);
   }, [zoomPillOpacity]);
 
+  // Used by pinch — clears button highlight when between steps
   const applyZoom = useCallback((val: number) => {
     zoomRef.current = val;
     setZoom(val);
+    setActiveStepIdx(-1);
     showZoomPill();
+  }, [showZoomPill]);
+
+  // Used by preset buttons
+  const applyZoomStep = useCallback((idx: number) => {
+    const step = ZOOM_STEPS[idx];
+    zoomRef.current = step.value;
+    setZoom(step.value);
+    setActiveStepIdx(idx);
+    showZoomPill();
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   }, [showZoomPill]);
 
   const resetZoom = useCallback(() => {
     zoomRef.current = 0;
     setZoom(0);
+    setActiveStepIdx(0);
     showZoomPill();
   }, [showZoomPill]);
 
@@ -388,6 +409,11 @@ export default function CaptureScreen() {
     .onEnd(() => { runOnJS(resetZoom)(); });
 
   const cameraGesture = Gesture.Simultaneous(pinchGesture, doubleTap);
+
+  // Derive display label for pill — show preset label if on a step, else calculated
+  const zoomPillLabel = activeStepIdx >= 0
+    ? ZOOM_STEPS[activeStepIdx].label
+    : `${(1 + zoom * 4).toFixed(1)}×`;
   // ─────────────────────────────────────────────────────────────────────────
 
   const isRecordingRef = useRef(false);
@@ -789,6 +815,27 @@ export default function CaptureScreen() {
             </View>
           )}
 
+          <View style={styles.zoomStepRow}>
+            {ZOOM_STEPS.map((step, idx) => (
+              <Pressable
+                key={step.label}
+                onPress={() => applyZoomStep(idx)}
+                style={({ pressed }) => [
+                  styles.zoomStepBtn,
+                  activeStepIdx === idx && styles.zoomStepBtnActive,
+                  pressed && { opacity: 0.7 },
+                ]}
+              >
+                <Text style={[
+                  styles.zoomStepText,
+                  activeStepIdx === idx && styles.zoomStepTextActive,
+                ]}>
+                  {step.label}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+
           <View style={styles.controlsRow}>
             <View style={styles.controlSide}>
               {isRecording ? (
@@ -905,9 +952,7 @@ export default function CaptureScreen() {
         style={[styles.zoomPill, { opacity: zoomPillOpacity }]}
         pointerEvents="none"
       >
-        <Text style={styles.zoomPillText}>
-          {(1 + zoom * 4).toFixed(1)}×
-        </Text>
+        <Text style={styles.zoomPillText}>{zoomPillLabel}</Text>
       </Animated.View>
 
       {/* Session complete — upload progress modal */}
@@ -1271,6 +1316,35 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_400Regular',
     fontSize: 10,
     letterSpacing: 0.3,
+  },
+  zoomStepRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 4,
+  },
+  zoomStepBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+  },
+  zoomStepBtnActive: {
+    backgroundColor: '#fff',
+    borderColor: '#fff',
+  },
+  zoomStepText: {
+    color: 'rgba(255,255,255,0.7)',
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 14,
+    letterSpacing: 0.3,
+  },
+  zoomStepTextActive: {
+    color: '#000',
   },
   zoomPill: {
     position: 'absolute',
