@@ -18,6 +18,7 @@ import { runOnJS } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import Colors from '@/constants/colors';
+import UploadProgressModal from '@/components/UploadProgressModal';
 import { useDetection } from '@/contexts/DetectionContext';
 import { useRecording } from '@/contexts/RecordingContext';
 import { FEET_PER_METER, MPH_PER_MPS, useSettings } from '@/contexts/SettingsContext';
@@ -332,11 +333,15 @@ export default function CaptureScreen() {
     processingProgress,
     totalFrames,
     segmentCount,
+    sessionId,
     startGps,
     stopGps,
     processSegment,
     saveDetectionFrame,
   } = useRecording();
+
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const prevIsRecording = useRef(false);
 
   const { settings } = useSettings();
   const settingsRef = useRef(settings);
@@ -408,6 +413,14 @@ export default function CaptureScreen() {
   const [isRecording, setIsRecording] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [currentSegmentMs, setCurrentSegmentMs] = useState(DEFAULT_SEGMENT_MS);
+
+  // Show upload modal when recording stops
+  useEffect(() => {
+    if (prevIsRecording.current && !isRecording) {
+      setShowUploadModal(true);
+    }
+    prevIsRecording.current = isRecording;
+  }, [isRecording]);
 
   type ApiCallState = 'idle' | 'calling' | 'ok' | 'err' | 'nokey';
   const [apiCallState, setApiCallState] = useState<ApiCallState>('idle');
@@ -896,6 +909,13 @@ export default function CaptureScreen() {
           {(1 + zoom * 4).toFixed(1)}×
         </Text>
       </Animated.View>
+
+      {/* Session complete — upload progress modal */}
+      <UploadProgressModal
+        visible={showUploadModal}
+        sessionId={sessionId}
+        onClose={() => setShowUploadModal(false)}
+      />
     </View>
     </GestureDetector>
   );

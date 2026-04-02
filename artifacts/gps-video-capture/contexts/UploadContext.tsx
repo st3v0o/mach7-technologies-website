@@ -28,6 +28,12 @@ export interface UploadQueueItem {
   supabaseUrl?: string;
 }
 
+export interface UploadLog {
+  time: number;
+  level: 'info' | 'error';
+  message: string;
+}
+
 interface UploadContextType {
   supabaseConfigured: boolean;
   isOnline: boolean;
@@ -37,9 +43,11 @@ interface UploadContextType {
   isProcessing: boolean;
   queue: UploadQueueItem[];
   queueLoaded: boolean;
+  uploadLogs: UploadLog[];
   enqueueFrames: (entries: LogEntry[]) => void;
   retryFailed: () => void;
   clearQueue: () => void;
+  clearLogs: () => void;
   getItemStatus: (id: string) => UploadStatus | null;
   getItemUrl: (id: string) => string | undefined;
 }
@@ -102,8 +110,17 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
   const [isOnline, setIsOnline] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [queueLoaded, setQueueLoaded] = useState(false);
+  const [uploadLogs, setUploadLogs] = useState<UploadLog[]>([]);
   const processingRef = useRef(false);
   const queueRef = useRef<UploadQueueItem[]>([]);
+
+  const appendLog = useCallback((level: 'info' | 'error', message: string) => {
+    setUploadLogs((prev) => [...prev, { time: Date.now(), level, message }]);
+  }, []);
+
+  const clearLogs = useCallback(() => {
+    setUploadLogs([]);
+  }, []);
 
   useEffect(() => {
     queueRef.current = queue;
@@ -185,7 +202,8 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
               : i
           )
         );
-      } catch {
+        appendLog('info', `✓ ${pendingItem.filename}`);
+      } catch (err: unknown) {
         const nextRetries = pendingItem.retries + 1;
         const nextStatus: UploadStatus = nextRetries >= MAX_RETRIES ? 'failed' : 'pending';
         updateQueue((prev) =>
@@ -195,12 +213,14 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
               : i
           )
         );
+        const msg = err instanceof Error ? err.message : String(err);
+        appendLog('error', `✗ ${pendingItem.filename}: ${msg}`);
       }
     }
 
     processingRef.current = false;
     setIsProcessing(false);
-  }, [isOnline, updateQueue]);
+  }, [isOnline, updateQueue, appendLog]);
 
   useEffect(() => {
     if (isOnline && SUPABASE_CONFIGURED && queue.some((i) => i.status === 'pending')) {
@@ -275,9 +295,11 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
         isProcessing,
         queue,
         queueLoaded,
+        uploadLogs,
         enqueueFrames,
         retryFailed,
         clearQueue,
+        clearLogs,
         getItemStatus,
         getItemUrl,
       }}
