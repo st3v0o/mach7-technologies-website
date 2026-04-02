@@ -79,10 +79,21 @@ async function uploadFrameToSupabase(item: UploadQueueItem): Promise<string> {
     .from(STORAGE_BUCKET)
     .upload(storagePath, bytes, {
       contentType: 'image/jpeg',
-      upsert: true,
+      upsert: false,
     });
 
-  if (uploadError) throw new Error(`[storage] ${uploadError.message}`);
+  // If the file already exists (from a previous partial attempt), that's fine —
+  // continue to the DB insert step so the record gets written.
+  const alreadyExists =
+    uploadError &&
+    (uploadError.message?.toLowerCase().includes('already exists') ||
+      (uploadError as any)?.statusCode === 409 ||
+      (uploadError as any)?.statusCode === '409' ||
+      (uploadError as any)?.error === 'Duplicate');
+
+  if (uploadError && !alreadyExists) {
+    throw new Error(`[storage] ${uploadError.message}`);
+  }
 
   const { data: urlData } = client.storage
     .from(STORAGE_BUCKET)
