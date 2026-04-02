@@ -13,6 +13,8 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { runOnJS } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import Colors from '@/constants/colors';
@@ -341,6 +343,48 @@ export default function CaptureScreen() {
   useEffect(() => { settingsRef.current = settings; }, [settings]);
 
   const cameraRef = useRef<CameraView>(null);
+
+  // ── Zoom ──────────────────────────────────────────────────────────────────
+  const [zoom, setZoom] = useState(0);
+  const zoomRef = useRef(0);
+  const zoomBaseRef = useRef(0);
+  const zoomPillOpacity = useRef(new Animated.Value(0)).current;
+  const zoomHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showZoomPill = useCallback(() => {
+    if (zoomHideTimer.current) clearTimeout(zoomHideTimer.current);
+    Animated.timing(zoomPillOpacity, { toValue: 1, duration: 120, useNativeDriver: true }).start();
+    zoomHideTimer.current = setTimeout(() => {
+      Animated.timing(zoomPillOpacity, { toValue: 0, duration: 500, useNativeDriver: true }).start();
+    }, 1500);
+  }, [zoomPillOpacity]);
+
+  const applyZoom = useCallback((val: number) => {
+    zoomRef.current = val;
+    setZoom(val);
+    showZoomPill();
+  }, [showZoomPill]);
+
+  const resetZoom = useCallback(() => {
+    zoomRef.current = 0;
+    setZoom(0);
+    showZoomPill();
+  }, [showZoomPill]);
+
+  const pinchGesture = Gesture.Pinch()
+    .onStart(() => { zoomBaseRef.current = zoomRef.current; })
+    .onUpdate((e) => {
+      const next = Math.max(0, Math.min(1, zoomBaseRef.current + (e.scale - 1) * 0.35));
+      runOnJS(applyZoom)(next);
+    });
+
+  const doubleTap = Gesture.Tap()
+    .numberOfTaps(2)
+    .onEnd(() => { runOnJS(resetZoom)(); });
+
+  const cameraGesture = Gesture.Simultaneous(pinchGesture, doubleTap);
+  // ─────────────────────────────────────────────────────────────────────────
+
   const isRecordingRef = useRef(false);
   const segmentTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const elapsedIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -623,6 +667,7 @@ export default function CaptureScreen() {
   }
 
   return (
+    <GestureDetector gesture={cameraGesture}>
     <View style={styles.container}>
       {Platform.OS !== 'web' ? (
         <CameraView
@@ -630,6 +675,7 @@ export default function CaptureScreen() {
           style={StyleSheet.absoluteFill}
           facing="back"
           mode="video"
+          zoom={zoom}
         />
       ) : (
         <View style={[StyleSheet.absoluteFill, styles.webPlaceholder]}>
@@ -840,7 +886,18 @@ export default function CaptureScreen() {
           cameraH={screenH - tabBarHeight}
         />
       )}
+
+      {/* Zoom level pill */}
+      <Animated.View
+        style={[styles.zoomPill, { opacity: zoomPillOpacity }]}
+        pointerEvents="none"
+      >
+        <Text style={styles.zoomPillText}>
+          {(1 + zoom * 4).toFixed(1)}×
+        </Text>
+      </Animated.View>
     </View>
+    </GestureDetector>
   );
 }
 
@@ -1194,5 +1251,23 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_400Regular',
     fontSize: 10,
     letterSpacing: 0.3,
+  },
+  zoomPill: {
+    position: 'absolute',
+    alignSelf: 'center',
+    top: '42%',
+    backgroundColor: 'rgba(0,0,0,0.62)',
+    borderRadius: 22,
+    paddingHorizontal: 22,
+    paddingVertical: 9,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.18)',
+  },
+  zoomPillText: {
+    color: '#fff',
+    fontFamily: 'Inter_700Bold',
+    fontSize: 22,
+    letterSpacing: 0.5,
+    textAlign: 'center',
   },
 });
