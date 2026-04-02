@@ -82,7 +82,7 @@ async function uploadFrameToSupabase(item: UploadQueueItem): Promise<string> {
       upsert: true,
     });
 
-  if (uploadError) throw uploadError;
+  if (uploadError) throw new Error(`[storage] ${uploadError.message}`);
 
   const { data: urlData } = client.storage
     .from(STORAGE_BUCKET)
@@ -100,7 +100,7 @@ async function uploadFrameToSupabase(item: UploadQueueItem): Promise<string> {
     segment_name: item.segmentName,
   });
 
-  if (dbError) throw dbError;
+  if (dbError) throw new Error(`[db] ${dbError.message}`);
 
   return publicUrl;
 }
