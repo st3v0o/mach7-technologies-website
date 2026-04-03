@@ -8,6 +8,7 @@ import React, {
 } from 'react';
 
 export interface FrameSettings {
+  captureMode: 'video' | 'photo';
   frameMode: 'fixed' | 'dynamic';
   fixedFps: number;
   dynamicMeters: number;
@@ -35,6 +36,7 @@ export function feetToMeters(ft: number): number {
 }
 
 export const DEFAULT_SETTINGS: FrameSettings = {
+  captureMode: 'video',
   frameMode: 'fixed',
   fixedFps: 1,
   dynamicMeters: feetToMeters(50),

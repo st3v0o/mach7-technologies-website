@@ -59,6 +59,11 @@ interface RecordingContextType {
     frameSettings: FrameSettings,
     onFrameReady?: (frameUri: string, timestamp: number) => void
   ) => Promise<void>;
+  savePhoto: (
+    uri: string,
+    timestamp: number,
+    onFrameReady?: (frameUri: string, timestamp: number) => void
+  ) => Promise<void>;
   saveDetectionFrame: (uri: string, timestamp: number, label: string, confidence: number) => Promise<void>;
   updateFrameUrl: (id: string, url: string) => Promise<void>;
   shareLog: () => Promise<void>;
@@ -327,6 +332,69 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
     []
   );
 
+  const photoIndexRef = useRef(0);
+
+  const savePhoto = useCallback(
+    async (
+      uri: string,
+      timestamp: number,
+      onFrameReady?: (frameUri: string, timestamp: number) => void
+    ) => {
+      if (Platform.OS === 'web') return;
+
+      const snapshotPoints = [...gpsPointsRef.current];
+      const nearest = findNearestGps(timestamp, snapshotPoints);
+
+      try {
+        const FileSystem = await import('expo-file-system/legacy');
+
+        if (!nativePathsRef.current) {
+          nativePathsRef.current = await getOrCreatePaths();
+        }
+        const { framesDir, csvPath } = nativePathsRef.current;
+
+        const idx = photoIndexRef.current++;
+        const filename = `photo_${String(idx).padStart(5, '0')}_${timestamp}.jpg`;
+        const destPath = framesDir + filename;
+
+        await FileSystem.copyAsync({ from: uri, to: destPath });
+
+        if (onFrameReady) onFrameReady(destPath, timestamp);
+
+        const gpsLat = nearest?.latitude ?? 0;
+        const gpsLon = nearest?.longitude ?? 0;
+
+        const entry: LogEntry = {
+          id: Date.now().toString() + Math.random().toString(36).substr(2, 6),
+          filename,
+          timestamp,
+          latitude: gpsLat,
+          longitude: gpsLon,
+          videoSegment: 'photo',
+          localPath: destPath,
+          videoPath: '',
+          sessionId: sessionIdRef.current,
+        };
+
+        const lat = gpsLat.toFixed(7);
+        const lon = gpsLon.toFixed(7);
+        const ts = new Date(timestamp).toISOString();
+        const csvRow = `${filename},${ts},${lat},${lon},photo,${destPath},,${sessionIdRef.current},,\n`;
+
+        const existing = await FileSystem.readAsStringAsync(csvPath).catch(() => CSV_HEADER);
+        await FileSystem.writeAsStringAsync(csvPath, existing + csvRow);
+
+        setLogEntries((prev) => {
+          const updated = [...prev, entry];
+          saveLog(updated);
+          return updated;
+        });
+        setTotalFrames((n) => n + 1);
+      } catch {}
+    },
+    []
+  );
+
   const saveDetectionFrame = useCallback(
     async (uri: string, timestamp: number, label: string, confidence: number) => {
       if (Platform.OS === 'web') return;
@@ -466,6 +534,7 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
         startGps,
         stopGps,
         processSegment,
+        savePhoto,
         saveDetectionFrame,
         updateFrameUrl,
         shareLog,

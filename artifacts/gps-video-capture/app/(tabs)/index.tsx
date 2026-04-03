@@ -341,9 +341,11 @@ export default function CaptureScreen() {
     totalFrames,
     segmentCount,
     sessionId,
+    gpsPointsRef,
     startGps,
     stopGps,
     processSegment,
+    savePhoto,
     saveDetectionFrame,
   } = useRecording();
 
@@ -423,6 +425,14 @@ export default function CaptureScreen() {
   const currentSegNumRef = useRef(0);
   const segmentDurationMsRef = useRef(DEFAULT_SEGMENT_MS);
   const micGrantedRef = useRef(micPermission?.granted ?? false);
+
+  // ── Photo mode refs ───────────────────────────────────────────────────────
+  const [photoCount, setPhotoCount] = useState(0);
+  const photoIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const photoCapturingRef = useRef(false);
+  const photoDistAccumRef = useRef(0);
+  const photoLastTickRef = useRef(0);
+  // ─────────────────────────────────────────────────────────────────────────
 
   // Auto-request permissions on mount so the user isn't stuck on a gate screen
   useEffect(() => {
@@ -585,6 +595,62 @@ export default function CaptureScreen() {
     elapsedIntervalRef.current = null;
   }, []);
 
+  // ── Photo capture loop ────────────────────────────────────────────────────
+  const takeOnePhoto = useCallback(async () => {
+    if (!isRecordingRef.current || photoCapturingRef.current) return;
+    if (!cameraRef.current) return;
+    photoCapturingRef.current = true;
+    try {
+      const photo = await (cameraRef.current as any).takePictureAsync({ quality: 0.85 });
+      if (photo?.uri) {
+        const ts = Date.now();
+        await savePhoto(photo.uri, ts, onSegmentFrameReady);
+        setPhotoCount((n) => n + 1);
+      }
+    } catch {}
+    photoCapturingRef.current = false;
+  }, [savePhoto, onSegmentFrameReady]);
+
+  const startPhotoLoop = useCallback(() => {
+    photoCapturingRef.current = false;
+    photoDistAccumRef.current = 0;
+    photoLastTickRef.current = Date.now();
+    setPhotoCount(0);
+
+    const mode = settingsRef.current.frameMode;
+
+    if (mode === 'fixed') {
+      const intervalMs = Math.round(1000 / settingsRef.current.fixedFps);
+      photoIntervalRef.current = setInterval(() => { takeOnePhoto(); }, intervalMs);
+    } else {
+      // Dynamic: poll every 500 ms, fire when distance threshold crossed
+      photoIntervalRef.current = setInterval(() => {
+        if (!isRecordingRef.current) return;
+        const now = Date.now();
+        const elapsedSec = (now - photoLastTickRef.current) / 1000;
+        photoLastTickRef.current = now;
+
+        const pts = gpsPointsRef.current;
+        let speed = 0;
+        if (pts.length > 0) speed = pts[pts.length - 1].speed ?? 0;
+        photoDistAccumRef.current += speed * elapsedSec;
+
+        if (photoDistAccumRef.current >= settingsRef.current.dynamicMeters) {
+          photoDistAccumRef.current = 0;
+          takeOnePhoto();
+        }
+      }, 500);
+    }
+  }, [takeOnePhoto, gpsPointsRef]);
+
+  const stopPhotoLoop = useCallback(() => {
+    if (photoIntervalRef.current) {
+      clearInterval(photoIntervalRef.current);
+      photoIntervalRef.current = null;
+    }
+  }, []);
+  // ─────────────────────────────────────────────────────────────────────────
+
   // After a segment saves, measure its actual size and adapt the duration for the
   // next segment so we target ~250 MB per chunk (instead of a fixed time guess).
   const adaptSegmentDuration = useCallback(async (uri: string, actualDurationMs: number) => {
@@ -650,28 +716,42 @@ export default function CaptureScreen() {
   }, [clearTimers, processSegment, adaptSegmentDuration, onSegmentFrameReady]);
 
   const handleStartRecording = useCallback(async () => {
-    // Ensure mic permission is resolved before recording; fall back to muted if denied
-    if (!micPermission?.granted) {
-      const result = await requestMicPermission();
-      micGrantedRef.current = result.granted;
-    } else {
-      micGrantedRef.current = true;
-    }
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     isRecordingRef.current = true;
     setIsRecording(true);
-    currentSegNumRef.current = segmentCount;
-    startGps(); // start in parallel — recording does not wait for GPS lock
-    runRecordingLoop();
-  }, [micPermission, requestMicPermission, startGps, runRecordingLoop, segmentCount]);
+    startGps();
+
+    if (settingsRef.current.captureMode === 'photo') {
+      setElapsedSeconds(0);
+      elapsedIntervalRef.current = setInterval(() => {
+        setElapsedSeconds((s) => s + 1);
+      }, 1000);
+      startPhotoLoop();
+    } else {
+      if (!micPermission?.granted) {
+        const result = await requestMicPermission();
+        micGrantedRef.current = result.granted;
+      } else {
+        micGrantedRef.current = true;
+      }
+      currentSegNumRef.current = segmentCount;
+      runRecordingLoop();
+    }
+  }, [micPermission, requestMicPermission, startGps, runRecordingLoop, startPhotoLoop, segmentCount]);
 
   const handleStopRecording = useCallback(async () => {
     await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     isRecordingRef.current = false;
     clearTimers();
-    cameraRef.current?.stopRecording();
+    if (settingsRef.current.captureMode === 'photo') {
+      stopPhotoLoop();
+      setIsRecording(false);
+      setElapsedSeconds(0);
+    } else {
+      cameraRef.current?.stopRecording();
+    }
     stopGps();
-  }, [clearTimers, stopGps]);
+  }, [clearTimers, stopPhotoLoop, stopGps]);
 
   const segmentProgress = Math.min(elapsedSeconds / (currentSegmentMs / 1000), 1);
   // fraction of segment elapsed × 250 MB target
@@ -714,7 +794,7 @@ export default function CaptureScreen() {
           ref={cameraRef}
           style={StyleSheet.absoluteFill}
           facing="back"
-          mode="video"
+          mode={settings.captureMode === 'photo' ? 'picture' : 'video'}
           zoom={zoom}
           autoFocus={settings.lockFocusAtInfinity ? 'off' : 'on'}
         />
@@ -775,7 +855,33 @@ export default function CaptureScreen() {
 
       <View style={[styles.bottomOverlay, { paddingBottom: tabBarHeight + 12 }]}>
         <BlurView intensity={60} tint="dark" style={styles.bottomBlur}>
-          {isRecording && (
+          {isRecording && settings.captureMode === 'photo' && (
+            <View style={styles.segmentInfoRow}>
+              <View style={styles.segInfoItem}>
+                <Text style={styles.segLabel}>MODE</Text>
+                <Text style={styles.segValue}>PHOTO</Text>
+              </View>
+              <View style={styles.segInfoDivider} />
+              <View style={styles.segInfoItem}>
+                <Text style={styles.segLabel}>ELAPSED</Text>
+                <Text style={styles.segValue}>{formatTime(elapsedSeconds)}</Text>
+              </View>
+              <View style={styles.segInfoDivider} />
+              <View style={styles.segInfoItem}>
+                <Text style={styles.segLabel}>RATE</Text>
+                <Text style={styles.segValue}>
+                  {rateLabel(settings.frameMode, settings.fixedFps, settings.dynamicMeters, currentGps?.speed)}
+                </Text>
+              </View>
+              <View style={styles.segInfoDivider} />
+              <View style={styles.segInfoItem}>
+                <Text style={styles.segLabel}>PHOTOS</Text>
+                <Text style={styles.segValue}>{photoCount}</Text>
+              </View>
+            </View>
+          )}
+
+          {isRecording && settings.captureMode === 'video' && (
             <View style={styles.segmentInfoRow}>
               <View style={styles.segInfoItem}>
                 <Text style={styles.segLabel}>SEGMENT</Text>
@@ -806,7 +912,7 @@ export default function CaptureScreen() {
             </View>
           )}
 
-          {isRecording && (
+          {isRecording && settings.captureMode === 'video' && (
             <View style={styles.progressBarContainer}>
               <View
                 style={[
@@ -933,7 +1039,9 @@ export default function CaptureScreen() {
               </View>
             ) : (
               <Text style={styles.hintText}>
-                Auto-saves every ~250 MB · frames tagged with GPS
+                {settings.captureMode === 'photo'
+                  ? 'Photos saved directly · GPS tagged'
+                  : 'Auto-saves every ~250 MB · frames tagged with GPS'}
               </Text>
             )}
           </View>

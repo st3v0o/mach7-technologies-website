@@ -121,6 +121,26 @@ export default function SettingsScreen() {
       </View>
 
       <View style={styles.section}>
+        <Text style={styles.sectionTitle}>CAPTURE MODE</Text>
+        <View style={styles.modeRow}>
+          <ModeButton
+            label="Video"
+            icon="videocam-outline"
+            description="Record + extract frames"
+            selected={settings.captureMode === 'video'}
+            onPress={() => updateSettings({ captureMode: 'video' })}
+          />
+          <ModeButton
+            label="Photo"
+            icon="camera-outline"
+            description="Direct photo capture"
+            selected={settings.captureMode === 'photo'}
+            onPress={() => updateSettings({ captureMode: 'photo' })}
+          />
+        </View>
+      </View>
+
+      <View style={styles.section}>
         <Text style={styles.sectionTitle}>EXTRACTION MODE</Text>
 
         <View style={styles.modeRow}>
