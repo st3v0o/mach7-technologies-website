@@ -416,20 +416,6 @@ export default function CaptureScreen() {
     : `${(1 + zoom * 4).toFixed(1)}×`;
   // ─────────────────────────────────────────────────────────────────────────
 
-  // ── Infinity focus lock ───────────────────────────────────────────────────
-  // Focuses on the top-centre of the frame (horizon) and holds it there so
-  // the autofocus doesn't snap to the dashboard or other close objects.
-  const applyFocusLock = useCallback(() => {
-    if (Platform.OS !== 'web' && settingsRef.current.lockFocusAtInfinity) {
-      (cameraRef.current as any)?.focus({ x: 0.5, y: 0.05 });
-    }
-  }, []);
-
-  // Re-apply whenever the toggle changes while the camera is live
-  useEffect(() => {
-    applyFocusLock();
-  }, [settings.lockFocusAtInfinity, applyFocusLock]);
-  // ─────────────────────────────────────────────────────────────────────────
 
   const isRecordingRef = useRef(false);
   const segmentTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -730,7 +716,7 @@ export default function CaptureScreen() {
           facing="back"
           mode="video"
           zoom={zoom}
-          onCameraReady={applyFocusLock}
+          autoFocus={settings.lockFocusAtInfinity ? 'off' : 'on'}
         />
       ) : (
         <View style={[StyleSheet.absoluteFill, styles.webPlaceholder]}>
