@@ -11,6 +11,7 @@ export interface FrameSettings {
   frameMode: 'fixed' | 'dynamic';
   fixedFps: number;
   dynamicMeters: number;
+  lockFocusAtInfinity: boolean;
 }
 
 interface SettingsContextType {
@@ -39,6 +40,7 @@ export const DEFAULT_SETTINGS: FrameSettings = {
   frameMode: 'fixed',
   fixedFps: 1,
   dynamicMeters: feetToMeters(50),
+  lockFocusAtInfinity: false,
 };
 
 export const FIXED_FPS_OPTIONS = [0.25, 0.5, 1, 2, 4];

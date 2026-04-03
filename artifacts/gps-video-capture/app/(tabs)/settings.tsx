@@ -197,6 +197,35 @@ export default function SettingsScreen() {
       )}
 
       <View style={styles.section}>
+        <Text style={styles.sectionTitle}>CAMERA</Text>
+        <View style={styles.card}>
+          <Pressable
+            style={({ pressed }) => [styles.toggleRow, pressed && { opacity: 0.75 }]}
+            onPress={() => updateSettings({ lockFocusAtInfinity: !settings.lockFocusAtInfinity })}
+          >
+            <View style={styles.toggleLeft}>
+              <Ionicons
+                name="infinite-outline"
+                size={20}
+                color={settings.lockFocusAtInfinity ? Colors.blue : Colors.textSecondary}
+              />
+              <View style={styles.toggleText}>
+                <Text style={[styles.toggleLabel, settings.lockFocusAtInfinity && { color: Colors.blue }]}>
+                  Lock Focus at Infinity
+                </Text>
+                <Text style={styles.toggleDesc}>
+                  Prevents autofocus from locking onto the dashboard or other nearby objects
+                </Text>
+              </View>
+            </View>
+            <View style={[styles.toggleSwitch, settings.lockFocusAtInfinity && styles.toggleSwitchOn]}>
+              <View style={[styles.toggleThumb, settings.lockFocusAtInfinity && styles.toggleThumbOn]} />
+            </View>
+          </Pressable>
+        </View>
+      </View>
+
+      <View style={styles.section}>
         <View style={styles.infoCard}>
           <View style={styles.infoHeader}>
             <Ionicons name="navigate-outline" size={18} color={Colors.blue} />
@@ -394,5 +423,57 @@ const styles = StyleSheet.create({
     color: Colors.blue,
     fontFamily: 'Inter_400Regular',
     fontSize: 11,
+  },
+  toggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 14,
+    gap: 12,
+  },
+  toggleLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  toggleText: {
+    flex: 1,
+    gap: 2,
+  },
+  toggleLabel: {
+    color: Colors.textSecondary,
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 14,
+  },
+  toggleDesc: {
+    color: Colors.textTertiary,
+    fontFamily: 'Inter_400Regular',
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  toggleSwitch: {
+    width: 44,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    justifyContent: 'center',
+    paddingHorizontal: 3,
+  },
+  toggleSwitchOn: {
+    backgroundColor: Colors.blue,
+    borderColor: Colors.blue,
+  },
+  toggleThumb: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: Colors.textTertiary,
+  },
+  toggleThumbOn: {
+    backgroundColor: '#fff',
+    alignSelf: 'flex-end',
   },
 });
