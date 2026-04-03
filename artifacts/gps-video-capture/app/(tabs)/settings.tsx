@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import Slider from '@react-native-community/slider';
 import React from 'react';
 import {
   Platform,
@@ -12,10 +13,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import Colors from '@/constants/colors';
 import {
-  DYNAMIC_FEET_LABELS,
-  DYNAMIC_METERS_OPTIONS,
+  DYNAMIC_FEET_MAX,
+  DYNAMIC_FEET_MIN,
   FIXED_FPS_OPTIONS,
   MPH_PER_MPS,
+  feetToMeters,
   metersToFeet,
   useSettings,
 } from '@/contexts/SettingsContext';
@@ -83,22 +85,11 @@ function ModeButton({
   );
 }
 
-function selectedFeetIndex(dynamicMeters: number): number {
-  let closest = 0;
-  let minDiff = Infinity;
-  DYNAMIC_METERS_OPTIONS.forEach((m, i) => {
-    const diff = Math.abs(m - dynamicMeters);
-    if (diff < minDiff) { minDiff = diff; closest = i; }
-  });
-  return closest;
-}
-
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const { settings, updateSettings } = useSettings();
 
-  const selectedFtIdx = selectedFeetIndex(settings.dynamicMeters);
-  const selectedFtLabel = DYNAMIC_FEET_LABELS[selectedFtIdx];
+  const currentFeet = Math.round(metersToFeet(settings.dynamicMeters));
 
   const fixedDesc =
     settings.fixedFps < 1
@@ -107,7 +98,7 @@ export default function SettingsScreen() {
       ? 'One frame per second'
       : `${settings.fixedFps} frames per second`;
 
-  const dynamicDesc = `One frame every ${selectedFtLabel} traveled`;
+  const dynamicDesc = `One frame every ${currentFeet} ft traveled`;
 
   function exampleFps(mph: number): string {
     const mps = mph / MPH_PER_MPS;
@@ -177,15 +168,26 @@ export default function SettingsScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>FEET PER FRAME</Text>
           <View style={styles.card}>
-            <View style={styles.pillRow}>
-              {DYNAMIC_METERS_OPTIONS.map((m, i) => (
-                <OptionPill
-                  key={m}
-                  label={DYNAMIC_FEET_LABELS[i]}
-                  selected={selectedFtIdx === i}
-                  onPress={() => updateSettings({ dynamicMeters: m })}
-                />
-              ))}
+            <View style={styles.sliderValueRow}>
+              <Text style={styles.sliderValue}>{currentFeet}</Text>
+              <Text style={styles.sliderUnit}>ft</Text>
+            </View>
+            <View style={styles.sliderWrapper}>
+              <Slider
+                style={styles.slider}
+                minimumValue={DYNAMIC_FEET_MIN}
+                maximumValue={DYNAMIC_FEET_MAX}
+                step={1}
+                value={currentFeet}
+                onValueChange={(ft) => updateSettings({ dynamicMeters: feetToMeters(ft) })}
+                minimumTrackTintColor={Colors.blue}
+                maximumTrackTintColor={Colors.border}
+                thumbTintColor={Colors.blue}
+              />
+            </View>
+            <View style={styles.sliderLabels}>
+              <Text style={styles.sliderMin}>{DYNAMIC_FEET_MIN} ft</Text>
+              <Text style={styles.sliderMax}>{DYNAMIC_FEET_MAX} ft</Text>
             </View>
             <View style={styles.divider} />
             <View style={styles.summaryRow}>
@@ -421,6 +423,49 @@ const styles = StyleSheet.create({
   },
   infoExampleFps: {
     color: Colors.blue,
+    fontFamily: 'Inter_400Regular',
+    fontSize: 11,
+  },
+  sliderValueRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'center',
+    paddingTop: 16,
+    paddingBottom: 4,
+    gap: 4,
+  },
+  sliderValue: {
+    color: Colors.text,
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 40,
+    lineHeight: 44,
+  },
+  sliderUnit: {
+    color: Colors.textSecondary,
+    fontFamily: 'Inter_400Regular',
+    fontSize: 18,
+  },
+  sliderWrapper: {
+    paddingHorizontal: 8,
+  },
+  slider: {
+    width: '100%',
+    height: 40,
+  },
+  sliderLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    marginTop: -4,
+    marginBottom: 4,
+  },
+  sliderMin: {
+    color: Colors.textTertiary,
+    fontFamily: 'Inter_400Regular',
+    fontSize: 11,
+  },
+  sliderMax: {
+    color: Colors.textTertiary,
     fontFamily: 'Inter_400Regular',
     fontSize: 11,
   },

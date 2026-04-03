@@ -57,6 +57,7 @@
   },
   "dependencies": {
     "@react-native-community/netinfo": "^11.4.1",
+    "@react-native-community/slider": "^5.1.2",
     "@supabase/supabase-js": "^2.99.3",
     "expo-camera": "^17.0.10",
     "expo-file-system": "^19.0.21",

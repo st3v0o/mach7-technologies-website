@@ -34,8 +34,6 @@ export function feetToMeters(ft: number): number {
   return ft / FEET_PER_METER;
 }
 
-const DYNAMIC_FEET_OPTIONS = [25, 50, 100, 250, 500];
-
 export const DEFAULT_SETTINGS: FrameSettings = {
   frameMode: 'fixed',
   fixedFps: 1,
@@ -45,9 +43,8 @@ export const DEFAULT_SETTINGS: FrameSettings = {
 
 export const FIXED_FPS_OPTIONS = [0.25, 0.5, 1, 2, 4];
 
-export const DYNAMIC_METERS_OPTIONS = DYNAMIC_FEET_OPTIONS.map(feetToMeters);
-
-export const DYNAMIC_FEET_LABELS = DYNAMIC_FEET_OPTIONS.map((ft) => `${ft} ft`);
+export const DYNAMIC_FEET_MIN = 1;
+export const DYNAMIC_FEET_MAX = 1000;
 
 export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const [settings, setSettings] = useState<FrameSettings>(DEFAULT_SETTINGS);
