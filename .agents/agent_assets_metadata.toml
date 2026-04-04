@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "iWe9wYbRhEA43vSGK-PAC"
+uri = "file://artifacts/gps-video-capture/APP_STORE_CHECKLIST.md"
+type = "text"
+title = "iOS App Store Checklist"
