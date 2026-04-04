@@ -1,5 +1,11 @@
 # Workspace
 
+## GitHub Repository
+- **URL**: https://github.com/st3v0o/gps-video-capture
+- **Remote**: `origin` → `https://github.com/st3v0o/gps-video-capture.git`
+- **Auth**: `GITHUB_PERSONAL_ACCESS_TOKEN` secret (stored in Replit env vars)
+- To push future changes: `git push origin master`
+
 ## Overview
 
 pnpm workspace monorepo using TypeScript. Each package manages its own dependencies.
