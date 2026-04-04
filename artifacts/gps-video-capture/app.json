@@ -15,10 +15,15 @@
     },
     "ios": {
       "supportsTablet": false,
+      "bundleIdentifier": "com.gpsvideocapture.app",
+      "buildNumber": "1",
+      "deploymentTarget": "17.0",
       "infoPlist": {
         "NSCameraUsageDescription": "Camera access is required to record video for GPS frame tagging.",
         "NSMicrophoneUsageDescription": "Microphone access is required to record audio with your video.",
-        "NSLocationWhenInUseUsageDescription": "Location access is required to tag each video frame with GPS coordinates."
+        "NSLocationWhenInUseUsageDescription": "Location access is required to tag each video frame with GPS coordinates.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Location access is required to continuously tag video frames with GPS coordinates, even when the screen is locked.",
+        "UIBackgroundModes": ["location"]
       }
     },
     "android": {
@@ -35,12 +40,7 @@
       "favicon": "./assets/images/icon.png"
     },
     "plugins": [
-      [
-        "expo-router",
-        {
-          "origin": "https://replit.com/"
-        }
-      ],
+      "expo-router",
       "expo-font",
       "expo-web-browser",
       "expo-camera",

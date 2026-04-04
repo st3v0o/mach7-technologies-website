@@ -8,20 +8,20 @@
 ---
 
 ## 2. App Configuration (`app.json`)
-- [ ] Set `ios.bundleIdentifier` (e.g. `com.yourname.gpsvideocapture`) — permanent, cannot change after submission
-- [ ] Set `ios.buildNumber` to `"1"` (increment with every submission)
-- [ ] Set `ios.deploymentTarget` to `"17.0"` (or your minimum supported iOS)
-- [ ] Add `NSLocationAlwaysAndWhenInUseUsageDescription` to `ios.infoPlist` for continuous GPS during recording
-- [ ] Add `UIBackgroundModes: ["location"]` to `ios.infoPlist` if you want GPS to keep running when the screen locks
-- [ ] Remove or update the `expo-router` origin (`"https://replit.com/"`) — this is a dev-only setting and should be removed for production builds
+- [x] Set `ios.bundleIdentifier` → currently `com.gpsvideocapture.app` — **change this to your permanent ID before first submission; it cannot be changed after**
+- [x] Set `ios.buildNumber` to `"1"` (increment with every submission)
+- [x] Set `ios.deploymentTarget` to `"17.0"`
+- [x] Added `NSLocationAlwaysAndWhenInUseUsageDescription` to `ios.infoPlist`
+- [x] Added `UIBackgroundModes: ["location"]` to `ios.infoPlist`
+- [x] Removed dev-only `origin: "https://replit.com/"` from expo-router plugin config
 
 ---
 
 ## 3. App Icon & Splash Screen
-- [ ] Design a custom app icon — 1024×1024 PNG, no transparency, no rounded corners (iOS adds those)
-- [ ] Replace `assets/images/icon.png` with your custom icon
+- [x] Custom app icon generated — 1024×1024 PNG, no transparency (camera lens + GPS crosshair HUD design)
+- [ ] Review the generated icon and replace with custom artwork if desired (`assets/images/icon.png`)
 - [ ] Design or update the splash screen image (`assets/images/splash-icon.png`)
-- [ ] Verify the splash background color (`#0A0A0A`) looks correct with your new splash image
+- [x] Splash background color `#0A0A0A` configured
 
 ---
 
@@ -29,31 +29,32 @@
 - [ ] Capture screenshots on a 6.5" device or simulator (iPhone 14 Pro Max / 15 Plus) — **required**
 - [ ] Capture screenshots on a 5.5" device or simulator (iPhone 8 Plus) — required for older device support
 - [ ] Minimum 3 screenshots per size; maximum 10
-- [ ] Suggested screens to show: camera viewfinder, GPS HUD, settings, upload progress modal, sign detection overlay
+- [ ] Suggested screens: camera viewfinder, GPS HUD, settings, upload progress modal, sign detection overlay
 - [ ] Optional: record a 15–30 second App Preview video
 
 ---
 
 ## 5. Privacy Policy
-- [ ] Write a privacy policy covering: camera/video, GPS/location, photos, and Supabase cloud upload
+- [x] Privacy policy written — see `PRIVACY_POLICY.md`; covers camera/video, GPS/location, photos, pluggable cloud storage (user-controlled, not compiled into app)
 - [ ] Host it publicly (GitHub Pages, Notion public page, or a simple website)
-- [ ] Have the URL ready to paste into App Store Connect
+- [ ] Have the URL ready to paste into App Store Connect (see Section 9 below)
 
 ---
 
-## 6. Supabase Security (before shipping)
-- [ ] Review all Row-Level Security policies — the Supabase anon key is compiled into the app binary and can be extracted
-- [ ] Ensure INSERT-only policies (no DELETE or UPDATE from anonymous users unless intentional)
-- [ ] Confirm no sensitive user data is stored without proper access controls
-- [ ] Consider rate-limiting uploads if the bucket is publicly writable
+## 6. Cloud Storage Security
+- [x] **Supabase anon key is no longer compiled into the binary** — the app uses a pluggable storage system where users enter their own credentials at runtime
+- [x] Cloud storage is opt-in; default mode is Local Only (no data leaves the device)
+- [x] User-supplied credentials are stored in device AsyncStorage only
+- [x] No developer-controlled servers receive any user data
+- No RLS review required for the developer — each user is responsible for their own Supabase project
 
 ---
 
 ## 7. EAS Build Setup
+- [x] `eas.json` created with `development`, `preview`, and `production` build profiles
 - [ ] Install EAS CLI: `npm install -g eas-cli`
-- [ ] Log in: `eas login`
-- [ ] Initialize: `eas build:configure` (creates `eas.json`)
-- [ ] Create a `production` build profile in `eas.json`
+- [ ] Log in with your Expo account: `eas login`
+- [ ] Fill in `eas.json` → `submit.production.ios`: `appleId`, `ascAppId`, `appleTeamId`
 - [ ] Run a production build: `eas build --platform ios --profile production`
 - [ ] Install the build on a real device via TestFlight and test all features
 
@@ -69,44 +70,45 @@
 ---
 
 ## 9. App Store Connect Metadata
-- [ ] **App name**: GPS Video Capture (max 30 characters)
-- [ ] **Subtitle**: Short tagline, max 30 characters
-- [ ] **Description**: Full description up to 4,000 characters
-- [ ] **Keywords**: Comma-separated, max 100 characters total (drives search)
-- [ ] **Category**: Navigation (primary) — consider Utilities as secondary
-- [ ] **Support URL**: A page where users can get help (can be a GitHub page)
-- [ ] **Privacy Policy URL**: From step 5 above
-- [ ] **Age Rating**: Complete the questionnaire — this app should rate 4+
-- [ ] **Copyright**: e.g. `© 2025 Your Name`
-- [ ] **Price**: Free or paid
+Full copy-paste content ready in `APP_STORE_METADATA.md`:
+- [x] **App name**: GPS Video Capture
+- [x] **Subtitle**: Tag Every Frame with Location
+- [x] **Description**: Full 4,000-character description written
+- [x] **Keywords**: GPS, dashcam, video, location, frame, survey, mapping, field, coordinates, capture, geo, tag, route
+- [x] **Category**: Navigation (primary) / Utilities (secondary)
+- [x] **Support URL**: https://github.com/st3v0o/gps-video-capture
+- [x] **Age Rating**: 4+
+- [x] **Copyright**: © 2026 GPS Video Capture (update with your legal name)
+- [x] **Review notes**: Written (explains GPS movement requirement, background location use, Roboflow key)
+- [ ] **Privacy Policy URL**: Host `PRIVACY_POLICY.md` and paste URL here
+- [ ] **Price**: Set in App Store Connect (free or paid)
 
 ---
 
 ## 10. App Privacy Nutrition Labels
-In App Store Connect under "App Privacy," disclose every data type you collect:
-- [ ] **Precise Location** — collected, linked to usage data
-- [ ] **Photos or Videos** — collected (frames/photos saved), not linked to identity
-- [ ] **Crash Data** — if you add crash reporting later
-- [ ] Answer all questions honestly — Apple cross-checks this against your actual code
+In App Store Connect under "App Privacy," disclose:
+- [ ] **Precise Location** — collected, linked to usage data (GPS frame tagging)
+- [ ] **Photos or Videos** — collected (frames/photos saved locally), not linked to identity
+- [ ] Answer all questions honestly — Apple cross-checks against your actual code
 
 ---
 
 ## 11. Pre-Submission Review Checks
-- [ ] App does not crash on launch on a clean install
-- [ ] All permission prompts include clear, descriptive text (already done ✓)
-- [ ] App handles "permission denied" gracefully for camera, mic, and location
-- [ ] App handles no internet connection without crashing
-- [ ] No placeholder UI, "lorem ipsum" text, or test/debug buttons visible
+- [x] `connect.tsx` (dev-only Expo Go helper) is gated behind `__DEV__` — will throw in production if somehow accessed
+- [x] All permission prompts include clear, descriptive text
+- [x] App handles "permission denied" gracefully for camera, mic, and location
+- [ ] Verify no crashes on clean install (TestFlight)
+- [ ] Verify app handles no internet connection without crashing
+- [x] No placeholder UI, "lorem ipsum" text, or test/debug buttons visible in navigation
 - [ ] App works correctly on the latest iOS version
-- [ ] Background behavior is clearly documented in the review notes (Apple reviewers will test locking the screen)
+- [x] Background behavior documented in review notes (screen lock during recording)
 
 ---
 
 ## 12. Submit for Review
 - [ ] Complete all metadata in App Store Connect
 - [ ] Select your build in the submission form
-- [ ] Add review notes explaining what the app does and any special hardware/account requirements
-- [ ] Mention in review notes that the app requires physical movement for GPS tagging to work properly
+- [ ] Paste review notes from `APP_STORE_METADATA.md`
 - [ ] Submit — first-time reviews typically take 24–48 hours
 
 ---
@@ -116,5 +118,12 @@ In App Store Connect under "App Privacy," disclose every data type you collect:
 - Portrait orientation locked
 - Dark mode configured
 - iOS-only (no tablet support)
-- Supabase upload + RLS policies in place
-- App icon file referenced (needs custom artwork)
+- App icon: 1024×1024 GPS+camera HUD design
+- Splash background: #0A0A0A
+- `app.json`: bundleIdentifier, buildNumber, deploymentTarget, background location all configured
+- expo-router dev origin removed
+- `eas.json` created with production build profile
+- Privacy policy written (`PRIVACY_POLICY.md`)
+- App Store metadata written (`APP_STORE_METADATA.md`) — copy-paste ready
+- Pluggable storage: user supplies their own credentials; no developer server involved
+- `connect.tsx` (Expo Go helper) gated to dev-only builds

@@ -9,6 +9,7 @@ const QR_API = expoDomain
   : null;
 
 export default function ConnectScreen() {
+  if (!__DEV__ && Platform.OS !== 'web') return null;
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.title}>Connect Expo Go</Text>
