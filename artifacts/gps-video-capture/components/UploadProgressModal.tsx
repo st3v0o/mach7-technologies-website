@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 
 import Colors from '@/constants/colors';
+import { useStorageConfig } from '@/contexts/StorageConfigContext';
 import { useUpload, UploadLog } from '@/contexts/UploadContext';
 
 interface Props {
@@ -36,8 +37,9 @@ function StatusIcon({ status }: { status: string }) {
 }
 
 export default function UploadProgressModal({ visible, sessionId, onClose }: Props) {
+  const { providerLabel } = useStorageConfig();
   const {
-    supabaseConfigured,
+    isCloudConfigured,
     isOnline,
     queue,
     uploadLogs,
@@ -84,25 +86,20 @@ export default function UploadProgressModal({ visible, sessionId, onClose }: Pro
   ).length;
   const progress = total > 0 ? sessionUploaded / total : 0;
 
-  const handleClose = () => {
-    onClose();
-  };
-
   return (
     <Modal
       visible={visible}
       transparent
       animationType="none"
-      onRequestClose={handleClose}
+      onRequestClose={onClose}
     >
-      <Pressable style={styles.backdrop} onPress={handleClose}>
+      <Pressable style={styles.backdrop} onPress={onClose}>
         <Animated.View
           style={[styles.sheet, { transform: [{ translateY: slideAnim }] }]}
         >
           <Pressable>
             <BlurView intensity={90} tint="dark" style={styles.sheetInner}>
 
-              {/* Header */}
               <View style={styles.header}>
                 <View style={styles.headerLeft}>
                   <Ionicons
@@ -112,23 +109,22 @@ export default function UploadProgressModal({ visible, sessionId, onClose }: Pro
                   />
                   <Text style={styles.headerTitle}>Session Complete</Text>
                 </View>
-                <Pressable onPress={handleClose} style={styles.closeBtn} hitSlop={12}>
+                <Pressable onPress={onClose} style={styles.closeBtn} hitSlop={12}>
                   <Ionicons name="close" size={20} color={Colors.textSecondary} />
                 </Pressable>
               </View>
 
-              {/* Supabase not configured notice */}
-              {!supabaseConfigured ? (
+              {!isCloudConfigured ? (
                 <View style={styles.noticeBox}>
-                  <Ionicons name="cloud-offline-outline" size={22} color={Colors.textTertiary} />
-                  <Text style={styles.noticeTitle}>Cloud Upload Disabled</Text>
+                  <Ionicons name="phone-portrait-outline" size={22} color={Colors.textTertiary} />
+                  <Text style={styles.noticeTitle}>Saved Locally</Text>
                   <Text style={styles.noticeBody}>
-                    Supabase credentials are not configured. Frames are saved locally only.
+                    No cloud provider configured. Frames and CSV log are saved on your device.
+                    Configure a provider in Settings → Cloud Storage.
                   </Text>
                 </View>
               ) : (
                 <>
-                  {/* Offline notice */}
                   {!isOnline && (
                     <View style={styles.offlineBar}>
                       <Ionicons name="wifi-outline" size={13} color={Colors.amber} />
@@ -136,7 +132,11 @@ export default function UploadProgressModal({ visible, sessionId, onClose }: Pro
                     </View>
                   )}
 
-                  {/* Stats */}
+                  <View style={styles.providerBadge}>
+                    <Ionicons name="cloud-outline" size={12} color={Colors.textTertiary} />
+                    <Text style={styles.providerBadgeText}>{providerLabel}</Text>
+                  </View>
+
                   <View style={styles.statsRow}>
                     <View style={styles.statItem}>
                       <Text style={[styles.statNum, { color: Colors.gpsGreen }]}>{sessionUploaded}</Text>
@@ -161,7 +161,6 @@ export default function UploadProgressModal({ visible, sessionId, onClose }: Pro
                     </View>
                   </View>
 
-                  {/* Progress bar */}
                   {total > 0 && (
                     <View style={styles.progressTrack}>
                       <Animated.View
@@ -174,7 +173,6 @@ export default function UploadProgressModal({ visible, sessionId, onClose }: Pro
                     </View>
                   )}
 
-                  {/* Frame list */}
                   {sessionItems.length > 0 && (
                     <View style={styles.section}>
                       <Text style={styles.sectionLabel}>FRAMES THIS SESSION</Text>
@@ -190,9 +188,7 @@ export default function UploadProgressModal({ visible, sessionId, onClose }: Pro
                               {item.filename}
                             </Text>
                             {item.retries > 0 && (
-                              <Text style={styles.retryBadge}>
-                                retry {item.retries}×
-                              </Text>
+                              <Text style={styles.retryBadge}>retry {item.retries}×</Text>
                             )}
                             <Text
                               style={[
@@ -220,7 +216,6 @@ export default function UploadProgressModal({ visible, sessionId, onClose }: Pro
                 </>
               )}
 
-              {/* Logs */}
               {uploadLogs.length > 0 && (
                 <View style={styles.section}>
                   <View style={styles.sectionHeaderRow}>
@@ -254,9 +249,8 @@ export default function UploadProgressModal({ visible, sessionId, onClose }: Pro
                 </View>
               )}
 
-              {/* Actions */}
               <View style={styles.actions}>
-                {supabaseConfigured && failedCount > 0 && (
+                {isCloudConfigured && failedCount > 0 && (
                   <Pressable
                     style={({ pressed }) => [styles.retryBtn, pressed && { opacity: 0.75 }]}
                     onPress={retryFailed}
@@ -267,7 +261,7 @@ export default function UploadProgressModal({ visible, sessionId, onClose }: Pro
                 )}
                 <Pressable
                   style={({ pressed }) => [styles.doneBtn, pressed && { opacity: 0.8 }]}
-                  onPress={handleClose}
+                  onPress={onClose}
                 >
                   <Text style={styles.doneBtnText}>Done</Text>
                 </Pressable>
@@ -337,6 +331,25 @@ const styles = StyleSheet.create({
     fontSize: 13,
     textAlign: 'center',
     lineHeight: 19,
+  },
+  providerBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    alignSelf: 'center',
+    marginTop: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    backgroundColor: Colors.surface,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  providerBadgeText: {
+    color: Colors.textTertiary,
+    fontFamily: 'Inter_500Medium',
+    fontSize: 11,
+    letterSpacing: 0.3,
   },
   offlineBar: {
     flexDirection: 'row',

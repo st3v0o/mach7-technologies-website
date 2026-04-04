@@ -16,6 +16,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { DetectionProvider } from '@/contexts/DetectionContext';
 import { SettingsProvider } from '@/contexts/SettingsContext';
+import { StorageConfigProvider } from '@/contexts/StorageConfigContext';
 import { UploadProvider, useUpload } from '@/contexts/UploadContext';
 import { RecordingProvider, useRecording } from '@/contexts/RecordingContext';
 
@@ -55,9 +56,9 @@ function UploadSyncConnector() {
 
   useEffect(() => {
     for (const item of queue) {
-      if (item.status === 'uploaded' && item.supabaseUrl && !syncedIds.current.has(item.id)) {
+      if (item.status === 'uploaded' && item.remoteUrl && !syncedIds.current.has(item.id)) {
         syncedIds.current.add(item.id);
-        updateFrameUrl(item.id, item.supabaseUrl);
+        updateFrameUrl(item.id, item.remoteUrl);
       }
     }
   }, [queue, updateFrameUrl]);
@@ -95,17 +96,19 @@ export default function RootLayout() {
         <QueryClientProvider client={queryClient}>
           <SettingsProvider>
             <DetectionProvider>
-              <UploadProvider>
-                <RecordingProvider>
-                  <UploadConnector />
-                  <UploadSyncConnector />
-                  <GestureHandlerRootView>
-                    <KeyboardProvider>
-                      <RootLayoutNav />
-                    </KeyboardProvider>
-                  </GestureHandlerRootView>
-                </RecordingProvider>
-              </UploadProvider>
+              <StorageConfigProvider>
+                <UploadProvider>
+                  <RecordingProvider>
+                    <UploadConnector />
+                    <UploadSyncConnector />
+                    <GestureHandlerRootView>
+                      <KeyboardProvider>
+                        <RootLayoutNav />
+                      </KeyboardProvider>
+                    </GestureHandlerRootView>
+                  </RecordingProvider>
+                </UploadProvider>
+              </StorageConfigProvider>
             </DetectionProvider>
           </SettingsProvider>
         </QueryClientProvider>

@@ -9,7 +9,7 @@ import React, {
 } from 'react';
 import { Platform } from 'react-native';
 
-import { FRAMES_TABLE, STORAGE_BUCKET, SUPABASE_CONFIGURED, getSupabaseClient } from '@/lib/supabase';
+import { useStorageConfig } from '@/contexts/StorageConfigContext';
 import { LogEntry } from './RecordingContext';
 
 export type UploadStatus = 'pending' | 'uploading' | 'uploaded' | 'failed';
@@ -25,7 +25,7 @@ export interface UploadQueueItem {
   segmentName: string;
   retries: number;
   status: UploadStatus;
-  supabaseUrl?: string;
+  remoteUrl?: string;
 }
 
 export interface UploadLog {
@@ -35,7 +35,7 @@ export interface UploadLog {
 }
 
 interface UploadContextType {
-  supabaseConfigured: boolean;
+  isCloudConfigured: boolean;
   isOnline: boolean;
   pendingCount: number;
   uploadedCount: number;
@@ -57,66 +57,9 @@ const UploadContext = createContext<UploadContextType | null>(null);
 const QUEUE_STORAGE_KEY = '@gps_upload_queue';
 const MAX_RETRIES = 3;
 
-async function uploadFrameToSupabase(item: UploadQueueItem): Promise<string> {
-  const client = getSupabaseClient();
-  if (!client) throw new Error('Supabase not configured');
-
-  const FileSystem = await import('expo-file-system/legacy');
-
-  const base64 = await FileSystem.readAsStringAsync(item.localPath, {
-    encoding: FileSystem.EncodingType.Base64,
-  });
-
-  const binaryStr = atob(base64);
-  const bytes = new Uint8Array(binaryStr.length);
-  for (let i = 0; i < binaryStr.length; i++) {
-    bytes[i] = binaryStr.charCodeAt(i);
-  }
-
-  const storagePath = `${item.sessionId}/${item.filename}`;
-
-  const { error: uploadError } = await client.storage
-    .from(STORAGE_BUCKET)
-    .upload(storagePath, bytes, {
-      contentType: 'image/jpeg',
-      upsert: false,
-    });
-
-  // If the file already exists (from a previous partial attempt), that's fine —
-  // continue to the DB insert step so the record gets written.
-  const alreadyExists =
-    uploadError &&
-    (uploadError.message?.toLowerCase().includes('already exists') ||
-      (uploadError as any)?.statusCode === 409 ||
-      (uploadError as any)?.statusCode === '409' ||
-      (uploadError as any)?.error === 'Duplicate');
-
-  if (uploadError && !alreadyExists) {
-    throw new Error(`[storage] ${uploadError.message}`);
-  }
-
-  const { data: urlData } = client.storage
-    .from(STORAGE_BUCKET)
-    .getPublicUrl(storagePath);
-
-  const publicUrl = urlData.publicUrl;
-
-  const { error: dbError } = await client.from(FRAMES_TABLE).insert({
-    session_id: item.sessionId,
-    filename: item.filename,
-    url: publicUrl,
-    timestamp: item.timestamp,
-    latitude: item.latitude,
-    longitude: item.longitude,
-    segment_name: item.segmentName,
-  });
-
-  if (dbError) throw new Error(`[db] ${dbError.message}`);
-
-  return publicUrl;
-}
-
 export function UploadProvider({ children }: { children: React.ReactNode }) {
+  const { isCloudConfigured, uploadFrame } = useStorageConfig();
+
   const [queue, setQueue] = useState<UploadQueueItem[]>([]);
   const [isOnline, setIsOnline] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -190,7 +133,7 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const processQueue = useCallback(async () => {
-    if (!SUPABASE_CONFIGURED || processingRef.current || Platform.OS === 'web') return;
+    if (!isCloudConfigured || processingRef.current || Platform.OS === 'web') return;
 
     processingRef.current = true;
     setIsProcessing(true);
@@ -205,11 +148,20 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
       );
 
       try {
-        const url = await uploadFrameToSupabase(pendingItem);
+        const remoteUrl = await uploadFrame({
+          id: pendingItem.id,
+          sessionId: pendingItem.sessionId,
+          filename: pendingItem.filename,
+          localPath: pendingItem.localPath,
+          timestamp: pendingItem.timestamp,
+          latitude: pendingItem.latitude,
+          longitude: pendingItem.longitude,
+          segmentName: pendingItem.segmentName,
+        });
         updateQueue((prev) =>
           prev.map((i) =>
             i.id === pendingItem.id
-              ? { ...i, status: 'uploaded', supabaseUrl: url }
+              ? { ...i, status: 'uploaded', remoteUrl }
               : i
           )
         );
@@ -231,13 +183,13 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
 
     processingRef.current = false;
     setIsProcessing(false);
-  }, [isOnline, updateQueue, appendLog]);
+  }, [isCloudConfigured, isOnline, updateQueue, appendLog, uploadFrame]);
 
   useEffect(() => {
-    if (isOnline && SUPABASE_CONFIGURED && queue.some((i) => i.status === 'pending')) {
+    if (isOnline && isCloudConfigured && queue.some((i) => i.status === 'pending')) {
       processQueue();
     }
-  }, [isOnline, queue, processQueue]);
+  }, [isOnline, isCloudConfigured, queue, processQueue]);
 
   const clearQueue = useCallback(() => {
     setQueue([]);
@@ -246,7 +198,7 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
 
   const enqueueFrames = useCallback(
     (entries: LogEntry[]) => {
-      if (!SUPABASE_CONFIGURED || Platform.OS === 'web' || !queueLoaded) return;
+      if (!isCloudConfigured || Platform.OS === 'web' || !queueLoaded) return;
 
       const existingIds = new Set(queueRef.current.map((i) => i.id));
       const newItems: UploadQueueItem[] = entries
@@ -267,7 +219,7 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
       if (newItems.length === 0) return;
       updateQueue((prev) => [...prev, ...newItems]);
     },
-    [updateQueue, queueLoaded]
+    [isCloudConfigured, updateQueue, queueLoaded]
   );
 
   const retryFailed = useCallback(() => {
@@ -286,7 +238,7 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
 
   const getItemUrl = useCallback(
     (id: string): string | undefined => {
-      return queue.find((i) => i.id === id)?.supabaseUrl;
+      return queue.find((i) => i.id === id)?.remoteUrl;
     },
     [queue]
   );
@@ -298,7 +250,7 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
   return (
     <UploadContext.Provider
       value={{
-        supabaseConfigured: SUPABASE_CONFIGURED,
+        isCloudConfigured,
         isOnline,
         pendingCount,
         uploadedCount,

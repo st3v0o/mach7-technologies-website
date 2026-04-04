@@ -41,8 +41,8 @@ function formatCoordFull(lat: number, lon: number): string {
 }
 
 function UploadBadge({ frameId }: { frameId: string }) {
-  const { getItemStatus, supabaseConfigured } = useUpload();
-  if (!supabaseConfigured) return null;
+  const { getItemStatus, isCloudConfigured } = useUpload();
+  if (!isCloudConfigured) return null;
 
   const status = getItemStatus(frameId);
   if (!status) return null;
@@ -248,10 +248,10 @@ function FrameRow({
 }
 
 function UploadStatusBanner() {
-  const { supabaseConfigured, isOnline, isProcessing, queue, retryFailed } = useUpload();
+  const { isCloudConfigured, isOnline, isProcessing, queue, retryFailed } = useUpload();
   const { sessionId } = useRecording();
 
-  if (!supabaseConfigured) return null;
+  if (!isCloudConfigured) return null;
 
   const sessionQueue = sessionId ? queue.filter((i) => i.sessionId === sessionId) : queue;
   const pendingCount = sessionQueue.filter((i) => i.status === 'pending' || i.status === 'uploading').length;

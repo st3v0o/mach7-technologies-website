@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Platform,
   Pressable,
@@ -21,6 +21,8 @@ import {
   metersToFeet,
   useSettings,
 } from '@/contexts/SettingsContext';
+import { useStorageConfig, PROVIDER_LABELS } from '@/contexts/StorageConfigContext';
+import StorageWizard from '@/components/StorageWizard';
 
 function fpsLabel(fps: number): string {
   if (fps < 1) return `1 / ${Math.round(1 / fps)}s`;
@@ -85,9 +87,23 @@ function ModeButton({
   );
 }
 
+const PROVIDER_ICONS: Record<string, string> = {
+  none: 'phone-portrait-outline',
+  supabase: 'server-outline',
+  webhook: 'link-outline',
+};
+
+const PROVIDER_COLORS: Record<string, string> = {
+  none: Colors.textSecondary,
+  supabase: Colors.gpsGreen,
+  webhook: Colors.blue,
+};
+
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const { settings, updateSettings } = useSettings();
+  const { providerType, providerLabel, isCloudConfigured, clearConfig } = useStorageConfig();
+  const [wizardVisible, setWizardVisible] = useState(false);
 
   const currentFeet = Math.round(metersToFeet(settings.dynamicMeters));
 
@@ -106,177 +122,232 @@ export default function SettingsScreen() {
     return `~${fps.toFixed(1)} fps`;
   }
 
+  const providerColor = PROVIDER_COLORS[providerType] ?? Colors.textSecondary;
+  const providerIcon = PROVIDER_ICONS[providerType] ?? 'cloud-outline';
+
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={[
-        styles.content,
-        { paddingTop: insets.top + (Platform.OS === 'web' ? 67 : 16), paddingBottom: insets.bottom + 100 },
-      ]}
-      showsVerticalScrollIndicator={false}
-    >
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Settings</Text>
-        <Text style={styles.headerSubtitle}>Frame extraction configuration</Text>
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>CAPTURE MODE</Text>
-        <View style={styles.modeRow}>
-          <ModeButton
-            label="Video"
-            icon="videocam-outline"
-            description="Record + extract frames"
-            selected={settings.captureMode === 'video'}
-            onPress={() => updateSettings({ captureMode: 'video' })}
-          />
-          <ModeButton
-            label="Photo"
-            icon="camera-outline"
-            description="Direct photo capture"
-            selected={settings.captureMode === 'photo'}
-            onPress={() => updateSettings({ captureMode: 'photo' })}
-          />
+    <>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={[
+          styles.content,
+          { paddingTop: insets.top + (Platform.OS === 'web' ? 67 : 16), paddingBottom: insets.bottom + 100 },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Settings</Text>
+          <Text style={styles.headerSubtitle}>Frame extraction configuration</Text>
         </View>
-      </View>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>EXTRACTION MODE</Text>
-
-        <View style={styles.modeRow}>
-          <ModeButton
-            label="Fixed Rate"
-            icon="time-outline"
-            description="Constant interval"
-            selected={settings.frameMode === 'fixed'}
-            onPress={() => updateSettings({ frameMode: 'fixed' })}
-          />
-          <ModeButton
-            label="By Distance"
-            icon="speedometer-outline"
-            description="Based on GPS speed"
-            selected={settings.frameMode === 'dynamic'}
-            onPress={() => updateSettings({ frameMode: 'dynamic' })}
-          />
-        </View>
-      </View>
-
-      {settings.frameMode === 'fixed' && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>FRAME RATE</Text>
-          <View style={styles.card}>
-            <View style={styles.pillRow}>
-              {FIXED_FPS_OPTIONS.map((fps) => (
-                <OptionPill
-                  key={fps}
-                  label={fpsLabel(fps)}
-                  selected={settings.fixedFps === fps}
-                  onPress={() => updateSettings({ fixedFps: fps })}
-                />
-              ))}
-            </View>
-            <View style={styles.divider} />
-            <View style={styles.summaryRow}>
-              <Ionicons name="information-circle-outline" size={15} color={Colors.textSecondary} />
-              <Text style={styles.summaryText}>{fixedDesc}</Text>
-            </View>
+          <Text style={styles.sectionTitle}>CAPTURE MODE</Text>
+          <View style={styles.modeRow}>
+            <ModeButton
+              label="Video"
+              icon="videocam-outline"
+              description="Record + extract frames"
+              selected={settings.captureMode === 'video'}
+              onPress={() => updateSettings({ captureMode: 'video' })}
+            />
+            <ModeButton
+              label="Photo"
+              icon="camera-outline"
+              description="Direct photo capture"
+              selected={settings.captureMode === 'photo'}
+              onPress={() => updateSettings({ captureMode: 'photo' })}
+            />
           </View>
         </View>
-      )}
 
-      {settings.frameMode === 'dynamic' && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>FEET PER FRAME</Text>
-          <View style={styles.card}>
-            <View style={styles.sliderValueRow}>
-              <Text style={styles.sliderValue}>{currentFeet}</Text>
-              <Text style={styles.sliderUnit}>ft</Text>
-            </View>
-            <View style={styles.sliderWrapper}>
-              <Slider
-                style={styles.slider}
-                minimumValue={DYNAMIC_FEET_MIN}
-                maximumValue={DYNAMIC_FEET_MAX}
-                step={1}
-                value={currentFeet}
-                onValueChange={(ft) => updateSettings({ dynamicMeters: feetToMeters(ft) })}
-                minimumTrackTintColor={Colors.blue}
-                maximumTrackTintColor={Colors.border}
-                thumbTintColor={Colors.blue}
-              />
-            </View>
-            <View style={styles.sliderLabels}>
-              <Text style={styles.sliderMin}>{DYNAMIC_FEET_MIN} ft</Text>
-              <Text style={styles.sliderMax}>{DYNAMIC_FEET_MAX} ft</Text>
-            </View>
-            <View style={styles.divider} />
-            <View style={styles.summaryRow}>
-              <Ionicons name="information-circle-outline" size={15} color={Colors.textSecondary} />
-              <Text style={styles.summaryText}>{dynamicDesc}</Text>
-            </View>
+          <Text style={styles.sectionTitle}>EXTRACTION MODE</Text>
+          <View style={styles.modeRow}>
+            <ModeButton
+              label="Fixed Rate"
+              icon="time-outline"
+              description="Constant interval"
+              selected={settings.frameMode === 'fixed'}
+              onPress={() => updateSettings({ frameMode: 'fixed' })}
+            />
+            <ModeButton
+              label="By Distance"
+              icon="speedometer-outline"
+              description="Based on GPS speed"
+              selected={settings.frameMode === 'dynamic'}
+              onPress={() => updateSettings({ frameMode: 'dynamic' })}
+            />
           </View>
         </View>
-      )}
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>CAMERA</Text>
-        <View style={styles.card}>
-          <Pressable
-            style={({ pressed }) => [styles.toggleRow, pressed && { opacity: 0.75 }]}
-            onPress={() => updateSettings({ lockFocusAtInfinity: !settings.lockFocusAtInfinity })}
-          >
-            <View style={styles.toggleLeft}>
-              <Ionicons
-                name="infinite-outline"
-                size={20}
-                color={settings.lockFocusAtInfinity ? Colors.blue : Colors.textSecondary}
-              />
-              <View style={styles.toggleText}>
-                <Text style={[styles.toggleLabel, settings.lockFocusAtInfinity && { color: Colors.blue }]}>
-                  Lock Focus at Infinity
-                </Text>
-                <Text style={styles.toggleDesc}>
-                  Prevents autofocus from locking onto the dashboard or other nearby objects
-                </Text>
+        {settings.frameMode === 'fixed' && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>FRAME RATE</Text>
+            <View style={styles.card}>
+              <View style={styles.pillRow}>
+                {FIXED_FPS_OPTIONS.map((fps) => (
+                  <OptionPill
+                    key={fps}
+                    label={fpsLabel(fps)}
+                    selected={settings.fixedFps === fps}
+                    onPress={() => updateSettings({ fixedFps: fps })}
+                  />
+                ))}
+              </View>
+              <View style={styles.divider} />
+              <View style={styles.summaryRow}>
+                <Ionicons name="information-circle-outline" size={15} color={Colors.textSecondary} />
+                <Text style={styles.summaryText}>{fixedDesc}</Text>
               </View>
             </View>
-            <View style={[styles.toggleSwitch, settings.lockFocusAtInfinity && styles.toggleSwitchOn]}>
-              <View style={[styles.toggleThumb, settings.lockFocusAtInfinity && styles.toggleThumbOn]} />
-            </View>
-          </Pressable>
-        </View>
-      </View>
+          </View>
+        )}
 
-      <View style={styles.section}>
-        <View style={styles.infoCard}>
-          <View style={styles.infoHeader}>
-            <Ionicons name="navigate-outline" size={18} color={Colors.blue} />
-            <Text style={styles.infoTitle}>How Dynamic Mode Works</Text>
+        {settings.frameMode === 'dynamic' && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>FEET PER FRAME</Text>
+            <View style={styles.card}>
+              <View style={styles.sliderValueRow}>
+                <Text style={styles.sliderValue}>{currentFeet}</Text>
+                <Text style={styles.sliderUnit}>ft</Text>
+              </View>
+              <View style={styles.sliderWrapper}>
+                <Slider
+                  style={styles.slider}
+                  minimumValue={DYNAMIC_FEET_MIN}
+                  maximumValue={DYNAMIC_FEET_MAX}
+                  step={1}
+                  value={currentFeet}
+                  onValueChange={(ft) => updateSettings({ dynamicMeters: feetToMeters(ft) })}
+                  minimumTrackTintColor={Colors.blue}
+                  maximumTrackTintColor={Colors.border}
+                  thumbTintColor={Colors.blue}
+                />
+              </View>
+              <View style={styles.sliderLabels}>
+                <Text style={styles.sliderMin}>{DYNAMIC_FEET_MIN} ft</Text>
+                <Text style={styles.sliderMax}>{DYNAMIC_FEET_MAX} ft</Text>
+              </View>
+              <View style={styles.divider} />
+              <View style={styles.summaryRow}>
+                <Ionicons name="information-circle-outline" size={15} color={Colors.textSecondary} />
+                <Text style={styles.summaryText}>{dynamicDesc}</Text>
+              </View>
+            </View>
           </View>
-          <Text style={styles.infoBody}>
-            In distance mode, the app uses live GPS speed to decide when to extract a frame. A
-            frame is saved every time you travel the set distance — so you get consistent spatial
-            coverage regardless of how fast you're moving.
-          </Text>
-          <View style={styles.infoExamples}>
-            <View style={styles.infoExample}>
-              <Text style={styles.infoExampleSpeed}>20 mph</Text>
-              <Text style={styles.infoExampleFps}>{exampleFps(20)}</Text>
+        )}
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>CAMERA</Text>
+          <View style={styles.card}>
+            <Pressable
+              style={({ pressed }) => [styles.toggleRow, pressed && { opacity: 0.75 }]}
+              onPress={() => updateSettings({ lockFocusAtInfinity: !settings.lockFocusAtInfinity })}
+            >
+              <View style={styles.toggleLeft}>
+                <Ionicons
+                  name="infinite-outline"
+                  size={20}
+                  color={settings.lockFocusAtInfinity ? Colors.blue : Colors.textSecondary}
+                />
+                <View style={styles.toggleText}>
+                  <Text style={[styles.toggleLabel, settings.lockFocusAtInfinity && { color: Colors.blue }]}>
+                    Lock Focus at Infinity
+                  </Text>
+                  <Text style={styles.toggleDesc}>
+                    Prevents autofocus from locking onto the dashboard or other nearby objects
+                  </Text>
+                </View>
+              </View>
+              <View style={[styles.toggleSwitch, settings.lockFocusAtInfinity && styles.toggleSwitchOn]}>
+                <View style={[styles.toggleThumb, settings.lockFocusAtInfinity && styles.toggleThumbOn]} />
+              </View>
+            </Pressable>
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>CLOUD STORAGE</Text>
+          <View style={styles.card}>
+            <View style={styles.storageStatusRow}>
+              <View style={[styles.storageIconWrap, { backgroundColor: `${providerColor}18` }]}>
+                <Ionicons name={providerIcon as never} size={20} color={providerColor} />
+              </View>
+              <View style={styles.storageText}>
+                <Text style={[styles.storageProviderName, { color: providerColor }]}>
+                  {providerLabel}
+                </Text>
+                <Text style={styles.storageProviderDesc}>
+                  {providerType === 'none'
+                    ? 'Frames saved on device — CSV log as database'
+                    : 'Frames uploaded after each session'}
+                </Text>
+              </View>
+              <View style={[styles.statusDot, { backgroundColor: isCloudConfigured ? Colors.gpsGreen : Colors.textTertiary }]} />
             </View>
-            <View style={styles.infoExampleDivider} />
-            <View style={styles.infoExample}>
-              <Text style={styles.infoExampleSpeed}>60 mph</Text>
-              <Text style={styles.infoExampleFps}>{exampleFps(60)}</Text>
-            </View>
-            <View style={styles.infoExampleDivider} />
-            <View style={styles.infoExample}>
-              <Text style={styles.infoExampleSpeed}>0 mph</Text>
-              <Text style={styles.infoExampleFps}>No frames</Text>
+
+            <View style={styles.divider} />
+
+            <View style={styles.storageActions}>
+              <Pressable
+                style={({ pressed }) => [styles.storageBtn, pressed && { opacity: 0.75 }]}
+                onPress={() => setWizardVisible(true)}
+              >
+                <Ionicons name="settings-outline" size={14} color={Colors.blue} />
+                <Text style={[styles.storageBtnText, { color: Colors.blue }]}>
+                  {isCloudConfigured ? 'Reconfigure' : 'Set Up Cloud Storage'}
+                </Text>
+              </Pressable>
+
+              {isCloudConfigured && (
+                <Pressable
+                  style={({ pressed }) => [styles.storageBtn, pressed && { opacity: 0.75 }]}
+                  onPress={clearConfig}
+                >
+                  <Ionicons name="trash-outline" size={14} color={Colors.accent} />
+                  <Text style={[styles.storageBtnText, { color: Colors.accent }]}>Disconnect</Text>
+                </Pressable>
+              )}
             </View>
           </View>
         </View>
-      </View>
-    </ScrollView>
+
+        <View style={styles.section}>
+          <View style={styles.infoCard}>
+            <View style={styles.infoHeader}>
+              <Ionicons name="navigate-outline" size={18} color={Colors.blue} />
+              <Text style={styles.infoTitle}>How Dynamic Mode Works</Text>
+            </View>
+            <Text style={styles.infoBody}>
+              In distance mode, the app uses live GPS speed to decide when to extract a frame. A
+              frame is saved every time you travel the set distance — so you get consistent spatial
+              coverage regardless of how fast you're moving.
+            </Text>
+            <View style={styles.infoExamples}>
+              <View style={styles.infoExample}>
+                <Text style={styles.infoExampleSpeed}>20 mph</Text>
+                <Text style={styles.infoExampleFps}>{exampleFps(20)}</Text>
+              </View>
+              <View style={styles.infoExampleDivider} />
+              <View style={styles.infoExample}>
+                <Text style={styles.infoExampleSpeed}>60 mph</Text>
+                <Text style={styles.infoExampleFps}>{exampleFps(60)}</Text>
+              </View>
+              <View style={styles.infoExampleDivider} />
+              <View style={styles.infoExample}>
+                <Text style={styles.infoExampleSpeed}>0 mph</Text>
+                <Text style={styles.infoExampleFps}>No frames</Text>
+              </View>
+            </View>
+          </View>
+        </View>
+      </ScrollView>
+
+      <StorageWizard
+        visible={wizardVisible}
+        onClose={() => setWizardVisible(false)}
+      />
+    </>
   );
 }
 
@@ -394,6 +465,54 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_400Regular',
     fontSize: 13,
     flex: 1,
+  },
+  storageStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 14,
+  },
+  storageIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  storageText: {
+    flex: 1,
+    gap: 2,
+  },
+  storageProviderName: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 14,
+  },
+  storageProviderDesc: {
+    color: Colors.textTertiary,
+    fontFamily: 'Inter_400Regular',
+    fontSize: 12,
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  storageActions: {
+    flexDirection: 'row',
+    gap: 0,
+  },
+  storageBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+  },
+  storageBtnText: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 13,
   },
   infoCard: {
     backgroundColor: 'rgba(10, 132, 255, 0.06)',
