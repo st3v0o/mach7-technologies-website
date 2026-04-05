@@ -1,5 +1,25 @@
 import React, { createContext, useContext } from 'react';
 
+export interface BoundingBox {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface Detection {
+  label: string;
+  confidence: number;
+  bbox: BoundingBox;
+}
+
+export interface DetectionResult {
+  detections: Detection[];
+  inferenceMs: number;
+  imageWidth: number;
+  imageHeight: number;
+}
+
 export interface DetectionEvent {
   label: string;
   confidence: number;
@@ -13,10 +33,10 @@ interface DetectionContextType {
   setDetectionEnabled: (v: boolean) => void;
   isDetecting: boolean;
   currentEvent: DetectionEvent | null;
-  currentDetection: null;
+  currentDetection: Detection | null;
   savedEvents: DetectionEvent[];
   lastCommittedEvent: DetectionEvent | null;
-  reportResult: () => void;
+  reportResult: (result: DetectionResult, frameUri: string) => void;
   clearCurrentEvent: () => void;
   clearLastCommittedEvent: () => void;
 }
@@ -46,6 +66,6 @@ export function DetectionProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function useDetection() {
+export function useDetection(): DetectionContextType {
   return useContext(DetectionContext);
 }
