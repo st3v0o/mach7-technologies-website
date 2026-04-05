@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
-import React, { useMemo, useState } from 'react';
+import { useNavigation } from 'expo-router';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -383,14 +384,24 @@ function SessionHeader({ section, onShareGpx }: { section: SessionSection; onSha
 
 export default function LogScreen() {
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation();
   const { logEntries, shareLog, shareGpx, clearLog, processingStatus, totalFrames, segmentCount } = useRecording();
   const [isSharing, setIsSharing] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<LogEntry | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const [isDemoMode, setIsDemoMode] = useState(false);
+  const [mapSheetOpen, setMapSheetOpen] = useState(false);
 
   const sections = useMemo(() => groupEntriesBySessions(logEntries), [logEntries]);
   const mapSections = isDemoMode ? DEMO_SECTIONS : sections;
+
+  // Hide the tab bar while the frame preview sheet is open
+  useEffect(() => {
+    const parent = navigation.getParent();
+    if (!parent) return;
+    parent.setOptions({ tabBarStyle: mapSheetOpen ? { display: 'none' } : undefined });
+    return () => { parent.setOptions({ tabBarStyle: undefined }); };
+  }, [mapSheetOpen, navigation]);
 
   const handleShare = async () => {
     if (Platform.OS === 'web') return;
@@ -520,6 +531,7 @@ export default function LogScreen() {
         <LogMapView
           sections={mapSections}
           demoMode={isDemoMode}
+          onSheetChange={setMapSheetOpen}
           onDemoPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
             setIsDemoMode(true);

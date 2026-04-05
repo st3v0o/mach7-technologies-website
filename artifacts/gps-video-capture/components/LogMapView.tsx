@@ -1,9 +1,17 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
+  Animated,
   Dimensions,
   FlatList,
+  PanResponder,
   Platform,
   Pressable,
   StyleSheet,
@@ -14,6 +22,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import Colors from '@/constants/colors';
 import { LogEntry } from '@/contexts/RecordingContext';
+
+// ── Public types ──────────────────────────────────────────────────────────────
 
 export interface SessionSection {
   sessionId: string;
@@ -34,31 +44,22 @@ export const SESSION_COLORS = [
 
 const MAX_MARKERS = 600;
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
-function fmtTime(ms: number): string {
-  const d = new Date(ms);
-  return d.toLocaleTimeString('en-US', {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
+function fmtTime(ms: number) {
+  return new Date(ms).toLocaleTimeString('en-US', {
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
   });
 }
-
-function fmtDate(ms: number): string {
+function fmtDate(ms: number) {
   return new Date(ms).toLocaleDateString('en-US', {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
+    weekday: 'short', month: 'short', day: 'numeric', year: 'numeric',
   });
 }
-
-function fmtLat(lat: number): string {
+function fmtLat(lat: number) {
   return `${Math.abs(lat).toFixed(6)}°  ${lat >= 0 ? 'N' : 'S'}`;
 }
-
-function fmtLon(lon: number): string {
+function fmtLon(lon: number) {
   return `${Math.abs(lon).toFixed(6)}°  ${lon >= 0 ? 'E' : 'W'}`;
 }
 
@@ -95,15 +96,9 @@ function NoDataFallback({ onDemoPress }: { onDemoPress?: () => void }) {
   );
 }
 
-// ── Legend ─────────────────────────────────────────────────────────────────
+// ── Legend ────────────────────────────────────────────────────────────────────
 
-function Legend({
-  sections,
-  bottomOffset,
-}: {
-  sections: SessionSection[];
-  bottomOffset: number;
-}) {
+function Legend({ sections, bottomOffset }: { sections: SessionSection[]; bottomOffset: number }) {
   const visible = sections.slice(0, 6);
   return (
     <View style={[styles.legend, { bottom: bottomOffset }]}>
@@ -115,18 +110,13 @@ function Legend({
           ' · ' +
           d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
         const modeIcon =
-          section.mode === 'video'
-            ? 'videocam-outline'
-            : section.mode === 'photo'
-            ? 'camera-outline'
-            : 'layers-outline';
+          section.mode === 'video' ? 'videocam-outline' :
+          section.mode === 'photo' ? 'camera-outline' : 'layers-outline';
         return (
           <View key={section.sessionId} style={styles.legendRow}>
             <View style={[styles.legendDot, { backgroundColor: color }]} />
             <Ionicons name={modeIcon as any} size={11} color={color} />
-            <Text style={styles.legendText}>
-              {label} · {section.data.length} frames
-            </Text>
+            <Text style={styles.legendText}>{label} · {section.data.length} frames</Text>
           </View>
         );
       })}
@@ -137,33 +127,31 @@ function Legend({
   );
 }
 
-// ── Half-screen swipeable preview sheet ──────────────────────────────────────
+// ── Sheet page (one frame per page) ──────────────────────────────────────────
 
 function SheetPage({
   entry,
   sessionColor,
   pageWidth,
-  photoHeight,
   onOpenFull,
 }: {
   entry: LogEntry;
   sessionColor: string;
   pageWidth: number;
-  photoHeight: number;
   onOpenFull: () => void;
 }) {
   const hasPhoto = Boolean(entry.localPath);
 
   return (
     <View style={[styles.page, { width: pageWidth }]}>
-      {/* Photo */}
-      <View style={[styles.photoArea, { height: photoHeight }]}>
+      {/* Photo — flex fills top half */}
+      <View style={styles.photoArea}>
         {hasPhoto ? (
           <Image
             source={{ uri: entry.localPath }}
             style={StyleSheet.absoluteFill}
             contentFit="contain"
-            transition={100}
+            transition={80}
           />
         ) : (
           <View style={styles.photoPlaceholder}>
@@ -172,7 +160,6 @@ function SheetPage({
           </View>
         )}
 
-        {/* Detection overlay badge */}
         {entry.detectionLabel && (
           <View style={styles.detBadge}>
             <Ionicons name="eye" size={12} color={Colors.gpsGreen} />
@@ -186,9 +173,8 @@ function SheetPage({
         )}
       </View>
 
-      {/* Info panel */}
+      {/* Info panel — flex fills bottom half */}
       <View style={styles.pageInfo}>
-        {/* Date / time row */}
         <View style={styles.infoRow}>
           <Ionicons name="time-outline" size={13} color={Colors.textSecondary} />
           <View>
@@ -197,7 +183,6 @@ function SheetPage({
           </View>
         </View>
 
-        {/* GPS rows */}
         <View style={styles.gpsBlock}>
           <View style={styles.gpsRow}>
             <Ionicons name="location" size={13} color={Colors.gpsGreen} />
@@ -208,13 +193,11 @@ function SheetPage({
           </View>
         </View>
 
-        {/* Segment */}
         <View style={styles.infoRow}>
           <Ionicons name="film-outline" size={13} color={Colors.textSecondary} />
           <Text style={styles.infoSeg} numberOfLines={1}>{entry.filename}</Text>
         </View>
 
-        {/* Open full button */}
         {hasPhoto && (
           <Pressable
             onPress={onOpenFull}
@@ -233,6 +216,8 @@ function SheetPage({
   );
 }
 
+// ── Swipeable bottom sheet ────────────────────────────────────────────────────
+
 function MapPreviewSheet({
   initialEntry,
   sessionEntries,
@@ -240,6 +225,7 @@ function MapPreviewSheet({
   onDismiss,
   onOpenFull,
   insetBottom,
+  onIndexChange,
 }: {
   initialEntry: LogEntry;
   sessionEntries: LogEntry[];
@@ -247,35 +233,88 @@ function MapPreviewSheet({
   onDismiss: () => void;
   onOpenFull: (entry: LogEntry) => void;
   insetBottom: number;
+  onIndexChange: (idx: number) => void;
 }) {
   const { width: SW, height: SH } = Dimensions.get('window');
-  const SHEET_H = Math.round(SH * 0.58);
-  const PHOTO_H = Math.round(SHEET_H * 0.50);
+  const COLLAPSED_H = Math.round(SH * 0.58);
+  const EXPANDED_H  = Math.round(SH * 0.88);
+
+  const animHeight  = useRef(new Animated.Value(COLLAPSED_H)).current;
+  const snapRef     = useRef<'collapsed' | 'expanded'>('collapsed');
+  const flatRef     = useRef<FlatList<LogEntry>>(null);
 
   const initialIndex = useMemo(
     () => Math.max(0, sessionEntries.findIndex((e) => e.id === initialEntry.id)),
     [sessionEntries, initialEntry.id]
   );
-
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
-  const flatRef = useRef<FlatList<LogEntry>>(null);
 
-  // Scroll to the tapped entry on first render
+  // Scroll FlatList to the tapped entry on first render
   useEffect(() => {
     if (initialIndex > 0) {
-      // Use a tiny delay so FlatList has laid out
       setTimeout(() => {
         flatRef.current?.scrollToIndex({ index: initialIndex, animated: false });
-      }, 50);
+      }, 40);
     }
-  }, [initialIndex]);
+    // Signal the initial index
+    onIndexChange(initialIndex);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // PanResponder — vertical swipe to expand/collapse/dismiss
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
+      // Only claim vertical-dominant gestures — lets FlatList keep horizontal ones
+      onMoveShouldSetPanResponder: (_, g) =>
+        Math.abs(g.dy) > 10 && Math.abs(g.dy) > Math.abs(g.dx) * 1.8,
+
+      onPanResponderMove: (_, g) => {
+        const base = snapRef.current === 'expanded' ? EXPANDED_H : COLLAPSED_H;
+        const next = Math.max(COLLAPSED_H * 0.4, Math.min(EXPANDED_H, base - g.dy));
+        animHeight.setValue(next);
+      },
+
+      onPanResponderRelease: (_, g) => {
+        const isExpanded = snapRef.current === 'expanded';
+
+        if (!isExpanded) {
+          // Currently collapsed
+          if (g.dy > 120 || (g.dy > 50 && g.vy > 0.8)) {
+            // Dismiss: slide down
+            Animated.timing(animHeight, {
+              toValue: 0, duration: 220, useNativeDriver: false,
+            }).start(onDismiss);
+          } else if (g.dy < -60 || g.vy < -0.6) {
+            // Expand
+            snapRef.current = 'expanded';
+            spring(animHeight, EXPANDED_H);
+          } else {
+            // Snap back collapsed
+            spring(animHeight, COLLAPSED_H);
+          }
+        } else {
+          // Currently expanded
+          if (g.dy > 80 || (g.dy > 30 && g.vy > 0.6)) {
+            // Collapse
+            snapRef.current = 'collapsed';
+            spring(animHeight, COLLAPSED_H);
+          } else {
+            // Snap back expanded
+            spring(animHeight, EXPANDED_H);
+          }
+        }
+      },
+    })
+  ).current;
 
   const handleScrollEnd = useCallback(
     (e: any) => {
       const idx = Math.round(e.nativeEvent.contentOffset.x / SW);
-      setCurrentIndex(Math.min(Math.max(0, idx), sessionEntries.length - 1));
+      const clamped = Math.min(Math.max(0, idx), sessionEntries.length - 1);
+      setCurrentIndex(clamped);
+      onIndexChange(clamped);
     },
-    [SW, sessionEntries.length]
+    [SW, sessionEntries.length, onIndexChange]
   );
 
   const getItemLayout = useCallback(
@@ -283,10 +322,11 @@ function MapPreviewSheet({
     [SW]
   );
 
-  const currentEntry = sessionEntries[currentIndex] ?? initialEntry;
-
   return (
-    <View style={[styles.sheet, { height: SHEET_H, paddingBottom: insetBottom }]}>
+    <Animated.View
+      style={[styles.sheet, { height: animHeight, paddingBottom: insetBottom }]}
+      {...panResponder.panHandlers}
+    >
       {/* Drag handle */}
       <View style={styles.handle} />
 
@@ -302,12 +342,9 @@ function MapPreviewSheet({
 
         <View style={styles.sheetTitleWrap}>
           <View style={[styles.sheetColorDot, { backgroundColor: sessionColor }]} />
-          <Text style={styles.sheetCounter}>
-            {currentIndex + 1} / {sessionEntries.length}
-          </Text>
+          <Text style={styles.sheetCounter}>{currentIndex + 1} / {sessionEntries.length}</Text>
         </View>
 
-        {/* Prev / Next arrows */}
         <View style={styles.sheetNav}>
           <Pressable
             disabled={currentIndex === 0}
@@ -315,11 +352,12 @@ function MapPreviewSheet({
               const prev = currentIndex - 1;
               flatRef.current?.scrollToIndex({ index: prev, animated: true });
               setCurrentIndex(prev);
+              onIndexChange(prev);
             }}
             style={({ pressed }) => [
               styles.navBtn,
               pressed && { opacity: 0.6 },
-              currentIndex === 0 && { opacity: 0.2 },
+              currentIndex === 0 && styles.navBtnDisabled,
             ]}
             hitSlop={8}
           >
@@ -331,11 +369,12 @@ function MapPreviewSheet({
               const next = currentIndex + 1;
               flatRef.current?.scrollToIndex({ index: next, animated: true });
               setCurrentIndex(next);
+              onIndexChange(next);
             }}
             style={({ pressed }) => [
               styles.navBtn,
               pressed && { opacity: 0.6 },
-              currentIndex === sessionEntries.length - 1 && { opacity: 0.2 },
+              currentIndex === sessionEntries.length - 1 && styles.navBtnDisabled,
             ]}
             hitSlop={8}
           >
@@ -355,34 +394,46 @@ function MapPreviewSheet({
         initialScrollIndex={initialIndex}
         getItemLayout={getItemLayout}
         onMomentumScrollEnd={handleScrollEnd}
+        style={styles.flatList}
         renderItem={({ item }) => (
           <SheetPage
             entry={item}
             sessionColor={sessionColor}
             pageWidth={SW}
-            photoHeight={PHOTO_H}
             onOpenFull={() => onOpenFull(item)}
           />
         )}
-        style={{ flex: 1 }}
       />
 
-      {/* Coloured bottom accent line */}
+      {/* Session-coloured accent line at bottom */}
       <View style={[styles.sheetAccentLine, { backgroundColor: sessionColor }]} />
-    </View>
+    </Animated.View>
   );
 }
 
-// ── Top-level export ──────────────────────────────────────────────────────────
+function spring(val: Animated.Value, toValue: number) {
+  Animated.spring(val, {
+    toValue, useNativeDriver: false, tension: 68, friction: 11,
+  }).start();
+}
+
+// ── Props & top-level export ──────────────────────────────────────────────────
 
 interface Props {
   sections: SessionSection[];
   onSelectEntry: (entry: LogEntry) => void;
   demoMode?: boolean;
   onDemoPress?: () => void;
+  onSheetChange?: (open: boolean) => void;
 }
 
-export default function LogMapView({ sections, onSelectEntry, demoMode, onDemoPress }: Props) {
+export default function LogMapView({
+  sections,
+  onSelectEntry,
+  demoMode,
+  onDemoPress,
+  onSheetChange,
+}: Props) {
   const insets = useSafeAreaInsets();
 
   const allValidCoords = useMemo(
@@ -406,11 +457,12 @@ export default function LogMapView({ sections, onSelectEntry, demoMode, onDemoPr
       insetBottom={insets.bottom}
       bottomOffset={insets.bottom + 90}
       demoMode={demoMode}
+      onSheetChange={onSheetChange}
     />
   );
 }
 
-// ── Native map (iOS/Android only) ────────────────────────────────────────────
+// ── Native map ────────────────────────────────────────────────────────────────
 
 type ActiveState = {
   entry: LogEntry;
@@ -425,6 +477,7 @@ function NativeMapView({
   insetBottom,
   bottomOffset,
   demoMode,
+  onSheetChange,
 }: {
   sections: SessionSection[];
   allValidCoords: { latitude: number; longitude: number }[];
@@ -432,27 +485,49 @@ function NativeMapView({
   insetBottom: number;
   bottomOffset: number;
   demoMode?: boolean;
+  onSheetChange?: (open: boolean) => void;
 }) {
   const maps = require('react-native-maps');
-  const MapView = maps.default;
+  const MapView  = maps.default;
   const { Marker, Polyline } = maps;
 
   const mapRef = useRef<any>(null);
   const [active, setActive] = useState<ActiveState | null>(null);
+  // Tracks which entry is currently shown in the sheet as the user swipes
+  const [displayedEntryId, setDisplayedEntryId] = useState<string | null>(null);
 
   const totalEntries = sections.reduce((n, s) => n + s.data.length, 0);
-  const showMarkers = totalEntries <= MAX_MARKERS;
+  const showMarkers  = totalEntries <= MAX_MARKERS;
+
+  // Notify parent when sheet opens / closes
+  useEffect(() => {
+    onSheetChange?.(active !== null);
+    if (active) {
+      setDisplayedEntryId(active.entry.id);
+    } else {
+      setDisplayedEntryId(null);
+    }
+  }, [active, onSheetChange]);
 
   useEffect(() => {
     if (allValidCoords.length === 0) return;
-    const timer = setTimeout(() => {
+    const t = setTimeout(() => {
       mapRef.current?.fitToCoordinates(allValidCoords, {
         edgePadding: { top: 80, right: 40, bottom: 200, left: 40 },
         animated: false,
       });
     }, 400);
-    return () => clearTimeout(timer);
+    return () => clearTimeout(t);
   }, [allValidCoords]);
+
+  const handleIndexChange = useCallback(
+    (idx: number) => {
+      if (!active) return;
+      const entry = active.sessionEntries[idx];
+      if (entry) setDisplayedEntryId(entry.id);
+    },
+    [active]
+  );
 
   return (
     <View style={{ flex: 1 }}>
@@ -483,34 +558,29 @@ function NativeMapView({
               )}
               {showMarkers &&
                 validEntries.map((entry) => {
-                  const isActive = active?.entry.id === entry.id;
+                  const isCurrent = displayedEntryId === entry.id;
                   return (
                     <Marker
                       key={entry.id}
-                      coordinate={{
-                        latitude: entry.latitude,
-                        longitude: entry.longitude,
-                      }}
-                      tracksViewChanges={isActive}
+                      coordinate={{ latitude: entry.latitude, longitude: entry.longitude }}
+                      tracksViewChanges={isCurrent}
                       anchor={{ x: 0.5, y: 0.5 }}
                       onPress={(e: any) => {
                         e.stopPropagation();
-                        setActive(
-                          isActive ? null : { entry, color, sessionEntries: validEntries }
-                        );
+                        setActive({ entry, color, sessionEntries: validEntries });
                       }}
                     >
                       <View style={styles.markerWrap}>
-                        {isActive && (
-                          <View style={[styles.markerRing, { borderColor: color }]} />
+                        {isCurrent ? (
+                          <>
+                            {/* Pulsing outer ring for current frame */}
+                            <View style={[styles.markerRingCurrent, { borderColor: color }]} />
+                            {/* White dot with session-colour border */}
+                            <View style={[styles.dotCurrent, { borderColor: color }]} />
+                          </>
+                        ) : (
+                          <View style={[styles.dot, { backgroundColor: color }]} />
                         )}
-                        <View
-                          style={[
-                            styles.dot,
-                            { backgroundColor: color },
-                            isActive && styles.dotActive,
-                          ]}
-                        />
                       </View>
                     </Marker>
                   );
@@ -520,7 +590,7 @@ function NativeMapView({
         })}
       </MapView>
 
-      {/* Performance / demo banners */}
+      {/* Banners */}
       {!showMarkers && (
         <View style={styles.perfBanner}>
           <Ionicons name="information-circle-outline" size={13} color={Colors.amber} />
@@ -529,7 +599,6 @@ function NativeMapView({
           </Text>
         </View>
       )}
-
       {demoMode && (
         <View style={styles.demoBanner}>
           <Ionicons name="flask-outline" size={13} color="#000" />
@@ -540,7 +609,7 @@ function NativeMapView({
       {/* Legend — hidden while sheet is open */}
       {!active && <Legend sections={sections} bottomOffset={bottomOffset} />}
 
-      {/* Half-screen preview sheet */}
+      {/* Half-screen swipeable preview sheet */}
       {active && (
         <MapPreviewSheet
           initialEntry={active.entry}
@@ -552,6 +621,7 @@ function NativeMapView({
             setActive(null);
           }}
           insetBottom={insetBottom}
+          onIndexChange={handleIndexChange}
         />
       )}
     </View>
@@ -561,310 +631,132 @@ function NativeMapView({
 // ── Styles ────────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  // Fallbacks
+  // Fallback
   fallback: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-    paddingHorizontal: 40,
+    flex: 1, alignItems: 'center', justifyContent: 'center',
+    gap: 12, paddingHorizontal: 40,
   },
   fallbackTitle: {
-    color: Colors.text,
-    fontFamily: 'Inter_600SemiBold',
-    fontSize: 17,
-    textAlign: 'center',
+    color: Colors.text, fontFamily: 'Inter_600SemiBold',
+    fontSize: 17, textAlign: 'center',
   },
   fallbackSub: {
-    color: Colors.textSecondary,
-    fontFamily: 'Inter_400Regular',
-    fontSize: 14,
-    textAlign: 'center',
-    lineHeight: 20,
+    color: Colors.textSecondary, fontFamily: 'Inter_400Regular',
+    fontSize: 14, textAlign: 'center', lineHeight: 20,
   },
   demoBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-    marginTop: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(255,184,0,0.4)',
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    backgroundColor: 'rgba(255,184,0,0.08)',
+    flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 8,
+    borderWidth: 1, borderColor: 'rgba(255,184,0,0.4)', borderRadius: 20,
+    paddingHorizontal: 16, paddingVertical: 10, backgroundColor: 'rgba(255,184,0,0.08)',
   },
-  demoBtnText: {
-    color: Colors.amber,
-    fontFamily: 'Inter_500Medium',
-    fontSize: 14,
-  },
+  demoBtnText: { color: Colors.amber, fontFamily: 'Inter_500Medium', fontSize: 14 },
 
   // Markers
-  markerWrap: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: 28,
-    height: 28,
-  },
-  markerRing: {
-    position: 'absolute',
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    borderWidth: 2,
-    opacity: 0.55,
-  },
+  markerWrap: { alignItems: 'center', justifyContent: 'center', width: 30, height: 30 },
   dot: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.85)',
+    width: 14, height: 14, borderRadius: 7,
+    borderWidth: 2, borderColor: 'rgba(255,255,255,0.85)',
   },
-  dotActive: {
-    width: 17,
-    height: 17,
-    borderRadius: 9,
-    borderColor: '#fff',
+  // Currently-displayed dot: white fill, session-colour border + ring
+  dotCurrent: {
+    width: 18, height: 18, borderRadius: 9,
+    backgroundColor: '#fff', borderWidth: 2.5,
+  },
+  markerRingCurrent: {
+    position: 'absolute', width: 30, height: 30, borderRadius: 15, borderWidth: 2,
   },
 
   // Legend
   legend: {
-    position: 'absolute',
-    left: 12,
-    right: 12,
-    backgroundColor: 'rgba(10,10,15,0.82)',
-    borderRadius: 14,
-    padding: 12,
-    gap: 7,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    position: 'absolute', left: 12, right: 12,
+    backgroundColor: 'rgba(10,10,15,0.82)', borderRadius: 14,
+    padding: 12, gap: 7, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
   },
-  legendRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-  },
-  legendDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-  },
-  legendText: {
-    color: Colors.text,
-    fontFamily: 'Inter_400Regular',
-    fontSize: 12,
-    flex: 1,
-  },
-  legendMore: {
-    color: Colors.textSecondary,
-    fontFamily: 'Inter_400Regular',
-    fontSize: 11,
-    marginTop: 2,
-  },
+  legendRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  legendDot: { width: 10, height: 10, borderRadius: 5 },
+  legendText: { color: Colors.text, fontFamily: 'Inter_400Regular', fontSize: 12, flex: 1 },
+  legendMore: { color: Colors.textSecondary, fontFamily: 'Inter_400Regular', fontSize: 11, marginTop: 2 },
 
   // Banners
   perfBanner: {
-    position: 'absolute',
-    top: 12,
-    left: 12,
-    right: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: 'rgba(10,10,15,0.82)',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(255,184,0,0.25)',
+    position: 'absolute', top: 12, left: 12, right: 12,
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: 'rgba(10,10,15,0.82)', borderRadius: 10,
+    paddingHorizontal: 12, paddingVertical: 8,
+    borderWidth: 1, borderColor: 'rgba(255,184,0,0.25)',
   },
-  perfBannerText: {
-    color: Colors.amber,
-    fontFamily: 'Inter_400Regular',
-    fontSize: 12,
-    flex: 1,
-  },
+  perfBannerText: { color: Colors.amber, fontFamily: 'Inter_400Regular', fontSize: 12, flex: 1 },
   demoBanner: {
-    position: 'absolute',
-    top: 12,
-    alignSelf: 'center',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: Colors.amber,
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
+    position: 'absolute', top: 12, alignSelf: 'center',
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: Colors.amber, borderRadius: 20,
+    paddingHorizontal: 14, paddingVertical: 6,
   },
-  demoBannerText: {
-    color: '#000',
-    fontFamily: 'Inter_600SemiBold',
-    fontSize: 12,
-    letterSpacing: 0.3,
-  },
+  demoBannerText: { color: '#000', fontFamily: 'Inter_600SemiBold', fontSize: 12, letterSpacing: 0.3 },
 
-  // Half-screen sheet
+  // Sheet container
   sheet: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: 'rgba(8, 8, 14, 0.97)',
-    borderTopLeftRadius: 22,
-    borderTopRightRadius: 22,
-    borderTopWidth: 1,
-    borderLeftWidth: 1,
-    borderRightWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+    backgroundColor: 'rgba(8,8,14,0.97)',
+    borderTopLeftRadius: 22, borderTopRightRadius: 22,
+    borderTopWidth: 1, borderLeftWidth: 1, borderRightWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
     overflow: 'hidden',
   },
   handle: {
-    width: 38,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    alignSelf: 'center',
-    marginTop: 10,
-    marginBottom: 2,
+    width: 38, height: 4, borderRadius: 2,
+    backgroundColor: 'rgba(255,255,255,0.22)',
+    alignSelf: 'center', marginTop: 10, marginBottom: 2,
   },
   sheetHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 14, paddingVertical: 8,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: 'rgba(255,255,255,0.08)',
   },
-  sheetClose: {
-    padding: 4,
-  },
+  sheetClose: { padding: 4 },
   sheetTitleWrap: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
+    flex: 1, flexDirection: 'row', alignItems: 'center',
+    justifyContent: 'center', gap: 8,
   },
-  sheetColorDot: {
-    width: 9,
-    height: 9,
-    borderRadius: 5,
-  },
-  sheetCounter: {
-    color: Colors.text,
-    fontFamily: 'Inter_600SemiBold',
-    fontSize: 14,
-  },
-  sheetNav: {
-    flexDirection: 'row',
-    gap: 2,
-  },
-  navBtn: {
-    padding: 6,
-  },
-  sheetAccentLine: {
-    height: 3,
-    width: '100%',
-  },
+  sheetColorDot: { width: 9, height: 9, borderRadius: 5 },
+  sheetCounter: { color: Colors.text, fontFamily: 'Inter_600SemiBold', fontSize: 14 },
+  sheetNav: { flexDirection: 'row', gap: 2 },
+  navBtn: { padding: 6 },
+  navBtnDisabled: { opacity: 0.2 },
+  sheetAccentLine: { height: 3, width: '100%' },
+  flatList: { flex: 1 },
 
-  // Page layout
-  page: {
-    flex: 1,
-  },
+  // Page
+  page: { flex: 1 },
   photoArea: {
-    width: '100%',
+    flex: 5,
     backgroundColor: '#000',
     overflow: 'hidden',
   },
-  photoPlaceholder: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-  },
-  photoPlaceholderText: {
-    color: Colors.textTertiary,
-    fontFamily: 'Inter_400Regular',
-    fontSize: 13,
-  },
+  photoPlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10 },
+  photoPlaceholderText: { color: Colors.textTertiary, fontFamily: 'Inter_400Regular', fontSize: 13 },
   detBadge: {
-    position: 'absolute',
-    bottom: 10,
-    left: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: 'rgba(0,0,0,0.65)',
-    borderRadius: 20,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderWidth: 1,
-    borderColor: Colors.gpsGreen,
+    position: 'absolute', bottom: 10, left: 12,
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    backgroundColor: 'rgba(0,0,0,0.65)', borderRadius: 20,
+    paddingHorizontal: 10, paddingVertical: 4,
+    borderWidth: 1, borderColor: Colors.gpsGreen,
   },
-  detBadgeText: {
-    color: Colors.gpsGreen,
-    fontFamily: 'Inter_600SemiBold',
-    fontSize: 11,
-    letterSpacing: 0.5,
-  },
+  detBadgeText: { color: Colors.gpsGreen, fontFamily: 'Inter_600SemiBold', fontSize: 11, letterSpacing: 0.5 },
   pageInfo: {
-    flex: 1,
-    paddingHorizontal: 18,
-    paddingTop: 14,
-    paddingBottom: 8,
-    gap: 10,
+    flex: 5, paddingHorizontal: 18, paddingTop: 14, paddingBottom: 8, gap: 10,
   },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-  },
-  infoDate: {
-    color: Colors.text,
-    fontFamily: 'Inter_500Medium',
-    fontSize: 13,
-    lineHeight: 17,
-  },
-  infoTime: {
-    color: Colors.textSecondary,
-    fontFamily: 'Inter_400Regular',
-    fontSize: 12,
-    lineHeight: 17,
-  },
-  gpsBlock: {
-    gap: 3,
-  },
-  gpsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
-  gpsVal: {
-    color: Colors.gpsGreen,
-    fontFamily: 'Inter_400Regular',
-    fontSize: 13,
-    letterSpacing: 0.3,
-  },
-  infoSeg: {
-    color: Colors.textTertiary,
-    fontFamily: 'Inter_400Regular',
-    fontSize: 12,
-    flex: 1,
-  },
+  infoRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+  infoDate: { color: Colors.text, fontFamily: 'Inter_500Medium', fontSize: 13, lineHeight: 17 },
+  infoTime: { color: Colors.textSecondary, fontFamily: 'Inter_400Regular', fontSize: 12, lineHeight: 17 },
+  gpsBlock: { gap: 3 },
+  gpsRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  gpsVal: { color: Colors.gpsGreen, fontFamily: 'Inter_400Regular', fontSize: 13, letterSpacing: 0.3 },
+  infoSeg: { color: Colors.textTertiary, fontFamily: 'Inter_400Regular', fontSize: 12, flex: 1 },
   openFullBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingVertical: 10,
-    marginTop: 'auto',
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, borderWidth: 1, borderRadius: 12, paddingVertical: 10, marginTop: 'auto' as any,
   },
-  openFullText: {
-    fontFamily: 'Inter_600SemiBold',
-    fontSize: 14,
-  },
+  openFullText: { fontFamily: 'Inter_600SemiBold', fontSize: 14 },
 });
