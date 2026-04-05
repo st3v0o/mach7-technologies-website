@@ -440,7 +440,7 @@ export default function CaptureScreen() {
           facing="back"
           mode={settings.captureMode === 'photo' ? 'picture' : 'video'}
           zoom={zoom}
-          autoFocus={settings.lockFocusAtInfinity ? 'off' : 'on'}
+          autofocus={settings.lockFocusAtInfinity ? 'off' : 'on'}
         />
       ) : (
         <View style={[StyleSheet.absoluteFill, styles.webPlaceholder]}>

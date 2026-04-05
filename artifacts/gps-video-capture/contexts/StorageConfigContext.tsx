@@ -11,6 +11,7 @@ import { uploadFrameSupabase, testSupabaseConnection } from '@/lib/storage/supab
 import { uploadFrameWebhook, testWebhookConnection } from '@/lib/storage/webhookAdapter';
 import {
   StorageConfig,
+  StorageConfigWebhook,
   StorageProviderType,
   TestResult,
   UploadableFrame,
@@ -21,8 +22,21 @@ const STORAGE_CONFIG_KEY = '@gps_storage_config';
 export const PROVIDER_LABELS: Record<StorageProviderType, string> = {
   none: 'Local Only',
   supabase: 'Supabase',
-  webhook: 'Custom Webhook',
+  webhook: 'HTTP Endpoint',
 };
+
+function migrateConfig(raw: StorageConfig): StorageConfig {
+  if (raw.provider !== 'webhook') return raw;
+  const w = raw as StorageConfigWebhook & { bearerToken?: string };
+  return {
+    ...w,
+    method: w.method ?? 'POST',
+    bodyFormat: w.bodyFormat ?? 'json',
+    authType: w.authType ?? (w.bearerToken ? 'bearer' : 'none'),
+    authValue: w.authValue ?? w.bearerToken ?? undefined,
+    customHeaders: w.customHeaders ?? [],
+  } as StorageConfigWebhook;
+}
 
 interface StorageConfigContextType {
   config: StorageConfig | null;
@@ -47,7 +61,8 @@ export function StorageConfigProvider({ children }: { children: React.ReactNode 
       .then((raw) => {
         if (raw) {
           try {
-            setConfig(JSON.parse(raw));
+            const parsed = JSON.parse(raw) as StorageConfig;
+            setConfig(migrateConfig(parsed));
           } catch {}
         }
       })

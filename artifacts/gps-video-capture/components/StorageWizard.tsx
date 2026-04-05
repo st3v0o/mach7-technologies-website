@@ -1,5 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
+import * as Clipboard from 'expo-clipboard';
+import { Linking } from 'react-native';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -18,6 +20,10 @@ import {
 import Colors from '@/constants/colors';
 import { useStorageConfig } from '@/contexts/StorageConfigContext';
 import {
+  AuthType,
+  BodyFormat,
+  CustomHeader,
+  HttpMethod,
   StorageConfig,
   StorageConfigSupabase,
   StorageConfigWebhook,
@@ -33,27 +39,76 @@ interface Props {
 
 const PROVIDER_INFO: Record<
   StorageProviderType,
-  { icon: string; title: string; description: string; color: string }
+  { icon: string; title: string; subtitle: string; description: string; color: string }
 > = {
   none: {
     icon: 'phone-portrait-outline',
     title: 'Local Only',
-    description: 'Frames & GPS saved on device. CSV spreadsheet acts as your database.',
+    subtitle: 'No upload',
+    description: 'Frames & GPS data stay on your device. Export via CSV or GPX share.',
     color: Colors.textSecondary,
   },
   supabase: {
     icon: 'server-outline',
     title: 'Supabase',
-    description: 'Upload to your own Supabase project — storage bucket + database table.',
+    subtitle: 'Free tier · Postgres + Storage',
+    description: 'Upload frames to Supabase Storage and log GPS metadata to a Postgres table — queryable from the Supabase dashboard instantly.',
     color: Colors.gpsGreen,
   },
   webhook: {
-    icon: 'link-outline',
-    title: 'Custom Webhook',
-    description: 'POST each frame to any REST endpoint — your own server, Firebase, R2, etc.',
+    icon: 'globe-outline',
+    title: 'HTTP Endpoint',
+    subtitle: 'Works with AWS S3, R2, n8n, Zapier, any REST API',
+    description: 'POST or PUT each frame to any URL. Configure auth, headers, and payload format — JSON or multipart.',
     color: Colors.blue,
   },
 };
+
+const HTTP_PRESETS: {
+  id: string;
+  label: string;
+  method: HttpMethod;
+  bodyFormat: BodyFormat;
+  authType: AuthType;
+  help: string;
+}[] = [
+  {
+    id: 'rest-api',
+    label: 'My Server',
+    method: 'POST',
+    bodyFormat: 'json',
+    authType: 'bearer',
+    help: 'Your server receives a POST with JSON — GPS metadata plus the image as a base64 string. Respond with { "url": "..." } to store a public link.',
+  },
+  {
+    id: 'n8n',
+    label: 'n8n / Zapier / Make',
+    method: 'POST',
+    bodyFormat: 'json',
+    authType: 'none',
+    help: 'Paste your webhook trigger URL. Each frame arrives as a JSON POST. Use n8n, Zapier, or Make to route it to S3, Google Drive, Notion, Airtable — anywhere.',
+  },
+  {
+    id: 's3-r2',
+    label: 'S3 / R2 / GCS',
+    method: 'PUT',
+    bodyFormat: 'multipart',
+    authType: 'none',
+    help: 'Set this URL to a backend endpoint that generates a presigned PUT URL for each frame, then returns { "url": "..." }. The app uploads binary directly — no base64 overhead.',
+  },
+];
+
+const SUPABASE_SQL = `create table frames (
+  id uuid default gen_random_uuid() primary key,
+  session_id text,
+  filename text,
+  url text,
+  timestamp bigint,
+  latitude float8,
+  longitude float8,
+  segment_name text,
+  created_at timestamptz default now()
+);`;
 
 export default function StorageWizard({ visible, onClose }: Props) {
   const { config, saveConfig, testConnection } = useStorageConfig();
@@ -76,15 +131,22 @@ export default function StorageWizard({ visible, onClose }: Props) {
     config?.provider === 'supabase' ? config.table : 'frames'
   );
 
-  const [webhookUrl, setWebhookUrl] = useState(
-    config?.provider === 'webhook' ? config.url : ''
+  const wh = config?.provider === 'webhook' ? (config as StorageConfigWebhook) : null;
+  const [httpUrl, setHttpUrl] = useState(wh?.url ?? '');
+  const [httpMethod, setHttpMethod] = useState<HttpMethod>(wh?.method ?? 'POST');
+  const [httpBodyFormat, setHttpBodyFormat] = useState<BodyFormat>(wh?.bodyFormat ?? 'json');
+  const [httpAuthType, setHttpAuthType] = useState<AuthType>(wh?.authType ?? 'none');
+  const [httpAuthValue, setHttpAuthValue] = useState(wh?.authValue ?? '');
+  const [httpAuthHeader, setHttpAuthHeader] = useState(wh?.authHeader ?? 'x-api-key');
+  const [httpAuthUsername, setHttpAuthUsername] = useState(wh?.authUsername ?? '');
+  const [httpCustomHeaders, setHttpCustomHeaders] = useState<CustomHeader[]>(
+    wh?.customHeaders ?? []
   );
-  const [webhookToken, setWebhookToken] = useState(
-    config?.provider === 'webhook' ? (config.bearerToken ?? '') : ''
-  );
+  const [httpPreset, setHttpPreset] = useState('');
 
   const [testing, setTesting] = useState(false);
   const [testError, setTestError] = useState<string | null>(null);
+  const [sqlCopied, setSqlCopied] = useState(false);
 
   const slideAnim = useRef(new Animated.Value(700)).current;
 
@@ -93,15 +155,24 @@ export default function StorageWizard({ visible, onClose }: Props) {
       setStep('choose');
       setSelectedProvider(config?.provider ?? 'none');
       setTestError(null);
+      setSqlCopied(false);
       if (config?.provider === 'supabase') {
         setSupabaseUrl(config.url);
         setSupabaseKey(config.anonKey);
         setSupabaseBucket(config.bucket);
         setSupabaseTable(config.table);
       }
-      if (config?.provider === 'webhook') {
-        setWebhookUrl(config.url);
-        setWebhookToken(config.bearerToken ?? '');
+      const w = config?.provider === 'webhook' ? (config as StorageConfigWebhook) : null;
+      if (w) {
+        setHttpUrl(w.url);
+        setHttpMethod(w.method ?? 'POST');
+        setHttpBodyFormat(w.bodyFormat ?? 'json');
+        setHttpAuthType(w.authType ?? 'none');
+        setHttpAuthValue(w.authValue ?? '');
+        setHttpAuthHeader(w.authHeader ?? 'x-api-key');
+        setHttpAuthUsername(w.authUsername ?? '');
+        setHttpCustomHeaders(w.customHeaders ?? []);
+        setHttpPreset('');
       }
       Animated.spring(slideAnim, {
         toValue: 0,
@@ -118,6 +189,18 @@ export default function StorageWizard({ visible, onClose }: Props) {
     }
   }, [visible]);
 
+  function applyPreset(id: string) {
+    setHttpPreset(id);
+    const p = HTTP_PRESETS.find((x) => x.id === id);
+    if (!p) return;
+    setHttpMethod(p.method);
+    setHttpBodyFormat(p.bodyFormat);
+    setHttpAuthType(p.authType);
+    setHttpAuthValue('');
+    setHttpAuthHeader('x-api-key');
+    setHttpAuthUsername('');
+  }
+
   function buildConfig(): StorageConfig {
     if (selectedProvider === 'supabase') {
       return {
@@ -129,11 +212,24 @@ export default function StorageWizard({ visible, onClose }: Props) {
       } as StorageConfigSupabase;
     }
     if (selectedProvider === 'webhook') {
-      return {
+      const cfg: StorageConfigWebhook = {
         provider: 'webhook',
-        url: webhookUrl.trim(),
-        bearerToken: webhookToken.trim() || undefined,
-      } as StorageConfigWebhook;
+        url: httpUrl.trim(),
+        method: httpMethod,
+        bodyFormat: httpBodyFormat,
+        authType: httpAuthType,
+        customHeaders: httpCustomHeaders.filter((h) => h.key.trim() && h.value.trim()),
+      };
+      if (httpAuthType === 'bearer') cfg.authValue = httpAuthValue.trim() || undefined;
+      if (httpAuthType === 'api-key') {
+        cfg.authHeader = httpAuthHeader.trim() || 'x-api-key';
+        cfg.authValue = httpAuthValue.trim() || undefined;
+      }
+      if (httpAuthType === 'basic') {
+        cfg.authUsername = httpAuthUsername.trim() || undefined;
+        cfg.authValue = httpAuthValue.trim() || undefined;
+      }
+      return cfg;
     }
     return { provider: 'none' };
   }
@@ -143,7 +239,11 @@ export default function StorageWizard({ visible, onClose }: Props) {
       return supabaseUrl.trim().startsWith('http') && supabaseKey.trim().length > 10;
     }
     if (selectedProvider === 'webhook') {
-      return webhookUrl.trim().startsWith('http');
+      if (!httpUrl.trim().startsWith('http')) return false;
+      if (httpAuthType === 'bearer' && !httpAuthValue.trim()) return false;
+      if (httpAuthType === 'api-key' && (!httpAuthHeader.trim() || !httpAuthValue.trim())) return false;
+      if (httpAuthType === 'basic' && (!httpAuthUsername.trim() || !httpAuthValue.trim())) return false;
+      return true;
     }
     return true;
   }
@@ -181,6 +281,12 @@ export default function StorageWizard({ visible, onClose }: Props) {
     }
   }
 
+  async function handleCopySQL() {
+    await Clipboard.setStringAsync(SUPABASE_SQL);
+    setSqlCopied(true);
+    setTimeout(() => setSqlCopied(false), 2000);
+  }
+
   return (
     <Modal
       visible={visible}
@@ -204,21 +310,45 @@ export default function StorageWizard({ visible, onClose }: Props) {
                     onClose={onClose}
                   />
                 )}
-                {step === 'configure' && (
-                  <ConfigureStep
-                    provider={selectedProvider}
+                {step === 'configure' && selectedProvider === 'supabase' && (
+                  <SupabaseConfigStep
                     supabaseUrl={supabaseUrl}
                     supabaseKey={supabaseKey}
                     supabaseBucket={supabaseBucket}
                     supabaseTable={supabaseTable}
-                    webhookUrl={webhookUrl}
-                    webhookToken={webhookToken}
-                    onChangeSupabaseUrl={setSupabaseUrl}
-                    onChangeSupabaseKey={setSupabaseKey}
-                    onChangeSupabaseBucket={setSupabaseBucket}
-                    onChangeSupabaseTable={setSupabaseTable}
-                    onChangeWebhookUrl={setWebhookUrl}
-                    onChangeWebhookToken={setWebhookToken}
+                    onChangeUrl={setSupabaseUrl}
+                    onChangeKey={setSupabaseKey}
+                    onChangeBucket={setSupabaseBucket}
+                    onChangeTable={setSupabaseTable}
+                    onBack={() => setStep('choose')}
+                    onSave={handleSave}
+                    testing={testing}
+                    testError={testError}
+                    canSave={credentialsValid()}
+                    sqlCopied={sqlCopied}
+                    onCopySQL={handleCopySQL}
+                  />
+                )}
+                {step === 'configure' && selectedProvider === 'webhook' && (
+                  <HttpConfigStep
+                    url={httpUrl}
+                    method={httpMethod}
+                    bodyFormat={httpBodyFormat}
+                    authType={httpAuthType}
+                    authValue={httpAuthValue}
+                    authHeader={httpAuthHeader}
+                    authUsername={httpAuthUsername}
+                    customHeaders={httpCustomHeaders}
+                    preset={httpPreset}
+                    onChangeUrl={setHttpUrl}
+                    onChangeMethod={setHttpMethod}
+                    onChangeBodyFormat={setHttpBodyFormat}
+                    onChangeAuthType={setHttpAuthType}
+                    onChangeAuthValue={setHttpAuthValue}
+                    onChangeAuthHeader={setHttpAuthHeader}
+                    onChangeAuthUsername={setHttpAuthUsername}
+                    onChangeCustomHeaders={setHttpCustomHeaders}
+                    onApplyPreset={applyPreset}
                     onBack={() => setStep('choose')}
                     onSave={handleSave}
                     testing={testing}
@@ -269,6 +399,7 @@ function ChooseStep({
               style={({ pressed }) => [
                 styles.providerCard,
                 isSelected && styles.providerCardSelected,
+                { borderColor: isSelected ? info.color : Colors.border },
                 pressed && { opacity: 0.8 },
               ]}
             >
@@ -280,9 +411,12 @@ function ChooseStep({
                 />
               </View>
               <View style={styles.providerText}>
-                <Text style={[styles.providerTitle, isSelected && { color: info.color }]}>
-                  {info.title}
-                </Text>
+                <View style={styles.providerTitleRow}>
+                  <Text style={[styles.providerTitle, isSelected && { color: info.color }]}>
+                    {info.title}
+                  </Text>
+                  <Text style={styles.providerSubtitle}>{info.subtitle}</Text>
+                </View>
                 <Text style={styles.providerDesc}>{info.description}</Text>
               </View>
               {isSelected && (
@@ -309,52 +443,44 @@ function ChooseStep({
   );
 }
 
-function ConfigureStep({
-  provider,
+function SupabaseConfigStep({
   supabaseUrl,
   supabaseKey,
   supabaseBucket,
   supabaseTable,
-  webhookUrl,
-  webhookToken,
-  onChangeSupabaseUrl,
-  onChangeSupabaseKey,
-  onChangeSupabaseBucket,
-  onChangeSupabaseTable,
-  onChangeWebhookUrl,
-  onChangeWebhookToken,
+  onChangeUrl,
+  onChangeKey,
+  onChangeBucket,
+  onChangeTable,
   onBack,
   onSave,
   testing,
   testError,
   canSave,
+  sqlCopied,
+  onCopySQL,
 }: {
-  provider: StorageProviderType;
   supabaseUrl: string;
   supabaseKey: string;
   supabaseBucket: string;
   supabaseTable: string;
-  webhookUrl: string;
-  webhookToken: string;
-  onChangeSupabaseUrl: (v: string) => void;
-  onChangeSupabaseKey: (v: string) => void;
-  onChangeSupabaseBucket: (v: string) => void;
-  onChangeSupabaseTable: (v: string) => void;
-  onChangeWebhookUrl: (v: string) => void;
-  onChangeWebhookToken: (v: string) => void;
+  onChangeUrl: (v: string) => void;
+  onChangeKey: (v: string) => void;
+  onChangeBucket: (v: string) => void;
+  onChangeTable: (v: string) => void;
   onBack: () => void;
   onSave: () => void;
   testing: boolean;
   testError: string | null;
   canSave: boolean;
+  sqlCopied: boolean;
+  onCopySQL: () => void;
 }) {
-  const info = PROVIDER_INFO[provider];
-
   return (
     <>
       <SheetHeader
-        title={`Configure ${info.title}`}
-        subtitle="Enter your credentials below"
+        title="Configure Supabase"
+        subtitle="Enter your project credentials"
         onClose={onBack}
         closeIcon="arrow-back"
       />
@@ -364,108 +490,333 @@ function ConfigureStep({
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {provider === 'supabase' && (
-          <>
-            <Field
-              label="Project URL"
-              placeholder="https://xxxx.supabase.co"
-              value={supabaseUrl}
-              onChangeText={onChangeSupabaseUrl}
-              autoCapitalize="none"
-              keyboardType="url"
-            />
-            <Field
-              label="Anon / Public Key"
-              placeholder="eyJhbGciOiJIUzI1NiIs..."
-              value={supabaseKey}
-              onChangeText={onChangeSupabaseKey}
-              autoCapitalize="none"
-              secureTextEntry
-            />
-            <Field
-              label="Storage Bucket"
-              placeholder="gps-frames"
-              value={supabaseBucket}
-              onChangeText={onChangeSupabaseBucket}
-              autoCapitalize="none"
-            />
-            <Field
-              label="Database Table"
-              placeholder="frames"
-              value={supabaseTable}
-              onChangeText={onChangeSupabaseTable}
-              autoCapitalize="none"
-            />
-            <View style={styles.helpCard}>
-              <Ionicons name="information-circle-outline" size={15} color={Colors.blue} />
-              <Text style={styles.helpText}>
-                Create a public storage bucket and a{' '}
-                <Text style={styles.helpCode}>frames</Text> table with columns:{' '}
-                <Text style={styles.helpCode}>session_id, filename, url, timestamp, latitude, longitude, segment_name</Text>.
-              </Text>
-            </View>
-          </>
-        )}
+        <Pressable
+          style={styles.setupLink}
+          onPress={() => Linking.openURL('https://supabase.com/dashboard')}
+        >
+          <Ionicons name="open-outline" size={13} color={Colors.blue} />
+          <Text style={styles.setupLinkText}>Don't have a project yet? Open Supabase dashboard →</Text>
+        </Pressable>
 
-        {provider === 'webhook' && (
-          <>
-            <Field
-              label="Endpoint URL"
-              placeholder="https://your-server.com/frames"
-              value={webhookUrl}
-              onChangeText={onChangeWebhookUrl}
-              autoCapitalize="none"
-              keyboardType="url"
-            />
-            <Field
-              label="Bearer Token (optional)"
-              placeholder="Leave blank if not required"
-              value={webhookToken}
-              onChangeText={onChangeWebhookToken}
-              autoCapitalize="none"
-              secureTextEntry
-            />
-            <View style={styles.helpCard}>
-              <Ionicons name="information-circle-outline" size={15} color={Colors.blue} />
-              <Text style={styles.helpText}>
-                Your server will receive a POST with JSON body:{' '}
-                <Text style={styles.helpCode}>
-                  {'{ session_id, filename, timestamp, latitude, longitude, segment_name, image_base64 }'}
-                </Text>
-                . Respond with{' '}
-                <Text style={styles.helpCode}>{'{ "url": "..." }'}</Text> to store a public link.
-              </Text>
-            </View>
-          </>
-        )}
+        <Field
+          label="Project URL"
+          hint="Found in Settings → API"
+          placeholder="https://xxxxxxxxxxxx.supabase.co"
+          value={supabaseUrl}
+          onChangeText={onChangeUrl}
+          autoCapitalize="none"
+          keyboardType="url"
+        />
+        <Field
+          label="Anon / Public Key"
+          hint="Found in Settings → API → Project API keys"
+          placeholder="eyJhbGciOiJIUzI1NiIs..."
+          value={supabaseKey}
+          onChangeText={onChangeKey}
+          autoCapitalize="none"
+          secureTextEntry
+        />
+        <Field
+          label="Storage Bucket"
+          hint="Create a public bucket in Storage → New bucket"
+          placeholder="gps-frames"
+          value={supabaseBucket}
+          onChangeText={onChangeBucket}
+          autoCapitalize="none"
+        />
+        <Field
+          label="Database Table"
+          hint="Table where GPS metadata rows are inserted"
+          placeholder="frames"
+          value={supabaseTable}
+          onChangeText={onChangeTable}
+          autoCapitalize="none"
+        />
 
-        {testError != null && (
-          <View style={styles.errorCard}>
-            <Ionicons name="close-circle-outline" size={16} color={Colors.accent} />
-            <Text style={styles.errorText}>{testError}</Text>
-          </View>
-        )}
+        <View style={styles.sectionLabel}>
+          <Text style={styles.sectionLabelText}>CREATE TABLE SQL</Text>
+          <Pressable onPress={onCopySQL} hitSlop={8}>
+            <Text style={[styles.copyBtn, sqlCopied && styles.copyBtnDone]}>
+              {sqlCopied ? '✓ Copied' : 'Copy'}
+            </Text>
+          </Pressable>
+        </View>
+        <View style={styles.sqlBlock}>
+          <Text style={styles.sqlText}>{SUPABASE_SQL}</Text>
+        </View>
+        <View style={styles.helpCard}>
+          <Ionicons name="information-circle-outline" size={15} color={Colors.blue} />
+          <Text style={styles.helpText}>
+            Run the SQL above in{' '}
+            <Text style={styles.helpCode}>SQL Editor → New query</Text>
+            {' '}inside your Supabase project to create the table.
+          </Text>
+        </View>
+
+        {testError != null && <ErrorCard message={testError} />}
       </ScrollView>
 
       <View style={styles.actions}>
-        <Pressable
-          style={({ pressed }) => [
-            styles.primaryBtn,
-            (!canSave || testing) && styles.primaryBtnDisabled,
-            pressed && canSave && !testing && { opacity: 0.85 },
+        <SaveButton onPress={onSave} testing={testing} disabled={!canSave} />
+      </View>
+    </>
+  );
+}
+
+function HttpConfigStep({
+  url,
+  method,
+  bodyFormat,
+  authType,
+  authValue,
+  authHeader,
+  authUsername,
+  customHeaders,
+  preset,
+  onChangeUrl,
+  onChangeMethod,
+  onChangeBodyFormat,
+  onChangeAuthType,
+  onChangeAuthValue,
+  onChangeAuthHeader,
+  onChangeAuthUsername,
+  onChangeCustomHeaders,
+  onApplyPreset,
+  onBack,
+  onSave,
+  testing,
+  testError,
+  canSave,
+}: {
+  url: string;
+  method: HttpMethod;
+  bodyFormat: BodyFormat;
+  authType: AuthType;
+  authValue: string;
+  authHeader: string;
+  authUsername: string;
+  customHeaders: CustomHeader[];
+  preset: string;
+  onChangeUrl: (v: string) => void;
+  onChangeMethod: (v: HttpMethod) => void;
+  onChangeBodyFormat: (v: BodyFormat) => void;
+  onChangeAuthType: (v: AuthType) => void;
+  onChangeAuthValue: (v: string) => void;
+  onChangeAuthHeader: (v: string) => void;
+  onChangeAuthUsername: (v: string) => void;
+  onChangeCustomHeaders: (v: CustomHeader[]) => void;
+  onApplyPreset: (id: string) => void;
+  onBack: () => void;
+  onSave: () => void;
+  testing: boolean;
+  testError: string | null;
+  canSave: boolean;
+}) {
+  const activePreset = HTTP_PRESETS.find((p) => p.id === preset);
+
+  function addHeader() {
+    onChangeCustomHeaders([...customHeaders, { key: '', value: '' }]);
+  }
+
+  function updateHeader(i: number, field: 'key' | 'value', val: string) {
+    const next = [...customHeaders];
+    next[i] = { ...next[i], [field]: val };
+    onChangeCustomHeaders(next);
+  }
+
+  function removeHeader(i: number) {
+    onChangeCustomHeaders(customHeaders.filter((_, idx) => idx !== i));
+  }
+
+  return (
+    <>
+      <SheetHeader
+        title="HTTP Endpoint"
+        subtitle="Configure your upload target"
+        onClose={onBack}
+        closeIcon="arrow-back"
+      />
+      <ScrollView
+        style={styles.scrollBody}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.sectionLabel}>
+          <Text style={styles.sectionLabelText}>START WITH A PRESET</Text>
+        </View>
+        <View style={styles.presetRow}>
+          {HTTP_PRESETS.map((p) => (
+            <Pressable
+              key={p.id}
+              onPress={() => onApplyPreset(p.id)}
+              style={[styles.presetChip, preset === p.id && styles.presetChipActive]}
+            >
+              <Text style={[styles.presetChipText, preset === p.id && styles.presetChipTextActive]}>
+                {p.label}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+
+        <Field
+          label="Endpoint URL"
+          placeholder="https://your-server.com/upload"
+          value={url}
+          onChangeText={onChangeUrl}
+          autoCapitalize="none"
+          keyboardType="url"
+        />
+
+        <View style={styles.sectionLabel}>
+          <Text style={styles.sectionLabelText}>HTTP METHOD</Text>
+        </View>
+        <SegmentedControl
+          options={[
+            { label: 'POST', value: 'POST' },
+            { label: 'PUT', value: 'PUT' },
           ]}
-          onPress={onSave}
-          disabled={!canSave || testing}
-        >
-          {testing ? (
-            <>
-              <ActivityIndicator size="small" color="#000" />
-              <Text style={styles.primaryBtnText}>Testing…</Text>
-            </>
-          ) : (
-            <Text style={styles.primaryBtnText}>Test & Save</Text>
-          )}
-        </Pressable>
+          value={method}
+          onChange={(v) => onChangeMethod(v as HttpMethod)}
+        />
+
+        <View style={styles.sectionLabel}>
+          <Text style={styles.sectionLabelText}>BODY FORMAT</Text>
+        </View>
+        <SegmentedControl
+          options={[
+            { label: 'JSON (base64)', value: 'json' },
+            { label: 'Multipart (binary)', value: 'multipart' },
+          ]}
+          value={bodyFormat}
+          onChange={(v) => onChangeBodyFormat(v as BodyFormat)}
+        />
+
+        <View style={styles.sectionLabel}>
+          <Text style={styles.sectionLabelText}>AUTHENTICATION</Text>
+        </View>
+        <View style={styles.authChips}>
+          {(['none', 'bearer', 'api-key', 'basic'] as AuthType[]).map((a) => (
+            <Pressable
+              key={a}
+              onPress={() => onChangeAuthType(a)}
+              style={[styles.authChip, authType === a && styles.authChipActive]}
+            >
+              <Text style={[styles.authChipText, authType === a && styles.authChipTextActive]}>
+                {a === 'none' ? 'None' : a === 'bearer' ? 'Bearer Token' : a === 'api-key' ? 'API Key' : 'Basic Auth'}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+
+        {authType === 'bearer' && (
+          <Field
+            label="Bearer Token"
+            placeholder="your-token"
+            value={authValue}
+            onChangeText={onChangeAuthValue}
+            autoCapitalize="none"
+            secureTextEntry
+          />
+        )}
+        {authType === 'api-key' && (
+          <>
+            <Field
+              label="Header Name"
+              placeholder="x-api-key"
+              value={authHeader}
+              onChangeText={onChangeAuthHeader}
+              autoCapitalize="none"
+            />
+            <Field
+              label="API Key Value"
+              placeholder="your-api-key"
+              value={authValue}
+              onChangeText={onChangeAuthValue}
+              autoCapitalize="none"
+              secureTextEntry
+            />
+          </>
+        )}
+        {authType === 'basic' && (
+          <>
+            <Field
+              label="Username"
+              placeholder="username"
+              value={authUsername}
+              onChangeText={onChangeAuthUsername}
+              autoCapitalize="none"
+            />
+            <Field
+              label="Password"
+              placeholder="password"
+              value={authValue}
+              onChangeText={onChangeAuthValue}
+              autoCapitalize="none"
+              secureTextEntry
+            />
+          </>
+        )}
+
+        <View style={styles.sectionLabel}>
+          <Text style={styles.sectionLabelText}>CUSTOM HEADERS</Text>
+          <Pressable onPress={addHeader} hitSlop={8}>
+            <Text style={styles.addHeaderBtn}>+ Add header</Text>
+          </Pressable>
+        </View>
+        {customHeaders.map((h, i) => (
+          <View key={i} style={styles.headerRow}>
+            <TextInput
+              style={[styles.fieldInput, styles.headerKey]}
+              placeholder="Header name"
+              placeholderTextColor={Colors.textTertiary}
+              value={h.key}
+              onChangeText={(v) => updateHeader(i, 'key', v)}
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardAppearance="dark"
+            />
+            <TextInput
+              style={[styles.fieldInput, styles.headerValue]}
+              placeholder="Value"
+              placeholderTextColor={Colors.textTertiary}
+              value={h.value}
+              onChangeText={(v) => updateHeader(i, 'value', v)}
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardAppearance="dark"
+            />
+            <Pressable onPress={() => removeHeader(i)} hitSlop={10} style={styles.headerRemove}>
+              <Ionicons name="close-circle" size={18} color={Colors.textTertiary} />
+            </Pressable>
+          </View>
+        ))}
+        {customHeaders.length === 0 && (
+          <Text style={styles.emptyHint}>No custom headers — tap "+ Add header" above if needed.</Text>
+        )}
+
+        {activePreset && (
+          <View style={styles.helpCard}>
+            <Ionicons name="information-circle-outline" size={15} color={Colors.blue} />
+            <Text style={styles.helpText}>{activePreset.help}</Text>
+          </View>
+        )}
+        {!activePreset && (
+          <View style={styles.helpCard}>
+            <Ionicons name="information-circle-outline" size={15} color={Colors.blue} />
+            <Text style={styles.helpText}>
+              <Text style={styles.helpCode}>JSON</Text> sends GPS metadata + image as base64.{' '}
+              <Text style={styles.helpCode}>Multipart</Text> sends binary — better for large images and direct-to-bucket uploads.
+              Respond with <Text style={styles.helpCode}>{'{ "url": "..." }'}</Text> to store a public link.
+            </Text>
+          </View>
+        )}
+
+        {testError != null && <ErrorCard message={testError} />}
+      </ScrollView>
+
+      <View style={styles.actions}>
+        <SaveButton onPress={onSave} testing={testing} disabled={!canSave} />
       </View>
     </>
   );
@@ -536,8 +887,35 @@ function SheetHeader({
   );
 }
 
+function SegmentedControl({
+  options,
+  value,
+  onChange,
+}: {
+  options: { label: string; value: string }[];
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <View style={styles.segmented}>
+      {options.map((o) => (
+        <Pressable
+          key={o.value}
+          onPress={() => onChange(o.value)}
+          style={[styles.segmentOption, value === o.value && styles.segmentOptionActive]}
+        >
+          <Text style={[styles.segmentText, value === o.value && styles.segmentTextActive]}>
+            {o.label}
+          </Text>
+        </Pressable>
+      ))}
+    </View>
+  );
+}
+
 function Field({
   label,
+  hint,
   placeholder,
   value,
   onChangeText,
@@ -546,6 +924,7 @@ function Field({
   keyboardType,
 }: {
   label: string;
+  hint?: string;
   placeholder: string;
   value: string;
   onChangeText: (v: string) => void;
@@ -555,7 +934,10 @@ function Field({
 }) {
   return (
     <View style={styles.field}>
-      <Text style={styles.fieldLabel}>{label}</Text>
+      <View style={styles.fieldLabelRow}>
+        <Text style={styles.fieldLabel}>{label}</Text>
+        {hint ? <Text style={styles.fieldHint}>{hint}</Text> : null}
+      </View>
       <TextInput
         style={styles.fieldInput}
         placeholder={placeholder}
@@ -574,6 +956,46 @@ function Field({
   );
 }
 
+function ErrorCard({ message }: { message: string }) {
+  return (
+    <View style={styles.errorCard}>
+      <Ionicons name="close-circle-outline" size={16} color={Colors.accent} />
+      <Text style={styles.errorText}>{message}</Text>
+    </View>
+  );
+}
+
+function SaveButton({
+  onPress,
+  testing,
+  disabled,
+}: {
+  onPress: () => void;
+  testing: boolean;
+  disabled: boolean;
+}) {
+  return (
+    <Pressable
+      style={({ pressed }) => [
+        styles.primaryBtn,
+        (disabled || testing) && styles.primaryBtnDisabled,
+        pressed && !disabled && !testing && { opacity: 0.85 },
+      ]}
+      onPress={onPress}
+      disabled={disabled || testing}
+    >
+      {testing ? (
+        <>
+          <ActivityIndicator size="small" color="#000" />
+          <Text style={styles.primaryBtnText}>Testing connection…</Text>
+        </>
+      ) : (
+        <Text style={styles.primaryBtnText}>Test & Save</Text>
+      )}
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   backdrop: {
@@ -585,7 +1007,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 22,
     borderTopRightRadius: 22,
     overflow: 'hidden',
-    maxHeight: '90%',
+    maxHeight: '92%',
   },
   sheetInner: {
     paddingBottom: 36,
@@ -620,7 +1042,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   scrollBody: {
-    maxHeight: 440,
+    maxHeight: 500,
   },
   scrollContent: {
     paddingHorizontal: 18,
@@ -630,7 +1052,7 @@ const styles = StyleSheet.create({
   },
   providerCard: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: 14,
     backgroundColor: Colors.card,
     borderRadius: 14,
@@ -639,7 +1061,6 @@ const styles = StyleSheet.create({
     padding: 14,
   },
   providerCardSelected: {
-    borderColor: Colors.blue,
     backgroundColor: 'rgba(10,132,255,0.06)',
   },
   providerIconWrap: {
@@ -649,15 +1070,27 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
+    marginTop: 2,
   },
   providerText: {
     flex: 1,
-    gap: 3,
+    gap: 4,
+  },
+  providerTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
   },
   providerTitle: {
     color: Colors.text,
     fontFamily: 'Inter_600SemiBold',
     fontSize: 15,
+  },
+  providerSubtitle: {
+    color: Colors.textTertiary,
+    fontFamily: 'Inter_400Regular',
+    fontSize: 11,
   },
   providerDesc: {
     color: Colors.textTertiary,
@@ -665,15 +1098,174 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 17,
   },
-  field: {
+  setupLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingVertical: 6,
+  },
+  setupLinkText: {
+    color: Colors.blue,
+    fontFamily: 'Inter_500Medium',
+    fontSize: 13,
+  },
+  sectionLabel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 4,
+    marginBottom: -2,
+  },
+  sectionLabelText: {
+    color: Colors.textTertiary,
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 11,
+    letterSpacing: 0.8,
+  },
+  copyBtn: {
+    color: Colors.blue,
+    fontFamily: 'Inter_500Medium',
+    fontSize: 12,
+  },
+  copyBtnDone: {
+    color: Colors.gpsGreen,
+  },
+  sqlBlock: {
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: 12,
+  },
+  sqlText: {
+    color: Colors.textSecondary,
+    fontFamily: 'Inter_400Regular',
+    fontSize: 11,
+    lineHeight: 18,
+  },
+  presetRow: {
+    flexDirection: 'row',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  presetChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.card,
+  },
+  presetChipActive: {
+    borderColor: Colors.blue,
+    backgroundColor: 'rgba(10,132,255,0.12)',
+  },
+  presetChipText: {
+    color: Colors.textSecondary,
+    fontFamily: 'Inter_500Medium',
+    fontSize: 12,
+  },
+  presetChipTextActive: {
+    color: Colors.blue,
+  },
+  segmented: {
+    flexDirection: 'row',
+    backgroundColor: Colors.card,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    overflow: 'hidden',
+  },
+  segmentOption: {
+    flex: 1,
+    paddingVertical: 9,
+    alignItems: 'center',
+  },
+  segmentOptionActive: {
+    backgroundColor: 'rgba(10,132,255,0.18)',
+  },
+  segmentText: {
+    color: Colors.textTertiary,
+    fontFamily: 'Inter_500Medium',
+    fontSize: 13,
+  },
+  segmentTextActive: {
+    color: Colors.blue,
+  },
+  authChips: {
+    flexDirection: 'row',
     gap: 7,
+    flexWrap: 'wrap',
+  },
+  authChip: {
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.card,
+  },
+  authChipActive: {
+    borderColor: Colors.blue,
+    backgroundColor: 'rgba(10,132,255,0.12)',
+  },
+  authChipText: {
+    color: Colors.textSecondary,
+    fontFamily: 'Inter_500Medium',
+    fontSize: 12,
+  },
+  authChipTextActive: {
+    color: Colors.blue,
+  },
+  addHeaderBtn: {
+    color: Colors.blue,
+    fontFamily: 'Inter_500Medium',
+    fontSize: 12,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    gap: 6,
+    alignItems: 'center',
+  },
+  headerKey: {
+    flex: 2,
+  },
+  headerValue: {
+    flex: 3,
+  },
+  headerRemove: {
+    padding: 2,
+  },
+  emptyHint: {
+    color: Colors.textTertiary,
+    fontFamily: 'Inter_400Regular',
+    fontSize: 12,
+    fontStyle: 'italic',
+    textAlign: 'center',
+    paddingVertical: 2,
+  },
+  field: {
+    gap: 6,
+  },
+  fieldLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginLeft: 2,
   },
   fieldLabel: {
     color: Colors.textSecondary,
     fontFamily: 'Inter_600SemiBold',
     fontSize: 12,
     letterSpacing: 0.4,
-    marginLeft: 2,
+  },
+  fieldHint: {
+    color: Colors.textTertiary,
+    fontFamily: 'Inter_400Regular',
+    fontSize: 11,
+    flex: 1,
+    textAlign: 'right',
+    marginLeft: 8,
   },
   fieldInput: {
     backgroundColor: Colors.card,
