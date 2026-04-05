@@ -6,6 +6,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
+import * as FileSystem from 'expo-file-system/legacy';
 import { CaptureSessionOrchestrator } from '@/lib/camera/CaptureSessionOrchestrator';
 import { getAllProviders } from '@/lib/camera/providers';
 import type { CameraProvider } from '@/lib/camera/CameraProvider';
@@ -193,12 +194,21 @@ export function ExternalCameraProvider({ children }: { children: React.ReactNode
   }, []);
 
   const importMedia = useCallback(async (mediaId: string) => {
-    const dest = `${Date.now()}_${mediaId}.mp4`;
+    // Derive a safe local filename from the mediaId — strip leading slashes and
+    // replace any remaining path separators so it's a flat file in the docs dir.
+    const baseDir = FileSystem.documentDirectory ?? FileSystem.cacheDirectory ?? '';
+    const rawName = mediaId.replace(/\\/g, '/').split('/').pop() ?? String(Date.now());
+    const safeName = rawName.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const destDir = `${baseDir}ext_media/`;
+    const dest = `${destDir}${Date.now()}_${safeName}`;
     try {
+      // Ensure the destination directory exists before downloading
+      await FileSystem.makeDirectoryAsync(destDir, { intermediates: true });
       await orchRef.current.importMedia(mediaId, dest);
       await fetchMedia(); // refresh list
-    } catch (e: any) {
-      setLastError({ code: 'IMPORT_FAILED', message: e.message, recoverable: true, timestamp: Date.now() });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setLastError({ code: 'IMPORT_FAILED', message: msg, recoverable: true, timestamp: Date.now() });
     }
   }, [fetchMedia]);
 
