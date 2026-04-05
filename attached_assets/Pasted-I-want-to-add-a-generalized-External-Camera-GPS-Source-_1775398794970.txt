@@ -1,0 +1,208 @@
+I want to add a generalized “External Camera + GPS Source” system to my iOS app.
+
+Goal:
+Allow users to connect supported external cameras and choose whether session geolocation comes from:
+1. iPhone GPS
+2. the external camera’s GPS, if available
+3. a hybrid mode that prefers camera GPS but falls back to iPhone GPS
+
+Important product requirements:
+- This must be general and extensible, not hardcoded only for Insta360.
+- Different camera brands/models may integrate in different ways:
+  - vendor SDK/API cameras
+  - vendor wireless control cameras
+  - generic UVC/external cameras where supported
+- The app should support capability-based behavior, because not every camera will support the same features.
+- My existing built-in iPhone camera flow must remain intact.
+
+Architecture requirements:
+
+1. Create a plugin/provider architecture
+
+Define a CameraProvider protocol/interface with:
+- id
+- displayName
+- providerType
+- isAvailableOnCurrentDevice()
+- requestPermissionsIfNeeded()
+- discoverDevices()
+- connect(deviceId)
+- disconnect()
+- getConnectionState()
+- getCapabilities()
+- startPreview()
+- stopPreview()
+- startRecording(config)
+- stopRecording()
+- listMedia()
+- importMedia(mediaId)
+- getLastError()
+- getTelemetrySnapshot()
+
+Define a GPSProvider protocol/interface with:
+- id
+- displayName
+- providerType
+- requestPermissionsIfNeeded()
+- startLocationStream(sessionId)
+- stopLocationStream(sessionId)
+- getCurrentLocation()
+- getHealthStatus()
+
+Create a HybridGPSProvider that:
+- prefers external camera GPS if available and healthy
+- falls back to iPhone GPS
+- records which source produced each point
+
+2. Capability model
+
+Create a CameraCapabilities model with booleans/metadata such as:
+- supportsPreview
+- supportsStartStopRecording
+- supportsPhotoCapture
+- supportsMediaImport
+- supportsLiveStream
+- supportsCameraGPS
+- supportsExposureControl
+- supportsResolutionSelection
+- supportsFrameRateSelection
+- supportsWirelessConnection
+- supportsWiredConnection
+
+The UI and business logic must rely on this capabilities object instead of hardcoding assumptions.
+
+3. Provider implementations
+
+Add provider skeletons for:
+- BuiltInPhoneCameraProvider
+- Insta360CameraProvider
+- GoProCameraProvider
+- GenericUVCCameraProvider
+- MockCameraProvider for simulator/testing
+
+Important:
+- Keep all SDK-specific code isolated inside each provider.
+- Add TODO markers where official vendor SDK/API calls must be inserted.
+- Do not fake generic AVFoundation support for vendor SDK cameras that do not behave like native iOS capture devices.
+- The GenericUVCCameraProvider should be separated from vendor SDK cameras.
+
+4. GPS implementations
+
+Add:
+- IOSCoreLocationProvider
+- ExternalCameraGPSProvider
+- HybridGPSProvider
+
+ExternalCameraGPSProvider should:
+- ask the connected CameraProvider whether GPS is supported
+- ingest GPS samples from the camera/provider if available
+- normalize them into a shared GPSPoint model
+
+5. Session orchestration
+
+Build a CaptureSessionOrchestrator that coordinates:
+- selected camera provider
+- selected GPS provider
+- connection lifecycle
+- recording lifecycle
+- session persistence
+- import of resulting media
+- timestamp alignment between media and GPS track
+
+Persist for each session:
+- sessionId
+- provider id/type
+- connected device id/name
+- selected GPS mode
+- start timestamp
+- end timestamp
+- recording status
+- imported media ids
+- GPS points
+- source of each GPS point (phone, camera, hybrid fallback)
+- capability snapshot at session start
+
+6. Data models
+
+Create serializable models:
+- CameraDevice
+- CameraCapabilities
+- ExternalMediaAsset
+- GPSPoint
+- GPSSourceType
+- CaptureSession
+- CaptureSessionTelemetry
+- RecordingConfig
+- CameraConnectionState
+- RecordingState
+- CameraProviderType
+- GPSProviderType
+- AppIntegrationError
+
+Use Codable/serializable structures where appropriate.
+
+7. UI requirements
+
+Add a minimal but expandable UI with:
+- Camera source selector
+- GPS source selector
+- Device discovery list
+- Connect/disconnect button
+- Preview area if supported
+- Start/stop recording
+- Media browser/import
+- Capability summary
+- Error/status area
+- Provider-specific notices if a feature is unsupported
+
+The UI should dynamically adapt based on capabilities. Example:
+- hide preview if preview unsupported
+- disable camera GPS option if unsupported
+- disable resolution picker if provider does not expose it
+
+8. Safety and edge cases
+
+Handle:
+- permission denial
+- unsupported provider on current device
+- device disconnect during recording
+- poor or missing GPS
+- app background/foreground transitions
+- import failure
+- camera connected but media unavailable
+- provider initialization failure
+
+Prevent starting a capture session if:
+- no camera is selected
+- selected provider is disconnected
+- selected GPS source is unavailable and no valid fallback exists
+
+9. Platform assumptions
+
+Assume:
+- vendor SDK cameras may require custom SDK hookup and wireless control
+- generic UVC/external camera support may differ by Apple platform/device
+- provider implementations must declare platform limitations clearly
+
+10. Deliverables
+
+Please generate:
+1. A concise architecture summary
+2. Recommended folder/file structure
+3. Protocol/interface definitions
+4. Provider skeletons for all camera providers listed above
+5. GPS provider skeletons
+6. CaptureSessionOrchestrator implementation
+7. Minimal UI wiring
+8. Local persistence model
+9. A document titled “Manual Vendor SDK Hookup Steps”
+10. A document titled “Platform Limitations and Assumptions”
+11. A document titled “Real Device Test Checklist”
+
+Coding guidance:
+- Prefer production-style architecture over shortcuts
+- Use capability-driven design
+- Keep vendor dependencies isolated
+- Add detailed TODO comments for SDK-specific hooks
+- Do not break my current phone-camera flow
+- Make everything additive and extensible
