@@ -2,8 +2,8 @@ import {
   Insta360Camera,
   addTelemetryListener,
   isInsta360Available,
-} from '../../../modules/insta360-camera/src';
-import type { Insta360TelemetryEvent } from '../../../modules/insta360-camera/src';
+} from 'insta360-camera';
+import type { Insta360TelemetryEvent } from 'insta360-camera';
 import type { CameraProvider } from '../CameraProvider';
 import type {
   AppIntegrationError,
