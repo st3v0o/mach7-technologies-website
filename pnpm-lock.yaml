@@ -233,6 +233,9 @@ importers:
       expo-file-system:
         specifier: ^19.0.21
         version: 19.0.21(expo@54.0.33)(react-native@0.81.5(@babel/core@7.29.0)(@types/react@19.1.17)(react@19.1.0))
+      expo-modules-core:
+        specifier: ^55.0.20
+        version: 55.0.20(react-native@0.81.5(@babel/core@7.29.0)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0)
       expo-sharing:
         specifier: ^14.0.8
         version: 14.0.8(expo@54.0.33)
@@ -3476,6 +3479,12 @@ packages:
 
   expo-modules-core@3.0.29:
     resolution: {integrity: sha512-LzipcjGqk8gvkrOUf7O2mejNWugPkf3lmd9GkqL9WuNyeN2fRwU0Dn77e3ZUKI3k6sI+DNwjkq4Nu9fNN9WS7Q==}
+    peerDependencies:
+      react: '*'
+      react-native: '*'
+
+  expo-modules-core@55.0.20:
+    resolution: {integrity: sha512-XqWPvB9eWuUvEQclu0eLbsqNDg3J3KFlQo1l3qodqqzIWno5wM3eRJCycmSwWAFPeTDMk7CxeD2JNFxOJ5Nd8w==}
     peerDependencies:
       react: '*'
       react-native: '*'
@@ -9300,6 +9309,12 @@ snapshots:
       resolve-from: 5.0.0
 
   expo-modules-core@3.0.29(react-native@0.81.5(@babel/core@7.29.0)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0):
+    dependencies:
+      invariant: 2.2.4
+      react: 19.1.0
+      react-native: 0.81.5(@babel/core@7.29.0)(@types/react@19.1.17)(react@19.1.0)
+
+  expo-modules-core@55.0.20(react-native@0.81.5(@babel/core@7.29.0)(@types/react@19.1.17)(react@19.1.0))(react@19.1.0):
     dependencies:
       invariant: 2.2.4
       react: 19.1.0

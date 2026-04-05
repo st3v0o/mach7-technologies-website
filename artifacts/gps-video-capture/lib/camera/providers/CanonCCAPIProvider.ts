@@ -255,12 +255,12 @@ export class CanonCCAPIProvider implements CameraProvider {
     if (!this._cameraIp) throw makeIntegrationError('NOT_CONNECTED', 'No camera connected.', 'canon');
     const ip = this._cameraIp;
 
-    // 1. Set shooting mode to Movie
-    await ccapiFetch(ip, '/shooting/settings/shootingmodedial', {
-      method: 'PUT',
+    // 1. Switch to Movie mode via shooting control endpoint
+    await ccapiFetch(ip, '/shooting/control/shootingmode', {
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ value: 'moviewithservos' }),
-    }).catch(() => {});  // some bodies may reject — continue anyway
+      body: JSON.stringify({ value: 'movie' }),
+    }).catch(() => {});  // some bodies do not support this control; continue anyway
 
     // 2. Run autofocus before starting
     await ccapiFetch(ip, '/shooting/control/af', {

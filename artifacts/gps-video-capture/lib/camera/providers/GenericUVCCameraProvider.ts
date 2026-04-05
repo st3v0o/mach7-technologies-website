@@ -4,6 +4,13 @@
  * Controls USB Video Class (UVC) cameras connected via USB-C using the
  * uvc-capture native Expo module (AVFoundation .external device type, iOS 17+).
  *
+ * Preview architecture: UvcPreviewView auto-attaches to the active AVCaptureSession
+ * via a UvcSessionManager singleton in native code.  startPreview() and stopPreview()
+ * signal session-start intent; the preview surface in the UI is always <UvcPreviewView>.
+ * No viewTag argument is needed because the session is shared globally within the app
+ * process — this is a deliberate departure from a viewTag-based approach, which is
+ * fragile in React Native's async view creation lifecycle.
+ *
  * Platform notes:
  *   - Requires iPhone 15 or later (USB-C) or iPad with USB-C running iOS/iPadOS 17+.
  *   - Simulator: NOT supported — no USB hardware access.
@@ -80,8 +87,9 @@ export class GenericUVCCameraProvider implements CameraProvider {
         model: d.modelID,
         providerType: 'generic_uvc' as const,
       }));
-    } catch (e: any) {
-      this._lastError = makeIntegrationError('DISCOVER_FAILED', e.message ?? String(e), 'generic_uvc');
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      this._lastError = makeIntegrationError('DISCOVER_FAILED', msg, 'generic_uvc');
       return [];
     }
   }
@@ -96,9 +104,10 @@ export class GenericUVCCameraProvider implements CameraProvider {
         providerType: 'generic_uvc',
       };
       this._connectionState = 'connected';
-    } catch (e: any) {
+    } catch (e: unknown) {
       this._connectionState = 'error';
-      this._lastError = makeIntegrationError('CONNECT_FAILED', e.message ?? String(e), 'generic_uvc');
+      const msg = e instanceof Error ? e.message : String(e);
+      this._lastError = makeIntegrationError('CONNECT_FAILED', msg, 'generic_uvc');
       throw this._lastError;
     }
   }
@@ -122,7 +131,7 @@ export class GenericUVCCameraProvider implements CameraProvider {
 
   async startPreview(): Promise<void> {
     // Ensures the AVCaptureSession is running so the UvcPreviewView
-    // can render frames immediately when mounted.
+    // can render frames immediately when mounted in the External tab.
     await startUvcPreview();
   }
 
@@ -134,8 +143,9 @@ export class GenericUVCCameraProvider implements CameraProvider {
     const destPath = this._buildDestinationPath();
     try {
       await startUvcRecording(destPath);
-    } catch (e: any) {
-      const err = makeIntegrationError('RECORD_FAILED', e.message ?? String(e), 'generic_uvc');
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      const err = makeIntegrationError('RECORD_FAILED', msg, 'generic_uvc');
       this._lastError = err;
       throw err;
     }
@@ -145,8 +155,9 @@ export class GenericUVCCameraProvider implements CameraProvider {
     try {
       const path = await stopUvcRecording();
       return path || null;
-    } catch (e: any) {
-      const err = makeIntegrationError('RECORD_FAILED', e.message ?? String(e), 'generic_uvc');
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      const err = makeIntegrationError('RECORD_FAILED', msg, 'generic_uvc');
       this._lastError = err;
       throw err;
     }

@@ -236,9 +236,10 @@ export class GoProCameraProvider implements CameraProvider {
         providerType: 'gopro',
       };
       this._connectionState = 'connected';
-    } catch (e: any) {
+    } catch (e: unknown) {
       this._connectionState = 'error';
-      this._lastError = makeIntegrationError('CONNECT_FAILED', e.message ?? String(e), 'gopro');
+      const msg = e instanceof Error ? e.message : String(e);
+      this._lastError = makeIntegrationError('CONNECT_FAILED', msg, 'gopro');
       throw this._lastError;
     }
   }
