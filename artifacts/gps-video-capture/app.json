@@ -44,7 +44,8 @@
       "expo-font",
       "expo-web-browser",
       "expo-camera",
-      "expo-location"
+      "expo-location",
+      "react-native-maps"
     ],
     "experiments": {
       "typedRoutes": true,

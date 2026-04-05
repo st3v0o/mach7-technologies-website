@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import Colors from '@/constants/colors';
 import { LogEntry, useRecording } from '@/contexts/RecordingContext';
+import LogMapView, { SessionSection } from '@/components/LogMapView';
 import { useUpload } from '@/contexts/UploadContext';
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
@@ -317,13 +318,6 @@ function UploadStatusBanner() {
   );
 }
 
-interface SessionSection {
-  sessionId: string;
-  mode: 'video' | 'photo' | 'mixed';
-  startMs: number;
-  data: LogEntry[];
-}
-
 function groupEntriesBySessions(entries: LogEntry[]): SessionSection[] {
   const map = new Map<string, LogEntry[]>();
   for (const e of entries) {
@@ -391,6 +385,7 @@ export default function LogScreen() {
   const { logEntries, shareLog, shareGpx, clearLog, processingStatus, totalFrames, segmentCount } = useRecording();
   const [isSharing, setIsSharing] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<LogEntry | null>(null);
+  const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
 
   const sections = useMemo(() => groupEntriesBySessions(logEntries), [logEntries]);
 
@@ -435,6 +430,26 @@ export default function LogScreen() {
         <View style={styles.headerActions}>
           {logEntries.length > 0 && (
             <Pressable
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setViewMode((v) => (v === 'list' ? 'map' : 'list'));
+              }}
+              style={({ pressed }) => [
+                styles.actionBtn,
+                viewMode === 'map' ? styles.mapBtnActive : styles.mapBtn,
+                pressed && { opacity: 0.7 },
+              ]}
+              testID="map-toggle"
+            >
+              <Ionicons
+                name={viewMode === 'map' ? 'list-outline' : 'map-outline'}
+                size={16}
+                color={Colors.amber}
+              />
+            </Pressable>
+          )}
+          {logEntries.length > 0 && viewMode === 'list' && (
+            <Pressable
               onPress={handleShare}
               disabled={isSharing}
               style={({ pressed }) => [
@@ -450,7 +465,7 @@ export default function LogScreen() {
               </Text>
             </Pressable>
           )}
-          {logEntries.length > 0 && (
+          {logEntries.length > 0 && viewMode === 'list' && (
             <Pressable
               onPress={handleClear}
               style={({ pressed }) => [
@@ -474,7 +489,15 @@ export default function LogScreen() {
         </View>
       )}
 
-      {logEntries.length === 0 ? (
+      {viewMode === 'map' ? (
+        <LogMapView
+          sections={sections}
+          onSelectEntry={(entry) => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            setSelectedEntry(entry);
+          }}
+        />
+      ) : logEntries.length === 0 ? (
         <View style={styles.emptyState}>
           <View style={styles.emptyIconContainer}>
             <Ionicons name="layers-outline" size={40} color={Colors.textTertiary} />
@@ -590,6 +613,16 @@ const styles = StyleSheet.create({
   clearBtn: {
     borderColor: 'rgba(255, 59, 48, 0.25)',
     backgroundColor: 'rgba(255, 59, 48, 0.06)',
+    paddingHorizontal: 10,
+  },
+  mapBtn: {
+    borderColor: 'rgba(255, 184, 0, 0.3)',
+    backgroundColor: 'rgba(255, 184, 0, 0.06)',
+    paddingHorizontal: 10,
+  },
+  mapBtnActive: {
+    borderColor: 'rgba(255, 184, 0, 0.6)',
+    backgroundColor: 'rgba(255, 184, 0, 0.15)',
     paddingHorizontal: 10,
   },
   actionBtnText: {
