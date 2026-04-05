@@ -1,7 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Dimensions,
+  FlatList,
   Platform,
   Pressable,
   StyleSheet,
@@ -31,6 +33,36 @@ export const SESSION_COLORS = [
 ];
 
 const MAX_MARKERS = 600;
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+function fmtTime(ms: number): string {
+  const d = new Date(ms);
+  return d.toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
+}
+
+function fmtDate(ms: number): string {
+  return new Date(ms).toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
+
+function fmtLat(lat: number): string {
+  return `${Math.abs(lat).toFixed(6)}°  ${lat >= 0 ? 'N' : 'S'}`;
+}
+
+function fmtLon(lon: number): string {
+  return `${Math.abs(lon).toFixed(6)}°  ${lon >= 0 ? 'E' : 'W'}`;
+}
+
+// ── Fallbacks ─────────────────────────────────────────────────────────────────
 
 function WebFallback() {
   return (
@@ -62,6 +94,8 @@ function NoDataFallback({ onDemoPress }: { onDemoPress?: () => void }) {
     </View>
   );
 }
+
+// ── Legend ─────────────────────────────────────────────────────────────────
 
 function Legend({
   sections,
@@ -103,6 +137,244 @@ function Legend({
   );
 }
 
+// ── Half-screen swipeable preview sheet ──────────────────────────────────────
+
+function SheetPage({
+  entry,
+  sessionColor,
+  pageWidth,
+  photoHeight,
+  onOpenFull,
+}: {
+  entry: LogEntry;
+  sessionColor: string;
+  pageWidth: number;
+  photoHeight: number;
+  onOpenFull: () => void;
+}) {
+  const hasPhoto = Boolean(entry.localPath);
+
+  return (
+    <View style={[styles.page, { width: pageWidth }]}>
+      {/* Photo */}
+      <View style={[styles.photoArea, { height: photoHeight }]}>
+        {hasPhoto ? (
+          <Image
+            source={{ uri: entry.localPath }}
+            style={StyleSheet.absoluteFill}
+            contentFit="contain"
+            transition={100}
+          />
+        ) : (
+          <View style={styles.photoPlaceholder}>
+            <Ionicons name="image-outline" size={52} color={Colors.textTertiary} />
+            <Text style={styles.photoPlaceholderText}>No image file</Text>
+          </View>
+        )}
+
+        {/* Detection overlay badge */}
+        {entry.detectionLabel && (
+          <View style={styles.detBadge}>
+            <Ionicons name="eye" size={12} color={Colors.gpsGreen} />
+            <Text style={styles.detBadgeText}>
+              {entry.detectionLabel.toUpperCase()}
+              {entry.detectionConfidence != null
+                ? `  ${(entry.detectionConfidence * 100).toFixed(0)}%`
+                : ''}
+            </Text>
+          </View>
+        )}
+      </View>
+
+      {/* Info panel */}
+      <View style={styles.pageInfo}>
+        {/* Date / time row */}
+        <View style={styles.infoRow}>
+          <Ionicons name="time-outline" size={13} color={Colors.textSecondary} />
+          <View>
+            <Text style={styles.infoDate}>{fmtDate(entry.timestamp)}</Text>
+            <Text style={styles.infoTime}>{fmtTime(entry.timestamp)}</Text>
+          </View>
+        </View>
+
+        {/* GPS rows */}
+        <View style={styles.gpsBlock}>
+          <View style={styles.gpsRow}>
+            <Ionicons name="location" size={13} color={Colors.gpsGreen} />
+            <Text style={styles.gpsVal}>{fmtLat(entry.latitude)}</Text>
+          </View>
+          <View style={[styles.gpsRow, { paddingLeft: 18 }]}>
+            <Text style={styles.gpsVal}>{fmtLon(entry.longitude)}</Text>
+          </View>
+        </View>
+
+        {/* Segment */}
+        <View style={styles.infoRow}>
+          <Ionicons name="film-outline" size={13} color={Colors.textSecondary} />
+          <Text style={styles.infoSeg} numberOfLines={1}>{entry.filename}</Text>
+        </View>
+
+        {/* Open full button */}
+        {hasPhoto && (
+          <Pressable
+            onPress={onOpenFull}
+            style={({ pressed }) => [
+              styles.openFullBtn,
+              { borderColor: sessionColor },
+              pressed && { opacity: 0.7 },
+            ]}
+          >
+            <Ionicons name="expand-outline" size={15} color={sessionColor} />
+            <Text style={[styles.openFullText, { color: sessionColor }]}>Open Full Frame</Text>
+          </Pressable>
+        )}
+      </View>
+    </View>
+  );
+}
+
+function MapPreviewSheet({
+  initialEntry,
+  sessionEntries,
+  sessionColor,
+  onDismiss,
+  onOpenFull,
+  insetBottom,
+}: {
+  initialEntry: LogEntry;
+  sessionEntries: LogEntry[];
+  sessionColor: string;
+  onDismiss: () => void;
+  onOpenFull: (entry: LogEntry) => void;
+  insetBottom: number;
+}) {
+  const { width: SW, height: SH } = Dimensions.get('window');
+  const SHEET_H = Math.round(SH * 0.58);
+  const PHOTO_H = Math.round(SHEET_H * 0.50);
+
+  const initialIndex = useMemo(
+    () => Math.max(0, sessionEntries.findIndex((e) => e.id === initialEntry.id)),
+    [sessionEntries, initialEntry.id]
+  );
+
+  const [currentIndex, setCurrentIndex] = useState(initialIndex);
+  const flatRef = useRef<FlatList<LogEntry>>(null);
+
+  // Scroll to the tapped entry on first render
+  useEffect(() => {
+    if (initialIndex > 0) {
+      // Use a tiny delay so FlatList has laid out
+      setTimeout(() => {
+        flatRef.current?.scrollToIndex({ index: initialIndex, animated: false });
+      }, 50);
+    }
+  }, [initialIndex]);
+
+  const handleScrollEnd = useCallback(
+    (e: any) => {
+      const idx = Math.round(e.nativeEvent.contentOffset.x / SW);
+      setCurrentIndex(Math.min(Math.max(0, idx), sessionEntries.length - 1));
+    },
+    [SW, sessionEntries.length]
+  );
+
+  const getItemLayout = useCallback(
+    (_: any, index: number) => ({ length: SW, offset: SW * index, index }),
+    [SW]
+  );
+
+  const currentEntry = sessionEntries[currentIndex] ?? initialEntry;
+
+  return (
+    <View style={[styles.sheet, { height: SHEET_H, paddingBottom: insetBottom }]}>
+      {/* Drag handle */}
+      <View style={styles.handle} />
+
+      {/* Header */}
+      <View style={styles.sheetHeader}>
+        <Pressable
+          onPress={onDismiss}
+          hitSlop={12}
+          style={({ pressed }) => [styles.sheetClose, pressed && { opacity: 0.6 }]}
+        >
+          <Ionicons name="chevron-down" size={22} color={Colors.textSecondary} />
+        </Pressable>
+
+        <View style={styles.sheetTitleWrap}>
+          <View style={[styles.sheetColorDot, { backgroundColor: sessionColor }]} />
+          <Text style={styles.sheetCounter}>
+            {currentIndex + 1} / {sessionEntries.length}
+          </Text>
+        </View>
+
+        {/* Prev / Next arrows */}
+        <View style={styles.sheetNav}>
+          <Pressable
+            disabled={currentIndex === 0}
+            onPress={() => {
+              const prev = currentIndex - 1;
+              flatRef.current?.scrollToIndex({ index: prev, animated: true });
+              setCurrentIndex(prev);
+            }}
+            style={({ pressed }) => [
+              styles.navBtn,
+              pressed && { opacity: 0.6 },
+              currentIndex === 0 && { opacity: 0.2 },
+            ]}
+            hitSlop={8}
+          >
+            <Ionicons name="chevron-back" size={18} color={Colors.text} />
+          </Pressable>
+          <Pressable
+            disabled={currentIndex === sessionEntries.length - 1}
+            onPress={() => {
+              const next = currentIndex + 1;
+              flatRef.current?.scrollToIndex({ index: next, animated: true });
+              setCurrentIndex(next);
+            }}
+            style={({ pressed }) => [
+              styles.navBtn,
+              pressed && { opacity: 0.6 },
+              currentIndex === sessionEntries.length - 1 && { opacity: 0.2 },
+            ]}
+            hitSlop={8}
+          >
+            <Ionicons name="chevron-forward" size={18} color={Colors.text} />
+          </Pressable>
+        </View>
+      </View>
+
+      {/* Swipeable pages */}
+      <FlatList
+        ref={flatRef}
+        data={sessionEntries}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        keyExtractor={(item) => item.id}
+        initialScrollIndex={initialIndex}
+        getItemLayout={getItemLayout}
+        onMomentumScrollEnd={handleScrollEnd}
+        renderItem={({ item }) => (
+          <SheetPage
+            entry={item}
+            sessionColor={sessionColor}
+            pageWidth={SW}
+            photoHeight={PHOTO_H}
+            onOpenFull={() => onOpenFull(item)}
+          />
+        )}
+        style={{ flex: 1 }}
+      />
+
+      {/* Coloured bottom accent line */}
+      <View style={[styles.sheetAccentLine, { backgroundColor: sessionColor }]} />
+    </View>
+  );
+}
+
+// ── Top-level export ──────────────────────────────────────────────────────────
+
 interface Props {
   sections: SessionSection[];
   onSelectEntry: (entry: LogEntry) => void;
@@ -131,124 +403,33 @@ export default function LogMapView({ sections, onSelectEntry, demoMode, onDemoPr
       sections={sections}
       allValidCoords={allValidCoords}
       onSelectEntry={onSelectEntry}
+      insetBottom={insets.bottom}
       bottomOffset={insets.bottom + 90}
       demoMode={demoMode}
     />
   );
 }
 
-function fmtTimestamp(ms: number): string {
-  const d = new Date(ms);
-  return (
-    d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) +
-    '  ' +
-    d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
-  );
-}
+// ── Native map (iOS/Android only) ────────────────────────────────────────────
 
-function fmtCoord(lat: number, lon: number): string {
-  const latStr = `${Math.abs(lat).toFixed(6)}° ${lat >= 0 ? 'N' : 'S'}`;
-  const lonStr = `${Math.abs(lon).toFixed(6)}° ${lon >= 0 ? 'E' : 'W'}`;
-  return `${latStr}  ${lonStr}`;
-}
-
-function MapPreviewCard({
-  entry,
-  sessionColor,
-  onDismiss,
-  onOpen,
-  bottomOffset,
-}: {
+type ActiveState = {
   entry: LogEntry;
-  sessionColor: string;
-  onDismiss: () => void;
-  onOpen: () => void;
-  bottomOffset: number;
-}) {
-  const hasPhoto = Boolean(entry.localPath);
-  const isDemo = !hasPhoto;
-
-  return (
-    <View style={[styles.previewCard, { bottom: bottomOffset + 8 }]}>
-      {/* Colored left accent bar */}
-      <View style={[styles.previewAccent, { backgroundColor: sessionColor }]} />
-
-      {/* Thumbnail */}
-      <View style={styles.previewThumb}>
-        {hasPhoto ? (
-          <Image
-            source={{ uri: entry.localPath }}
-            style={styles.previewThumbImage}
-            contentFit="cover"
-            transition={120}
-          />
-        ) : (
-          <View style={styles.previewThumbPlaceholder}>
-            <Ionicons name="image-outline" size={22} color={Colors.textTertiary} />
-          </View>
-        )}
-      </View>
-
-      {/* Info */}
-      <View style={styles.previewInfo}>
-        <Text style={styles.previewTime}>{fmtTimestamp(entry.timestamp)}</Text>
-        <View style={styles.previewGpsRow}>
-          <Ionicons name="location" size={11} color={Colors.gpsGreen} />
-          <Text style={styles.previewGps}>{fmtCoord(entry.latitude, entry.longitude)}</Text>
-        </View>
-        {entry.detectionLabel && (
-          <View style={styles.previewDetRow}>
-            <Ionicons name="eye" size={11} color={Colors.gpsGreen} />
-            <Text style={styles.previewDet}>
-              {entry.detectionLabel.toUpperCase()}
-              {entry.detectionConfidence != null
-                ? `  ${(entry.detectionConfidence * 100).toFixed(0)}%`
-                : ''}
-            </Text>
-          </View>
-        )}
-        <Text style={styles.previewSeg} numberOfLines={1}>
-          {entry.filename}
-        </Text>
-      </View>
-
-      {/* Actions */}
-      <View style={styles.previewActions}>
-        <Pressable
-          onPress={onDismiss}
-          style={({ pressed }) => [styles.previewActionBtn, pressed && { opacity: 0.6 }]}
-          hitSlop={10}
-        >
-          <Ionicons name="close" size={18} color={Colors.textSecondary} />
-        </Pressable>
-        {!isDemo && (
-          <Pressable
-            onPress={onOpen}
-            style={({ pressed }) => [
-              styles.previewOpenBtn,
-              { borderColor: sessionColor },
-              pressed && { opacity: 0.7 },
-            ]}
-          >
-            <Text style={[styles.previewOpenText, { color: sessionColor }]}>View</Text>
-            <Ionicons name="expand-outline" size={13} color={sessionColor} />
-          </Pressable>
-        )}
-      </View>
-    </View>
-  );
-}
+  color: string;
+  sessionEntries: LogEntry[];
+};
 
 function NativeMapView({
   sections,
   allValidCoords,
   onSelectEntry,
+  insetBottom,
   bottomOffset,
   demoMode,
 }: {
   sections: SessionSection[];
   allValidCoords: { latitude: number; longitude: number }[];
   onSelectEntry: (entry: LogEntry) => void;
+  insetBottom: number;
   bottomOffset: number;
   demoMode?: boolean;
 }) {
@@ -257,7 +438,7 @@ function NativeMapView({
   const { Marker, Polyline } = maps;
 
   const mapRef = useRef<any>(null);
-  const [activeEntry, setActiveEntry] = useState<{ entry: LogEntry; color: string } | null>(null);
+  const [active, setActive] = useState<ActiveState | null>(null);
 
   const totalEntries = sections.reduce((n, s) => n + s.data.length, 0);
   const showMarkers = totalEntries <= MAX_MARKERS;
@@ -283,64 +464,63 @@ function NativeMapView({
         showsCompass
         showsScale
         pitchEnabled={false}
-        onPress={() => setActiveEntry(null)}
+        onPress={() => setActive(null)}
       >
         {sections.map((section, idx) => {
           const color = SESSION_COLORS[idx % SESSION_COLORS.length];
-          const coords = section.data
-            .filter((e) => e.latitude !== 0 || e.longitude !== 0)
-            .map((e) => ({ latitude: e.latitude, longitude: e.longitude }));
+          const validEntries = section.data.filter(
+            (e) => e.latitude !== 0 || e.longitude !== 0
+          );
+          const coords = validEntries.map((e) => ({
+            latitude: e.latitude,
+            longitude: e.longitude,
+          }));
 
           return (
             <React.Fragment key={section.sessionId}>
               {coords.length > 1 && (
-                <Polyline
-                  coordinates={coords}
-                  strokeColor={color}
-                  strokeWidth={3}
-                />
+                <Polyline coordinates={coords} strokeColor={color} strokeWidth={3} />
               )}
               {showMarkers &&
-                section.data
-                  .filter((e) => e.latitude !== 0 || e.longitude !== 0)
-                  .map((entry) => {
-                    const isActive = activeEntry?.entry.id === entry.id;
-                    return (
-                      <Marker
-                        key={entry.id}
-                        coordinate={{
-                          latitude: entry.latitude,
-                          longitude: entry.longitude,
-                        }}
-                        tracksViewChanges={isActive}
-                        anchor={{ x: 0.5, y: 0.5 }}
-                        onPress={(e: any) => {
-                          e.stopPropagation();
-                          setActiveEntry(
-                            isActive ? null : { entry, color }
-                          );
-                        }}
-                      >
-                        <View style={styles.markerWrap}>
-                          {isActive && (
-                            <View style={[styles.markerRing, { borderColor: color }]} />
-                          )}
-                          <View
-                            style={[
-                              styles.dot,
-                              { backgroundColor: color },
-                              isActive && styles.dotActive,
-                            ]}
-                          />
-                        </View>
-                      </Marker>
-                    );
-                  })}
+                validEntries.map((entry) => {
+                  const isActive = active?.entry.id === entry.id;
+                  return (
+                    <Marker
+                      key={entry.id}
+                      coordinate={{
+                        latitude: entry.latitude,
+                        longitude: entry.longitude,
+                      }}
+                      tracksViewChanges={isActive}
+                      anchor={{ x: 0.5, y: 0.5 }}
+                      onPress={(e: any) => {
+                        e.stopPropagation();
+                        setActive(
+                          isActive ? null : { entry, color, sessionEntries: validEntries }
+                        );
+                      }}
+                    >
+                      <View style={styles.markerWrap}>
+                        {isActive && (
+                          <View style={[styles.markerRing, { borderColor: color }]} />
+                        )}
+                        <View
+                          style={[
+                            styles.dot,
+                            { backgroundColor: color },
+                            isActive && styles.dotActive,
+                          ]}
+                        />
+                      </View>
+                    </Marker>
+                  );
+                })}
             </React.Fragment>
           );
         })}
       </MapView>
 
+      {/* Performance / demo banners */}
       {!showMarkers && (
         <View style={styles.perfBanner}>
           <Ionicons name="information-circle-outline" size={13} color={Colors.amber} />
@@ -357,25 +537,31 @@ function NativeMapView({
         </View>
       )}
 
-      {activeEntry && (
-        <MapPreviewCard
-          entry={activeEntry.entry}
-          sessionColor={activeEntry.color}
-          onDismiss={() => setActiveEntry(null)}
-          onOpen={() => {
-            onSelectEntry(activeEntry.entry);
-            setActiveEntry(null);
+      {/* Legend — hidden while sheet is open */}
+      {!active && <Legend sections={sections} bottomOffset={bottomOffset} />}
+
+      {/* Half-screen preview sheet */}
+      {active && (
+        <MapPreviewSheet
+          initialEntry={active.entry}
+          sessionEntries={active.sessionEntries}
+          sessionColor={active.color}
+          onDismiss={() => setActive(null)}
+          onOpenFull={(entry) => {
+            onSelectEntry(entry);
+            setActive(null);
           }}
-          bottomOffset={bottomOffset}
+          insetBottom={insetBottom}
         />
       )}
-
-      <Legend sections={sections} bottomOffset={bottomOffset} />
     </View>
   );
 }
 
+// ── Styles ────────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
+  // Fallbacks
   fallback: {
     flex: 1,
     alignItems: 'center',
@@ -396,6 +582,25 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
   },
+  demoBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255,184,0,0.4)',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: 'rgba(255,184,0,0.08)',
+  },
+  demoBtnText: {
+    color: Colors.amber,
+    fontFamily: 'Inter_500Medium',
+    fontSize: 14,
+  },
+
+  // Markers
   markerWrap: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -418,107 +623,13 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.85)',
   },
   dotActive: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
+    width: 17,
+    height: 17,
+    borderRadius: 9,
     borderColor: '#fff',
   },
-  previewCard: {
-    position: 'absolute',
-    left: 12,
-    right: 12,
-    flexDirection: 'row',
-    alignItems: 'stretch',
-    backgroundColor: 'rgba(12,12,18,0.96)',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-    overflow: 'hidden',
-    minHeight: 92,
-  },
-  previewAccent: {
-    width: 4,
-    borderTopLeftRadius: 14,
-    borderBottomLeftRadius: 14,
-  },
-  previewThumb: {
-    width: 72,
-    margin: 10,
-    borderRadius: 8,
-    overflow: 'hidden',
-    backgroundColor: 'rgba(255,255,255,0.06)',
-  },
-  previewThumbImage: {
-    flex: 1,
-    borderRadius: 8,
-  },
-  previewThumbPlaceholder: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  previewInfo: {
-    flex: 1,
-    paddingVertical: 10,
-    paddingRight: 4,
-    gap: 4,
-    justifyContent: 'center',
-  },
-  previewTime: {
-    color: Colors.text,
-    fontFamily: 'Inter_500Medium',
-    fontSize: 11.5,
-  },
-  previewGpsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  previewGps: {
-    color: Colors.gpsGreen,
-    fontFamily: 'Inter_400Regular',
-    fontSize: 11,
-    flex: 1,
-  },
-  previewDetRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  previewDet: {
-    color: Colors.gpsGreen,
-    fontFamily: 'Inter_500Medium',
-    fontSize: 11,
-  },
-  previewSeg: {
-    color: Colors.textTertiary,
-    fontFamily: 'Inter_400Regular',
-    fontSize: 10.5,
-  },
-  previewActions: {
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 10,
-    paddingRight: 10,
-    paddingLeft: 6,
-    gap: 8,
-  },
-  previewActionBtn: {
-    padding: 4,
-  },
-  previewOpenBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    borderWidth: 1,
-    borderRadius: 20,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
-  previewOpenText: {
-    fontFamily: 'Inter_600SemiBold',
-    fontSize: 12,
-  },
+
+  // Legend
   legend: {
     position: 'absolute',
     left: 12,
@@ -552,6 +663,8 @@ const styles = StyleSheet.create({
     fontSize: 11,
     marginTop: 2,
   },
+
+  // Banners
   perfBanner: {
     position: 'absolute',
     top: 12,
@@ -591,21 +704,167 @@ const styles = StyleSheet.create({
     fontSize: 12,
     letterSpacing: 0.3,
   },
-  demoBtn: {
+
+  // Half-screen sheet
+  sheet: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(8, 8, 14, 0.97)',
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+    borderTopWidth: 1,
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    overflow: 'hidden',
+  },
+  handle: {
+    width: 38,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignSelf: 'center',
+    marginTop: 10,
+    marginBottom: 2,
+  },
+  sheetHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 7,
-    marginTop: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(255,184,0,0.4)',
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    backgroundColor: 'rgba(255,184,0,0.08)',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(255,255,255,0.08)',
   },
-  demoBtnText: {
-    color: Colors.amber,
+  sheetClose: {
+    padding: 4,
+  },
+  sheetTitleWrap: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  sheetColorDot: {
+    width: 9,
+    height: 9,
+    borderRadius: 5,
+  },
+  sheetCounter: {
+    color: Colors.text,
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 14,
+  },
+  sheetNav: {
+    flexDirection: 'row',
+    gap: 2,
+  },
+  navBtn: {
+    padding: 6,
+  },
+  sheetAccentLine: {
+    height: 3,
+    width: '100%',
+  },
+
+  // Page layout
+  page: {
+    flex: 1,
+  },
+  photoArea: {
+    width: '100%',
+    backgroundColor: '#000',
+    overflow: 'hidden',
+  },
+  photoPlaceholder: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+  },
+  photoPlaceholderText: {
+    color: Colors.textTertiary,
+    fontFamily: 'Inter_400Regular',
+    fontSize: 13,
+  },
+  detBadge: {
+    position: 'absolute',
+    bottom: 10,
+    left: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(0,0,0,0.65)',
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: Colors.gpsGreen,
+  },
+  detBadgeText: {
+    color: Colors.gpsGreen,
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 11,
+    letterSpacing: 0.5,
+  },
+  pageInfo: {
+    flex: 1,
+    paddingHorizontal: 18,
+    paddingTop: 14,
+    paddingBottom: 8,
+    gap: 10,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  infoDate: {
+    color: Colors.text,
     fontFamily: 'Inter_500Medium',
+    fontSize: 13,
+    lineHeight: 17,
+  },
+  infoTime: {
+    color: Colors.textSecondary,
+    fontFamily: 'Inter_400Regular',
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  gpsBlock: {
+    gap: 3,
+  },
+  gpsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  gpsVal: {
+    color: Colors.gpsGreen,
+    fontFamily: 'Inter_400Regular',
+    fontSize: 13,
+    letterSpacing: 0.3,
+  },
+  infoSeg: {
+    color: Colors.textTertiary,
+    fontFamily: 'Inter_400Regular',
+    fontSize: 12,
+    flex: 1,
+  },
+  openFullBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 10,
+    marginTop: 'auto',
+  },
+  openFullText: {
+    fontFamily: 'Inter_600SemiBold',
     fontSize: 14,
   },
 });
