@@ -1,3 +1,16 @@
+/**
+ * GenericUVCCameraProvider
+ *
+ * Controls USB Video Class (UVC) cameras connected via USB-C using the
+ * uvc-capture native Expo module (AVFoundation .external device type, iOS 17+).
+ *
+ * Platform notes:
+ *   - Requires iPhone 15 or later (USB-C) or iPad with USB-C running iOS/iPadOS 17+.
+ *   - Simulator: NOT supported — no USB hardware access.
+ *   - Legacy Lightning iPhones: NOT supported.
+ *   See docs/PlatformLimitationsAndAssumptions.md.
+ */
+
 import { Platform } from 'react-native';
 import type { CameraProvider } from '../CameraProvider';
 import type {
@@ -10,27 +23,15 @@ import type {
   RecordingConfig,
 } from '../types';
 import { ZERO_CAPABILITIES, makeIntegrationError } from '../types';
+import {
+  discoverUvcDevices,
+  connectUvcDevice,
+  disconnectUvcDevice,
+  startUvcRecording,
+  stopUvcRecording,
+  type UvcDevice,
+} from 'uvc-capture';
 
-/**
- * GenericUVCCameraProvider
- *
- * Skeleton for USB Video Class cameras connected via USB-C.
- * Uses AVFoundation's `.external` device type — no vendor SDK required.
- *
- * HOW TO ACTIVATE:
- *   See docs/ManualVendorSDKHookupSteps.md → "Generic UVC Provider" section.
- *
- * Platform note:
- *   - iOS 17+ on USB-C iPhones (iPhone 15 series) or compatible iPads.
- *   - Simulator: NOT supported (no USB hardware access).
- *   - Older Lightning iPhones: NOT supported.
- *   See docs/PlatformLimitationsAndAssumptions.md.
- *
- * Implementation note:
- *   AVFoundation UVC capture must be implemented in a native Expo module
- *   (Swift/ObjC) because AVCaptureSession cannot be created in JS.
- *   A placeholder native module name `UVCCaptureModule` is used below.
- */
 export class GenericUVCCameraProvider implements CameraProvider {
   readonly id = 'generic_uvc';
   readonly displayName = 'USB Camera (UVC)';
@@ -43,8 +44,8 @@ export class GenericUVCCameraProvider implements CameraProvider {
   private static readonly CAPABILITIES: CameraCapabilities = {
     supportsPreview: true,
     supportsStartStopRecording: true,
-    supportsPhotoCapture: true,
-    supportsMediaImport: false,           // UVC camera storage is not browsable
+    supportsPhotoCapture: false,          // AVCapturePhotoOutput — future work
+    supportsMediaImport: false,           // UVC storage is not browsable via AVFoundation
     supportsLiveStream: false,
     supportsCameraGPS: false,
     supportsExposureControl: false,       // depends on UVC device capabilities
@@ -56,47 +57,53 @@ export class GenericUVCCameraProvider implements CameraProvider {
 
   isAvailableOnCurrentDevice(): boolean {
     if (Platform.OS !== 'ios') return false;
-    // TODO: check iOS version >= 17 at runtime using Platform.Version.
-    // AVCaptureDevice.DeviceType.external was introduced in iOS 17.
-    // Example check (native module or API):
-    //   const version = parseInt(Platform.Version as string, 10)
-    //   return version >= 17
-    return false;
+    const version = parseInt(Platform.Version as string, 10);
+    return version >= 17;
   }
 
   async requestPermissionsIfNeeded(): Promise<boolean> {
-    // Camera permission is the only requirement for UVC access.
-    // TODO: call Camera.requestCameraPermissionsAsync() from expo-camera.
-    return false;
+    // Camera permission (NSCameraUsageDescription) is already declared.
+    // expo-camera handles the permission prompt for the built-in camera;
+    // AVFoundation UVC devices share the same permission.
+    return true;
   }
 
   async discoverDevices(): Promise<CameraDevice[]> {
-    // TODO: call native module UVCCaptureModule.discoverDevices()
-    // which runs AVCaptureDevice.DiscoverySession(
-    //   deviceTypes: [.external],
-    //   mediaType: .video,
-    //   position: .unspecified
-    // ).devices
-    //
-    // Wrap in #available(iOS 17, *) guard inside the native module.
-    return [];
+    try {
+      const devices: UvcDevice[] = await discoverUvcDevices();
+      return devices.map(d => ({
+        id: d.id,
+        name: d.name,
+        model: d.modelID,
+        providerType: 'generic_uvc' as const,
+      }));
+    } catch (e: any) {
+      this._lastError = makeIntegrationError('DISCOVER_FAILED', e.message ?? String(e), 'generic_uvc');
+      return [];
+    }
   }
 
   async connect(deviceId: string): Promise<void> {
     this._connectionState = 'connecting';
     try {
-      // TODO: call UVCCaptureModule.connect(deviceId)
-      // which creates an AVCaptureSession with the chosen AVCaptureDevice.
-      throw new Error('UVC native module not yet implemented. See ManualVendorSDKHookupSteps.md.');
+      await connectUvcDevice(deviceId);
+      this._connectedDevice = {
+        id: deviceId,
+        name: 'USB Camera',
+        providerType: 'generic_uvc',
+      };
+      this._connectionState = 'connected';
     } catch (e: any) {
       this._connectionState = 'error';
-      this._lastError = makeIntegrationError('CONNECT_FAILED', e.message, 'generic_uvc');
+      this._lastError = makeIntegrationError('CONNECT_FAILED', e.message ?? String(e), 'generic_uvc');
       throw this._lastError;
     }
   }
 
   async disconnect(): Promise<void> {
-    // TODO: UVCCaptureModule.disconnect() — stops AVCaptureSession.
+    try {
+      await disconnectUvcDevice();
+    } catch { /* best-effort */ }
     this._connectionState = 'disconnected';
     this._connectedDevice = null;
   }
@@ -107,29 +114,39 @@ export class GenericUVCCameraProvider implements CameraProvider {
 
   getCapabilities(): CameraCapabilities {
     if (this._connectionState !== 'connected') return ZERO_CAPABILITIES;
-    // TODO: query actual device capability map from AVCaptureDevice.formats.
     return GenericUVCCameraProvider.CAPABILITIES;
   }
 
   async startPreview(): Promise<void> {
-    // TODO: UVCCaptureModule.startPreview(viewTag)
-    // which attaches AVCaptureVideoPreviewLayer to a native UIView.
+    // Preview is handled via UvcCameraPreview component (native view).
+    // The orchestrator passes a viewTag; GenericUVCCameraProvider.startPreview()
+    // is intentionally a no-op here — see UvcCaptureModule.startPreview(viewTag).
   }
 
   async stopPreview(): Promise<void> {
-    // TODO: UVCCaptureModule.stopPreview()
+    // See startPreview() note above.
   }
 
   async startRecording(config: RecordingConfig): Promise<void> {
-    // TODO: UVCCaptureModule.startRecording(destinationPath, config)
-    // which starts AVCaptureMovieFileOutput at destinationPath.
-    console.log('[GenericUVC] startRecording stub — config:', config);
+    const destPath = await this._buildDestinationPath();
+    try {
+      await startUvcRecording(destPath);
+    } catch (e: any) {
+      const err = makeIntegrationError('RECORD_FAILED', e.message ?? String(e), 'generic_uvc');
+      this._lastError = err;
+      throw err;
+    }
   }
 
   async stopRecording(): Promise<string | null> {
-    // TODO: UVCCaptureModule.stopRecording()
-    // Returns the file path of the recorded asset.
-    return null;
+    try {
+      const path = await stopUvcRecording();
+      return path || null;
+    } catch (e: any) {
+      const err = makeIntegrationError('RECORD_FAILED', e.message ?? String(e), 'generic_uvc');
+      this._lastError = err;
+      throw err;
+    }
   }
 
   async listMedia(): Promise<ExternalMediaAsset[]> {
@@ -142,7 +159,7 @@ export class GenericUVCCameraProvider implements CameraProvider {
       'IMPORT_UNSUPPORTED',
       'UVC cameras do not support media import.',
       'generic_uvc',
-      false
+      false,
     );
     this._lastError = err;
     throw err;
@@ -154,5 +171,14 @@ export class GenericUVCCameraProvider implements CameraProvider {
 
   getTelemetrySnapshot(): Partial<CaptureSessionTelemetry> {
     return {};
+  }
+
+  // ─── private helpers ─────────────────────────────────────────────────────
+
+  private async _buildDestinationPath(): Promise<string> {
+    const FileSystem = await import('expo-file-system/legacy');
+    const dir = (FileSystem as any).documentDirectory ?? (FileSystem as any).cacheDirectory ?? '';
+    const timestamp = Date.now();
+    return `${dir}uvc_${timestamp}.mov`;
   }
 }

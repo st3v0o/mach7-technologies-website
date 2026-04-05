@@ -18,11 +18,16 @@
       "bundleIdentifier": "com.gpsvideocapture.app",
       "buildNumber": "1",
       "deploymentTarget": "17.0",
+      "entitlements": {
+        "com.apple.developer.networking.HotspotConfiguration": true
+      },
       "infoPlist": {
         "NSCameraUsageDescription": "Camera access is required to record video for GPS frame tagging.",
         "NSMicrophoneUsageDescription": "Microphone access is required to record audio with your video.",
         "NSLocationWhenInUseUsageDescription": "Location access is required to tag each video frame with GPS coordinates.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "Location access is required to continuously tag video frames with GPS coordinates, even when the screen is locked.",
+        "NSBluetoothAlwaysUsageDescription": "Bluetooth is used to discover and pair with GoPro and other external cameras.",
+        "NSLocalNetworkUsageDescription": "Local network access is used to control connected cameras over Wi-Fi.",
         "UIBackgroundModes": ["location"]
       }
     },
@@ -33,7 +38,13 @@
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
         "WRITE_EXTERNAL_STORAGE",
-        "READ_EXTERNAL_STORAGE"
+        "READ_EXTERNAL_STORAGE",
+        "BLUETOOTH",
+        "BLUETOOTH_ADMIN",
+        "BLUETOOTH_CONNECT",
+        "BLUETOOTH_SCAN",
+        "ACCESS_WIFI_STATE",
+        "CHANGE_WIFI_STATE"
       ]
     },
     "web": {
@@ -44,7 +55,22 @@
       "expo-font",
       "expo-web-browser",
       "expo-camera",
-      "expo-location"
+      "expo-location",
+      [
+        "react-native-ble-plx",
+        {
+          "isBackgroundEnabled": false,
+          "modes": ["peripheral", "central"],
+          "bluetoothAlwaysPermission": "Allow $(PRODUCT_NAME) to connect to Bluetooth cameras."
+        }
+      ],
+      [
+        "react-native-wifi-reborn",
+        {
+          "addHotspotEntitlement": true,
+          "locationWhenInUsePermission": "Allow $(PRODUCT_NAME) to use your location to join camera Wi-Fi networks."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

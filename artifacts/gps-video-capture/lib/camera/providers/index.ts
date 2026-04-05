@@ -1,6 +1,7 @@
 import type { CameraProvider } from '../CameraProvider';
 import type { CameraProviderType } from '../types';
 import { BuiltInPhoneCameraProvider } from './BuiltInPhoneCameraProvider';
+import { CanonCCAPIProvider } from './CanonCCAPIProvider';
 import { GenericUVCCameraProvider } from './GenericUVCCameraProvider';
 import { GoProCameraProvider } from './GoProCameraProvider';
 import { Insta360CameraProvider } from './Insta360CameraProvider';
@@ -8,6 +9,7 @@ import { MockCameraProvider } from './MockCameraProvider';
 
 export {
   BuiltInPhoneCameraProvider,
+  CanonCCAPIProvider,
   GenericUVCCameraProvider,
   GoProCameraProvider,
   Insta360CameraProvider,
@@ -25,6 +27,7 @@ const _registry: CameraProvider[] = [
   new MockCameraProvider(),
   new Insta360CameraProvider(),
   new GoProCameraProvider(),
+  new CanonCCAPIProvider(),
   new GenericUVCCameraProvider(),
 ];
 

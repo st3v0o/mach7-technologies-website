@@ -4,6 +4,7 @@ export type CameraProviderType =
   | 'builtin'
   | 'insta360'
   | 'gopro'
+  | 'canon'
   | 'generic_uvc'
   | 'mock';
 
