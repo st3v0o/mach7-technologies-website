@@ -49,7 +49,7 @@ interface RecordingContextType {
   sessionId: string;
   gpsPointsRef: React.MutableRefObject<GpsPoint[]>;
   startGps: () => Promise<void>;
-  stopGps: (mode?: 'video' | 'photo') => void;
+  stopGps: (mode?: 'video' | 'photo' | 'manual') => void;
   shareGpx: (sessionId: string) => Promise<void>;
   processSegment: (
     uri: string,
@@ -199,7 +199,7 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
   const saveGpx = useCallback(async (
     sid: string,
     points: GpsPoint[],
-    mode: 'video' | 'photo'
+    mode: 'video' | 'photo' | 'manual'
   ) => {
     if (Platform.OS === 'web' || points.length === 0 || !sid) return;
     try {
@@ -215,7 +215,7 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
     } catch {}
   }, []);
 
-  const stopGps = useCallback((mode?: 'video' | 'photo') => {
+  const stopGps = useCallback((mode?: 'video' | 'photo' | 'manual') => {
     const points = [...gpsPointsRef.current];
     const sid = sessionIdRef.current;
     locationSubRef.current?.remove();

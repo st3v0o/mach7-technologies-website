@@ -8,7 +8,7 @@ import React, {
 } from 'react';
 
 export interface FrameSettings {
-  captureMode: 'video' | 'photo';
+  captureMode: 'video' | 'photo' | 'manual';
   frameMode: 'fixed' | 'dynamic';
   fixedFps: number;
   dynamicMeters: number;

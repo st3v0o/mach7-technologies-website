@@ -180,12 +180,55 @@ export default function CaptureScreen() {
   const segmentDurationMsRef = useRef(DEFAULT_SEGMENT_MS);
   const micGrantedRef = useRef(micPermission?.granted ?? false);
 
-  // ── Photo mode refs ───────────────────────────────────────────────────────
+  // ── Auto photo mode refs ──────────────────────────────────────────────────
   const [photoCount, setPhotoCount] = useState(0);
   const photoIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const photoCapturingRef = useRef(false);
   const photoDistAccumRef = useRef(0);
   const photoLastTickRef = useRef(0);
+  // ─────────────────────────────────────────────────────────────────────────
+
+  // ── Manual photo mode ─────────────────────────────────────────────────────
+  const [manualPhotoCount, setManualPhotoCount] = useState(0);
+  const manualCapturingRef = useRef(false);
+  const flashAnim = useRef(new Animated.Value(0)).current;
+
+  const flashShutter = useCallback(() => {
+    flashAnim.setValue(0.85);
+    Animated.timing(flashAnim, {
+      toValue: 0,
+      duration: 220,
+      useNativeDriver: true,
+      easing: Easing.out(Easing.ease),
+    }).start();
+  }, [flashAnim]);
+
+  const handleManualShutter = useCallback(async () => {
+    if (manualCapturingRef.current || !cameraRef.current) return;
+    manualCapturingRef.current = true;
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    flashShutter();
+    try {
+      const photo = await (cameraRef.current as any).takePictureAsync({ quality: 0.9 });
+      if (photo?.uri) {
+        const ts = Date.now();
+        await savePhoto(photo.uri, ts);
+        setManualPhotoCount((n) => n + 1);
+      }
+    } catch {}
+    manualCapturingRef.current = false;
+  }, [savePhoto, flashShutter]);
+
+  // GPS auto-starts when manual mode is active
+  const captureMode = settings.captureMode;
+  useEffect(() => {
+    if (captureMode !== 'manual') return;
+    setManualPhotoCount(0);
+    startGps();
+    return () => {
+      stopGps('manual');
+    };
+  }, [captureMode]);
   // ─────────────────────────────────────────────────────────────────────────
 
   // Auto-request permissions on mount so the user isn't stuck on a gate screen
@@ -438,7 +481,7 @@ export default function CaptureScreen() {
           ref={cameraRef}
           style={StyleSheet.absoluteFill}
           facing="back"
-          mode={settings.captureMode === 'photo' ? 'picture' : 'video'}
+          mode={settings.captureMode !== 'video' ? 'picture' : 'video'}
           zoom={zoom}
           autofocus={settings.lockFocusAtInfinity ? 'off' : 'on'}
         />
@@ -499,6 +542,27 @@ export default function CaptureScreen() {
 
       <View style={[styles.bottomOverlay, { paddingBottom: tabBarHeight + 12 }]}>
         <BlurView intensity={60} tint="dark" style={styles.bottomBlur}>
+          {settings.captureMode === 'manual' && (
+            <View style={styles.segmentInfoRow}>
+              <View style={styles.segInfoItem}>
+                <Text style={styles.segLabel}>MODE</Text>
+                <Text style={styles.segValue}>MANUAL</Text>
+              </View>
+              <View style={styles.segInfoDivider} />
+              <View style={styles.segInfoItem}>
+                <Text style={styles.segLabel}>GPS</Text>
+                <Text style={[styles.segValue, { color: gpsStatus === 'locked' ? Colors.gpsGreen : Colors.amber }]}>
+                  {gpsStatus === 'locked' ? 'LOCKED' : gpsStatus === 'searching' ? 'SEARCHING' : 'WAITING'}
+                </Text>
+              </View>
+              <View style={styles.segInfoDivider} />
+              <View style={styles.segInfoItem}>
+                <Text style={styles.segLabel}>PHOTOS</Text>
+                <Text style={styles.segValue}>{manualPhotoCount}</Text>
+              </View>
+            </View>
+          )}
+
           {isRecording && settings.captureMode === 'photo' && (
             <View style={styles.segmentInfoRow}>
               <View style={styles.segInfoItem}>
@@ -601,21 +665,35 @@ export default function CaptureScreen() {
             </View>
 
             <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
-              <Pressable
-                onPress={isRecording ? handleStopRecording : handleStartRecording}
-                style={({ pressed }) => [
-                  styles.recordButton,
-                  isRecording && styles.recordButtonActive,
-                  pressed && { opacity: 0.85 },
-                ]}
-                testID="record-button"
-              >
-                {isRecording ? (
-                  <View style={styles.stopSquare} />
-                ) : (
-                  <View style={styles.recordInner} />
-                )}
-              </Pressable>
+              {settings.captureMode === 'manual' ? (
+                <Pressable
+                  onPress={handleManualShutter}
+                  style={({ pressed }) => [
+                    styles.recordButton,
+                    styles.recordButtonManual,
+                    pressed && { opacity: 0.75 },
+                  ]}
+                  testID="record-button"
+                >
+                  <Ionicons name="camera" size={28} color="#000" />
+                </Pressable>
+              ) : (
+                <Pressable
+                  onPress={isRecording ? handleStopRecording : handleStartRecording}
+                  style={({ pressed }) => [
+                    styles.recordButton,
+                    isRecording && styles.recordButtonActive,
+                    pressed && { opacity: 0.85 },
+                  ]}
+                  testID="record-button"
+                >
+                  {isRecording ? (
+                    <View style={styles.stopSquare} />
+                  ) : (
+                    <View style={styles.recordInner} />
+                  )}
+                </Pressable>
+              )}
             </Animated.View>
 
             <View style={styles.controlSide}>
@@ -630,7 +708,9 @@ export default function CaptureScreen() {
 
           <View style={styles.hintRow}>
             <Text style={styles.hintText}>
-              {settings.captureMode === 'photo'
+              {settings.captureMode === 'manual'
+                ? 'Tap the shutter to capture · GPS tagged instantly'
+                : settings.captureMode === 'photo'
                 ? 'Photos saved directly · GPS tagged'
                 : 'Auto-saves every ~250 MB · frames tagged with GPS'}
             </Text>
@@ -645,6 +725,14 @@ export default function CaptureScreen() {
       >
         <Text style={styles.zoomPillText}>{zoomPillLabel}</Text>
       </Animated.View>
+
+      {/* Manual mode — white flash on shutter press */}
+      {settings.captureMode === 'manual' && (
+        <Animated.View
+          style={[StyleSheet.absoluteFill, styles.flashOverlay, { opacity: flashAnim }]}
+          pointerEvents="none"
+        />
+      )}
 
       {/* Session complete — upload progress modal */}
       <UploadProgressModal
@@ -903,6 +991,14 @@ const styles = StyleSheet.create({
   recordButtonActive: {
     borderColor: Colors.accent,
     backgroundColor: Colors.accentDim,
+  },
+  recordButtonManual: {
+    borderColor: Colors.gpsGreen,
+    backgroundColor: Colors.gpsGreen,
+  },
+  flashOverlay: {
+    backgroundColor: '#fff',
+    zIndex: 20,
   },
   recordInner: {
     width: 52,

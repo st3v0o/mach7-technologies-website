@@ -151,15 +151,23 @@ export default function SettingsScreen() {
               onPress={() => updateSettings({ captureMode: 'video' })}
             />
             <ModeButton
-              label="Photo"
+              label="Auto Photo"
               icon="camera-outline"
-              description="Direct photo capture"
+              description="Photos at set interval"
               selected={settings.captureMode === 'photo'}
               onPress={() => updateSettings({ captureMode: 'photo' })}
+            />
+            <ModeButton
+              label="Manual"
+              icon="aperture-outline"
+              description="Tap to shoot"
+              selected={settings.captureMode === 'manual'}
+              onPress={() => updateSettings({ captureMode: 'manual' })}
             />
           </View>
         </View>
 
+        {settings.captureMode !== 'manual' && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>EXTRACTION MODE</Text>
           <View style={styles.modeRow}>
@@ -179,8 +187,9 @@ export default function SettingsScreen() {
             />
           </View>
         </View>
+        )}
 
-        {settings.frameMode === 'fixed' && (
+        {settings.captureMode !== 'manual' && settings.frameMode === 'fixed' && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>FRAME RATE</Text>
             <View style={styles.card}>
@@ -203,7 +212,7 @@ export default function SettingsScreen() {
           </View>
         )}
 
-        {settings.frameMode === 'dynamic' && (
+        {settings.captureMode !== 'manual' && settings.frameMode === 'dynamic' && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>FEET PER FRAME</Text>
             <View style={styles.card}>

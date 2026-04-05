@@ -7,9 +7,9 @@ function xmlEscape(str: string): string {
 export function buildGpxXml(
   sessionId: string,
   points: GpsPoint[],
-  mode: 'video' | 'photo'
+  mode: 'video' | 'photo' | 'manual'
 ): string {
-  const modeLabel = mode === 'video' ? 'Video' : 'Photo';
+  const modeLabel = mode === 'video' ? 'Video' : mode === 'manual' ? 'Manual' : 'Photo';
   const humanName = xmlEscape(
     sessionId.replace('session_', '').replace(/_/g, ' ')
   );
