@@ -29,14 +29,12 @@ import type {
 } from '../types';
 import { ZERO_CAPABILITIES, makeIntegrationError } from '../types';
 
-// ─── CCAPI base path ─────────────────────────────────────────────────────────
+// ─── CCAPI constants ──────────────────────────────────────────────────────────
 
 const CCAPI_PATH = '/ccapi/ver100';
 const CCAPI_PORT = 8080;
 const PROBE_TIMEOUT_MS = 2000;
 const REQUEST_TIMEOUT_MS = 8000;
-
-// ─── known Canon AP-mode IPs and common router gateway IPs ───────────────────
 
 const CANON_PROBE_FIXED: string[] = [
   '192.168.1.1',   // Canon Wi-Fi AP default
@@ -46,9 +44,14 @@ const CANON_PROBE_FIXED: string[] = [
 
 // ─── REST helpers ─────────────────────────────────────────────────────────────
 
+/**
+ * Make a CCAPI REST call.
+ * `endpoint` must start with '/' and is the path AFTER `/ccapi/ver100`.
+ * e.g. '/deviceinformation' → http://ip:8080/ccapi/ver100/deviceinformation
+ */
 async function ccapiFetch(
   cameraIp: string,
-  path: string,
+  endpoint: string,
   opts: RequestInit = {},
   timeoutMs = REQUEST_TIMEOUT_MS,
 ): Promise<Response> {
@@ -56,7 +59,7 @@ async function ccapiFetch(
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
     return await fetch(
-      `http://${cameraIp}:${CCAPI_PORT}${CCAPI_PATH}${path}`,
+      `http://${cameraIp}:${CCAPI_PORT}${CCAPI_PATH}${endpoint}`,
       { ...opts, signal: ctrl.signal },
     );
   } finally {
@@ -64,43 +67,66 @@ async function ccapiFetch(
   }
 }
 
+/**
+ * The camera API returns full absolute URLs like:
+ *   http://192.168.1.1:8080/ccapi/ver100/contents/sd/1/DCIM/100EOS/
+ *
+ * This function strips the scheme+host+port prefix, returning the full
+ * absolute path (/ccapi/ver100/…).  Callers that need to pass to ccapiFetch
+ * must also strip the CCAPI_PATH prefix.
+ */
+function extractAbsolutePath(url: string): string | null {
+  try {
+    return new URL(url).pathname;
+  } catch {
+    return url.startsWith('/') ? url : null;
+  }
+}
+
+/**
+ * Strip /ccapi/ver100 prefix so the result can be passed directly to ccapiFetch.
+ * Returns the path unchanged if it doesn't start with the prefix.
+ */
+function toEndpoint(absolutePath: string): string {
+  if (absolutePath.startsWith(CCAPI_PATH)) {
+    return absolutePath.slice(CCAPI_PATH.length);
+  }
+  return absolutePath;
+}
+
+// ─── Discovery helpers ────────────────────────────────────────────────────────
+
 async function probeCanonCamera(ip: string): Promise<{ model: string; firmware: string } | null> {
   try {
     const res = await ccapiFetch(ip, '/deviceinformation', {}, PROBE_TIMEOUT_MS);
     if (!res.ok) return null;
-    const body = await res.json();
+    const body: Record<string, unknown> = await res.json();
     return {
-      model: body?.productname ?? body?.model ?? 'Canon Camera',
-      firmware: body?.firmwareversion ?? '',
+      model: String(body.productname ?? body.model ?? 'Canon Camera'),
+      firmware: String(body.firmwareversion ?? ''),
     };
   } catch {
     return null;
   }
 }
 
-// ─── subnet scanner ───────────────────────────────────────────────────────────
-
 async function scanSubnet(localIp: string): Promise<string[]> {
   const parts = localIp.split('.');
   if (parts.length !== 4) return [];
   const prefix = `${parts[0]}.${parts[1]}.${parts[2]}`;
-
-  // Scan the 10 IPs around the phone, plus low IPs (routers / cameras)
   const myHost = parseInt(parts[3], 10);
+
   const candidates = new Set<number>();
   for (let i = Math.max(1, myHost - 5); i <= Math.min(254, myHost + 5); i++) candidates.add(i);
   [1, 2, 100, 101, 200, 201].forEach(h => candidates.add(h));
-  candidates.delete(myHost); // skip self
+  candidates.delete(myHost);
 
-  const probes = Array.from(candidates).map(h => probeCanonCamera(`${prefix}.${h}`));
-  const results = await Promise.allSettled(probes);
-  const ips: string[] = [];
-  let idx = 0;
-  for (const h of candidates) {
-    const r = results[idx++];
-    if (r.status === 'fulfilled' && r.value !== null) ips.push(`${prefix}.${h}`);
-  }
-  return ips;
+  const ips = Array.from(candidates).map(h => `${prefix}.${h}`);
+  const probes = await Promise.allSettled(ips.map(ip => probeCanonCamera(ip)));
+  return ips.filter((_, i) => {
+    const r = probes[i];
+    return r.status === 'fulfilled' && r.value !== null;
+  });
 }
 
 // ─── Provider ─────────────────────────────────────────────────────────────────
@@ -114,16 +140,17 @@ export class CanonCCAPIProvider implements CameraProvider {
   private _connectedDevice: CameraDevice | null = null;
   private _cameraIp: string | null = null;
   private _lastError: AppIntegrationError | null = null;
+  private _liveviewUrl: string | null = null;
 
   private static readonly CAPABILITIES: CameraCapabilities = {
-    supportsPreview: false,              // MJPEG live-view — future work
+    supportsPreview: false,              // MJPEG live-view URL is stored but not rendered
     supportsStartStopRecording: true,
     supportsPhotoCapture: true,
     supportsMediaImport: true,
     supportsLiveStream: false,
-    supportsCameraGPS: false,           // GPS not exposed via CCAPI
+    supportsCameraGPS: false,
     supportsExposureControl: true,
-    supportsResolutionSelection: false, // resolution controlled on-camera
+    supportsResolutionSelection: false,
     supportsFrameRateSelection: false,
     supportsWirelessConnection: true,
     supportsWiredConnection: false,
@@ -134,8 +161,6 @@ export class CanonCCAPIProvider implements CameraProvider {
   }
 
   async requestPermissionsIfNeeded(): Promise<boolean> {
-    // No special permission beyond local network (granted automatically on iOS
-    // when the app first makes a local network request).
     return true;
   }
 
@@ -147,15 +172,14 @@ export class CanonCCAPIProvider implements CameraProvider {
     for (const ip of CANON_PROBE_FIXED) {
       checkedIps.add(ip);
       const info = await probeCanonCamera(ip);
-      if (info) {
-        found.push(this._buildDevice(ip, info.model, info.firmware));
-      }
+      if (info) found.push(this._buildDevice(ip, info.model, info.firmware));
     }
 
-    // 2. Derive local subnet from NetInfo and scan nearby hosts
+    // 2. Derive local subnet via NetInfo and scan nearby hosts
     try {
-      const netState = await NetInfo.fetch();
-      const localIp = (netState.details as any)?.ipAddress as string | undefined;
+      const netState = await NetInfo.fetch('wifi');
+      const wifiDetails = netState.details as { ipAddress: string | null } | null;
+      const localIp = wifiDetails?.ipAddress ?? null;
       if (localIp) {
         const subnetHits = await scanSubnet(localIp);
         for (const ip of subnetHits) {
@@ -172,18 +196,18 @@ export class CanonCCAPIProvider implements CameraProvider {
 
   async connect(deviceId: string): Promise<void> {
     this._connectionState = 'connecting';
-    // deviceId stores the camera IP
     const ip = deviceId;
     try {
       const info = await probeCanonCamera(ip);
-      if (!info) throw new Error(`Cannot reach Canon camera at ${ip}:${CCAPI_PORT}`);
+      if (!info) throw new Error(`Cannot reach Canon CCAPI at ${ip}:${CCAPI_PORT}`);
 
       this._cameraIp = ip;
       this._connectedDevice = this._buildDevice(ip, info.model, info.firmware);
       this._connectionState = 'connected';
-    } catch (e: any) {
+    } catch (e: unknown) {
       this._connectionState = 'error';
-      this._lastError = makeIntegrationError('CONNECT_FAILED', e.message ?? String(e), 'canon');
+      const msg = e instanceof Error ? e.message : String(e);
+      this._lastError = makeIntegrationError('CONNECT_FAILED', msg, 'canon');
       throw this._lastError;
     }
   }
@@ -191,6 +215,7 @@ export class CanonCCAPIProvider implements CameraProvider {
   async disconnect(): Promise<void> {
     this._cameraIp = null;
     this._connectedDevice = null;
+    this._liveviewUrl = null;
     this._connectionState = 'disconnected';
   }
 
@@ -205,29 +230,52 @@ export class CanonCCAPIProvider implements CameraProvider {
 
   async startPreview(): Promise<void> {
     if (!this._cameraIp) return;
-    // CCAPI live-view returns an MJPEG stream URL — rendering is future work.
-    // POST /ccapi/ver100/shooting/liveview { "liveviewsize": "small", "cameradisplay": "off" }
-    await ccapiFetch(this._cameraIp, '/shooting/liveview', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ liveviewsize: 'small', cameradisplay: 'off' }),
-    }).catch(console.warn);
+    // POST /ccapi/ver100/shooting/liveview — returns an MJPEG stream URL.
+    // Store the URL for future use; rendering MJPEG is deferred (out-of-scope).
+    try {
+      const res = await ccapiFetch(this._cameraIp, '/shooting/liveview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ liveviewsize: 'small', cameradisplay: 'off' }),
+      });
+      if (res.ok) {
+        const body: Record<string, unknown> = await res.json();
+        this._liveviewUrl = typeof body.url === 'string' ? body.url : null;
+      }
+    } catch { /* best-effort */ }
   }
 
   async stopPreview(): Promise<void> {
     if (!this._cameraIp) return;
-    await ccapiFetch(this._cameraIp, '/shooting/liveview', { method: 'DELETE' }).catch(console.warn);
+    await ccapiFetch(this._cameraIp, '/shooting/liveview', { method: 'DELETE' }).catch(() => {});
+    this._liveviewUrl = null;
   }
 
   async startRecording(_config: RecordingConfig): Promise<void> {
     if (!this._cameraIp) throw makeIntegrationError('NOT_CONNECTED', 'No camera connected.', 'canon');
-    const res = await ccapiFetch(this._cameraIp, '/shooting/control/movierecording', {
+    const ip = this._cameraIp;
+
+    // 1. Set shooting mode to Movie
+    await ccapiFetch(ip, '/shooting/settings/shootingmodedial', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ value: 'moviewithservos' }),
+    }).catch(() => {});  // some bodies may reject — continue anyway
+
+    // 2. Run autofocus before starting
+    await ccapiFetch(ip, '/shooting/control/af', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    }).catch(() => {});
+
+    // 3. Start movie recording
+    const res = await ccapiFetch(ip, '/shooting/control/movierecording', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'start' }),
     });
-    if (!res.ok && res.status !== 200) {
-      throw makeIntegrationError('RECORD_FAILED', `Movie recording start HTTP ${res.status}`, 'canon');
+    if (!res.ok) {
+      throw makeIntegrationError('RECORD_FAILED', `Movie start HTTP ${res.status}`, 'canon');
     }
   }
 
@@ -239,21 +287,32 @@ export class CanonCCAPIProvider implements CameraProvider {
       body: JSON.stringify({ action: 'stop' }),
     });
     if (!res.ok) {
-      throw makeIntegrationError('RECORD_FAILED', `Movie recording stop HTTP ${res.status}`, 'canon');
+      throw makeIntegrationError('RECORD_FAILED', `Movie stop HTTP ${res.status}`, 'canon');
     }
-    return null; // File will appear in listMedia()
+    return null; // File appears in listMedia()
   }
 
-  /** Capture a still photo (full AF + shutter press sequence). */
+  /** Capture a still photo: AF → full shutter press → release. */
   async takePhoto(): Promise<void> {
     if (!this._cameraIp) throw makeIntegrationError('NOT_CONNECTED', 'No camera connected.', 'canon');
-    await ccapiFetch(this._cameraIp, '/shooting/control/shutterbutton', {
+    const ip = this._cameraIp;
+
+    // Autofocus
+    await ccapiFetch(ip, '/shooting/control/af', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ af: true, action: 'full_press' }),
+    }).catch(() => {});
+
+    // Full shutter press
+    await ccapiFetch(ip, '/shooting/control/shutterbutton', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ af: false, action: 'full_press' }),
     });
     await new Promise(r => setTimeout(r, 300));
-    await ccapiFetch(this._cameraIp, '/shooting/control/shutterbutton', {
+
+    // Release
+    await ccapiFetch(ip, '/shooting/control/shutterbutton', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ af: false, action: 'release' }),
@@ -262,38 +321,42 @@ export class CanonCCAPIProvider implements CameraProvider {
 
   async listMedia(): Promise<ExternalMediaAsset[]> {
     if (!this._cameraIp) return [];
+    const ip = this._cameraIp;
 
-    // List top-level directories on SD card
-    const dirRes = await ccapiFetch(this._cameraIp, '/contents/sd/1');
-    if (!dirRes.ok) return [];
-    const dirBody = await dirRes.json();
-    const directories: string[] = dirBody?.url ?? [];
+    // List directories on SD card slot 1
+    const dirRes = await ccapiFetch(ip, '/contents/sd/1').catch(() => null);
+    if (!dirRes?.ok) return [];
+    const dirBody: { url?: string[] } = await dirRes.json();
+    const dirUrls = dirBody.url ?? [];
 
     const assets: ExternalMediaAsset[] = [];
 
-    for (const dirUrl of directories) {
-      // dirUrl is a full URL like http://camera/ccapi/ver100/contents/sd/1/DCIM/100EOS/
-      const dirPath = this._urlToPath(dirUrl);
-      if (!dirPath) continue;
+    for (const dirUrl of dirUrls) {
+      // dirUrl is a full camera URL, e.g. http://ip:8080/ccapi/ver100/contents/sd/1/DCIM/100EOS/
+      const absoluteDirPath = extractAbsolutePath(dirUrl);
+      if (!absoluteDirPath) continue;
+      const dirEndpoint = toEndpoint(absoluteDirPath); // /contents/sd/1/DCIM/100EOS/
 
-      const filesRes = await ccapiFetch(this._cameraIp, dirPath).catch(() => null);
+      const filesRes = await ccapiFetch(ip, dirEndpoint).catch(() => null);
       if (!filesRes?.ok) continue;
-      const filesBody = await filesRes.json();
-      const fileUrls: string[] = filesBody?.url ?? [];
+      const filesBody: { url?: string[] } = await filesRes.json();
+      const fileUrls = filesBody.url ?? [];
 
       for (const fileUrl of fileUrls) {
-        const filePath = this._urlToPath(fileUrl);
-        if (!filePath) continue;
-        const filename = filePath.split('/').pop() ?? filePath;
+        const absoluteFilePath = extractAbsolutePath(fileUrl);
+        if (!absoluteFilePath) continue;
+        const filename = absoluteFilePath.split('/').pop() ?? absoluteFilePath;
         const isVideo = /\.(MOV|MP4|MXF)$/i.test(filename);
         const isPhoto = /\.(JPG|JPEG|CR2|CR3|RAW|CRW|HEIF)$/i.test(filename);
         if (!isVideo && !isPhoto) continue;
 
         assets.push({
-          id: filePath,           // use the CCAPI relative path as ID
+          // Store the full absolute path (/ccapi/ver100/…) as the ID so
+          // importMedia() can build the download URL by prepending http://ip:port
+          id: absoluteFilePath,
           filename,
           mimeType: isVideo ? 'video/mp4' : 'image/jpeg',
-          createdAt: Date.now(), // CCAPI doesn't always return timestamps in listing
+          createdAt: Date.now(),
           imported: false,
         });
       }
@@ -306,13 +369,13 @@ export class CanonCCAPIProvider implements CameraProvider {
     if (!this._cameraIp) {
       throw makeIntegrationError('NOT_CONNECTED', 'No camera connected.', 'canon');
     }
-    // mediaId is a CCAPI relative path e.g. /ccapi/ver100/contents/sd/1/DCIM/100EOS/IMG_0001.JPG
+    // mediaId is the full absolute path: /ccapi/ver100/contents/sd/1/DCIM/.../IMG_0001.JPG
     const downloadUrl = `http://${this._cameraIp}:${CCAPI_PORT}${mediaId}`;
     const result = await FileSystem.downloadAsync(downloadUrl, destinationPath);
     if (result.status !== 200) {
       const err = makeIntegrationError(
         'DOWNLOAD_FAILED',
-        `Canon file download HTTP ${result.status} for ${mediaId}`,
+        `Canon download HTTP ${result.status} for ${mediaId}`,
         'canon',
       );
       this._lastError = err;
@@ -347,24 +410,11 @@ export class CanonCCAPIProvider implements CameraProvider {
 
   private _buildDevice(ip: string, model: string, firmware: string): CameraDevice {
     return {
-      id: ip,           // IP address as device ID
+      id: ip,
       name: model,
       model,
       firmwareVersion: firmware,
       providerType: 'canon',
     };
-  }
-
-  /**
-   * Convert a full CCAPI URL returned by the camera API back to a relative path
-   * (the part after the camera's host:port).
-   */
-  private _urlToPath(url: string): string | null {
-    try {
-      const u = new URL(url);
-      return u.pathname;
-    } catch {
-      return url.startsWith('/') ? url : null;
-    }
   }
 }

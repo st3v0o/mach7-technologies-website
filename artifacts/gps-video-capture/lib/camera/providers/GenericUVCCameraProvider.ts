@@ -28,6 +28,8 @@ import {
   discoverUvcDevices,
   connectUvcDevice,
   disconnectUvcDevice,
+  startUvcPreview,
+  stopUvcPreview,
   startUvcRecording,
   stopUvcRecording,
   type UvcDevice,
@@ -119,13 +121,13 @@ export class GenericUVCCameraProvider implements CameraProvider {
   }
 
   async startPreview(): Promise<void> {
-    // Preview is handled via UvcCameraPreview component (native view).
-    // The orchestrator passes a viewTag; GenericUVCCameraProvider.startPreview()
-    // is intentionally a no-op here — see UvcCaptureModule.startPreview(viewTag).
+    // Ensures the AVCaptureSession is running so the UvcPreviewView
+    // can render frames immediately when mounted.
+    await startUvcPreview();
   }
 
   async stopPreview(): Promise<void> {
-    // See startPreview() note above.
+    await stopUvcPreview();
   }
 
   async startRecording(_config: RecordingConfig): Promise<void> {

@@ -379,7 +379,7 @@ export async function extractGpsFromGoProMp4(
   try {
     const info = await FileSystem.getInfoAsync(localFilePath);
     if (!info.exists) return [];
-    const fileSize: number = (info as any).size ?? 0;
+    const fileSize: number = info.size;
     if (fileSize < 1024) return [];
 
     // Read trailing window to find moov (GoPro typically writes moov at EOF)

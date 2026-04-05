@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { UvcPreviewView } from 'uvc-capture';
 import { Ionicons } from '@expo/vector-icons';
 import Colors from '@/constants/colors';
 import { ExternalCameraProvider, useExternalCamera } from '@/contexts/ExternalCameraContext';
@@ -196,17 +197,20 @@ function ExternalScreen() {
           </BlurView>
         )}
 
-        {/* Preview placeholder (when preview is supported but native surface is not wired) */}
+        {/* Live preview — UVC cameras expose a native AVCaptureVideoPreviewLayer */}
         {isConnected && capabilities?.supportsPreview && (
           <BlurView intensity={16} tint="dark" style={styles.card}>
             <Text style={styles.sectionLabel}>PREVIEW</Text>
-            <View style={styles.previewPlaceholder}>
-              <Ionicons name="videocam-outline" size={28} color={Colors.textTertiary} />
-              <Text style={styles.previewText}>
-                Preview requires a vendor SDK native module.{'\n'}
-                See ManualVendorSDKHookupSteps.md for hookup instructions.
-              </Text>
-            </View>
+            {cam.selectedProvider?.providerType === 'generic_uvc' ? (
+              <UvcPreviewView style={styles.previewSurface} />
+            ) : (
+              <View style={styles.previewPlaceholder}>
+                <Ionicons name="videocam-outline" size={28} color={Colors.textTertiary} />
+                <Text style={styles.previewText}>
+                  Live preview is not available for this camera type.
+                </Text>
+              </View>
+            )}
           </BlurView>
         )}
 
@@ -350,6 +354,12 @@ const styles = StyleSheet.create({
     color: Colors.amber,
     fontFamily: 'Inter_400Regular',
     fontSize: 12,
+  },
+  previewSurface: {
+    height: 200,
+    borderRadius: 10,
+    overflow: 'hidden',
+    backgroundColor: '#000',
   },
   previewPlaceholder: {
     height: 140,

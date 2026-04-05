@@ -13,7 +13,7 @@ interface UvcCaptureNativeModule {
   discoverDevices(): Promise<Array<{ id: string; name: string; modelID?: string }>>;
   connect(deviceId: string): Promise<void>;
   disconnect(): Promise<void>;
-  startPreview(viewTag: number): Promise<void>;
+  startPreview(): Promise<void>;
   stopPreview(): Promise<void>;
   startRecording(destinationPath: string): Promise<void>;
   stopRecording(): Promise<string>;

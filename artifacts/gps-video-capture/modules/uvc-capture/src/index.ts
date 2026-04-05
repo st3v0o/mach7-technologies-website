@@ -35,6 +35,23 @@ export async function connectUvcDevice(deviceId: string): Promise<void> {
   return NativeImpl.connect(deviceId);
 }
 
+/**
+ * Ensure the capture session is running and the preview layer is live.
+ * The UvcPreviewView auto-attaches to the session via UvcSessionManager;
+ * call this before rendering <UvcPreviewView> to guarantee the session is running.
+ */
+export async function startUvcPreview(): Promise<void> {
+  return NativeImpl.startPreview();
+}
+
+/**
+ * Stop the live preview.  The preview layer detaches when disconnectUvcDevice()
+ * is called; this function is provided for API symmetry.
+ */
+export async function stopUvcPreview(): Promise<void> {
+  return NativeImpl.stopPreview();
+}
+
 /** Stop the current capture session and release AVFoundation resources. */
 export async function disconnectUvcDevice(): Promise<void> {
   return NativeImpl.disconnect();
