@@ -239,9 +239,17 @@ export class CaptureSessionOrchestrator {
       try {
         const pts = await this._camera.extractGpsPoints(asset.localPath);
         if (pts.length > 0) {
+          // Ingest via the ExternalCameraGPSProvider.  In 'external_camera' and
+          // 'hybrid' GPS modes the session subscription (_gpsUnsub) is already
+          // watching _cameraGPS, so ingestPoints() alone pushes points to the
+          // session without duplication.  In 'ios_core_location' mode the session
+          // listener watches the phone GPS instead, so we push directly here to
+          // avoid losing the imported GPS track.
           this._cameraGPS.ingestPoints(pts);
-          const withSource = pts.map(p => ({ ...p, source: 'camera' as const }));
-          withSource.forEach(p => this._session?.gpsPoints.push(p));
+          if (this._gpsMode === 'ios_core_location') {
+            const withSource = pts.map(p => ({ ...p, source: 'camera' as const }));
+            withSource.forEach(p => this._session?.gpsPoints.push(p));
+          }
         }
       } catch (e) {
         console.warn('[Orchestrator] extractGpsPoints failed:', e);

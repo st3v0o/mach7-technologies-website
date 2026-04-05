@@ -36,6 +36,12 @@ const CCAPI_PORT = 8080;
 const PROBE_TIMEOUT_MS = 2000;
 const REQUEST_TIMEOUT_MS = 8000;
 
+// Fixed IPs tried unconditionally — covers Canon's Wi-Fi AP mode defaults.
+// Subnet scan is performed for ±5 hosts around the phone's own IP, plus common
+// router addresses on that subnet.  This covers typical home/studio networks but
+// will miss cameras on non-adjacent subnets, VLANs, or enterprise /22+ networks.
+// Limitation: no mDNS/Bonjour zero-config path; user can bypass by connecting
+// via "Connect to IP" flow (future enhancement) and passing a fixed IP to connect().
 const CANON_PROBE_FIXED: string[] = [
   '192.168.1.1',   // Canon Wi-Fi AP default
   '192.168.0.1',
