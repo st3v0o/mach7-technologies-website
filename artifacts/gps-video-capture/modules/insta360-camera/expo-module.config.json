@@ -1,0 +1,6 @@
+{
+  "platforms": ["ios"],
+  "ios": {
+    "modules": ["Insta360CameraModule"]
+  }
+}

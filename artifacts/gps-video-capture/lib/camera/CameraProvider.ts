@@ -88,4 +88,16 @@ export interface CameraProvider {
    * `ExternalCameraGPSProvider.ingestPoints()`.
    */
   extractGpsPoints?(localPath: string): Promise<Array<Omit<GPSPoint, 'source'>>>;
+
+  /**
+   * Optional: subscribe to live GPS telemetry pushed by the camera during
+   * recording or preview (e.g. Insta360 real-time GPS via SDK delegate).
+   *
+   * Returns an unsubscribe function.  ExternalCameraGPSProvider calls this
+   * in `startLocationStream()` when the camera's `supportsCameraGPS === true`.
+   *
+   * Providers that emit GPS only post-recording (GoPro GPMF, Canon) should
+   * NOT implement this method; they use `extractGpsPoints` instead.
+   */
+  subscribeToGPSTelemetry?(callback: (point: Omit<GPSPoint, 'source'>) => void): () => void;
 }

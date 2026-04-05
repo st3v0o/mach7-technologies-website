@@ -27,6 +27,8 @@ export class ExternalCameraGPSProvider implements GPSProvider {
   private _health: 'good' | 'degraded' | 'unavailable' = 'unavailable';
   private _callbacks = new Set<(point: GPSPoint) => void>();
   private _activeSessions = new Set<string>();
+  /** Unsubscribe function returned by the camera's subscribeToGPSTelemetry(). */
+  private _unsubscribeGPS: (() => void) | null = null;
 
   /**
    * Attach a CameraProvider.  Call this whenever the user selects a camera.
@@ -56,16 +58,28 @@ export class ExternalCameraGPSProvider implements GPSProvider {
       this._health = 'unavailable';
       return;
     }
-    // TODO: start a polling loop or register a telemetry callback with the
-    // camera SDK here.  For Insta360, subscribe to the gyroscope/GPS delegate.
-    // For GoPro, GPS is not live — mark as unavailable until post-import.
+
+    // If the camera supports live GPS telemetry (e.g. Insta360), subscribe
+    // now.  The camera calls ingestPoint() through the callback whenever a
+    // GPS fix arrives.  Health upgrades from 'degraded' to 'good' on the
+    // first received point.
+    if (this._camera?.subscribeToGPSTelemetry && !this._unsubscribeGPS) {
+      this._unsubscribeGPS = this._camera.subscribeToGPSTelemetry(
+        (raw) => this.ingestPoint(raw),
+      );
+    }
+
     this._health = 'degraded'; // will upgrade to 'good' on first point received
   }
 
   stopLocationStream(sessionId: string): void {
     this._activeSessions.delete(sessionId);
     if (this._activeSessions.size > 0) return;
-    // TODO: unregister telemetry callback / stop polling loop.
+
+    // Unsubscribe from live GPS telemetry if active.
+    this._unsubscribeGPS?.();
+    this._unsubscribeGPS = null;
+
     this._health = 'unavailable';
     this._current = null;
   }

@@ -1,3 +1,9 @@
+import {
+  Insta360Camera,
+  addTelemetryListener,
+  isInsta360Available,
+} from '../../../modules/insta360-camera/src';
+import type { Insta360TelemetryEvent } from '../../../modules/insta360-camera/src';
 import type { CameraProvider } from '../CameraProvider';
 import type {
   AppIntegrationError,
@@ -6,6 +12,7 @@ import type {
   CameraDevice,
   CaptureSessionTelemetry,
   ExternalMediaAsset,
+  GPSPoint,
   RecordingConfig,
 } from '../types';
 import { ZERO_CAPABILITIES, makeIntegrationError } from '../types';
@@ -13,16 +20,17 @@ import { ZERO_CAPABILITIES, makeIntegrationError } from '../types';
 /**
  * Insta360CameraProvider
  *
- * Skeleton for Insta360 cameras using the Insta360 Open SDK.
+ * Controls Insta360 cameras via the native `insta360-camera` Expo module,
+ * which wraps the Insta360 Open SDK (INSCameraSDK).
  *
- * HOW TO ACTIVATE:
+ * HOW TO ACTIVATE (SDK_BINARY_REQUIRED):
  *   See docs/ManualVendorSDKHookupSteps.md → "Insta360 Provider" section.
- *   All SDK calls are marked with TODO comments below.
+ *   The native module returns noop stubs until the SDK binary is dropped in.
  *
  * SDK source: https://developer.insta360.com (NDA required)
  *
- * Platform note: Requires physical iOS device. Wi-Fi + Bluetooth entitlements
- * must be declared in Info.plist.  See docs/PlatformLimitationsAndAssumptions.md.
+ * Platform note: Requires physical iOS device.  Wi-Fi + Bluetooth entitlements
+ * must be declared in Info.plist (already done in app.json).
  */
 export class Insta360CameraProvider implements CameraProvider {
   readonly id = 'insta360';
@@ -38,8 +46,8 @@ export class Insta360CameraProvider implements CameraProvider {
     supportsStartStopRecording: true,
     supportsPhotoCapture: true,
     supportsMediaImport: true,
-    supportsLiveStream: false,            // model-dependent; update after SDK check
-    supportsCameraGPS: true,              // embedded in video telemetry
+    supportsLiveStream: false,           // model-dependent; check SDK manifest
+    supportsCameraGPS: true,             // embedded GPS streamed via onTelemetry
     supportsExposureControl: true,
     supportsResolutionSelection: true,
     supportsFrameRateSelection: true,
@@ -48,52 +56,69 @@ export class Insta360CameraProvider implements CameraProvider {
   };
 
   isAvailableOnCurrentDevice(): boolean {
-    // TODO: return INSCameraManager.isAvailable() once SDK is linked.
-    // For now, always false so the UI shows "SDK not installed".
-    return false;
+    // True only when the Insta360 Open SDK binary is linked in an EAS build.
+    return isInsta360Available;
   }
 
   async requestPermissionsIfNeeded(): Promise<boolean> {
-    // TODO: request Bluetooth permission via expo-permissions or native module.
-    // The SDK may trigger its own permission dialogs on first use.
-    return false;
+    // Bluetooth permission is requested by the BLE system when the SDK first
+    // scans.  No additional JS-layer permission call is needed here.
+    return this.isAvailableOnCurrentDevice();
   }
 
   async discoverDevices(): Promise<CameraDevice[]> {
-    // TODO: call INSCameraManager.socket().cameras to enumerate nearby cameras.
-    // Example stub — replace with real SDK call:
-    //
-    // const cameras = await INSCameraManager.shared.discoverCameras();
-    // return cameras.map(cam => ({
-    //   id: cam.serialNumber,
-    //   name: cam.name,
-    //   model: cam.model,
-    //   firmwareVersion: cam.firmware,
-    //   batteryLevel: cam.batteryLevel,
-    //   signalStrength: cam.signalStrength,
-    //   providerType: 'insta360',
-    // }));
-    return [];
+    try {
+      const rawDevices = await Insta360Camera.discoverDevices();
+      return rawDevices.map((raw) => ({
+        id: raw.id,
+        name: raw.name,
+        model: raw.model,
+        firmwareVersion: raw.firmwareVersion,
+        batteryLevel: raw.batteryLevel,
+        signalStrength: raw.signalStrength,
+        providerType: 'insta360' as const,
+      }));
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      this._lastError = makeIntegrationError('DISCOVER_FAILED', msg, 'insta360');
+      throw this._lastError;
+    }
   }
 
   async connect(deviceId: string): Promise<void> {
     this._connectionState = 'connecting';
     try {
-      // TODO: INSCameraManager.socket().connect(deviceId)
-      // Wait for the delegate callback INSCameraDelegate.cameraDidConnect()
-      // before setting state to 'connected'.
-      throw new Error('Insta360 SDK not yet integrated. See ManualVendorSDKHookupSteps.md.');
-    } catch (e: any) {
+      await Insta360Camera.connect(deviceId);
+      this._connectionState = 'connected';
+
+      // Cache a lightweight device record so getTelemetrySnapshot() can
+      // surface battery info without an extra round-trip.
+      // A full device record will be populated after discoverDevices() is
+      // called; here we store just the ID.
+      this._connectedDevice = {
+        id: deviceId,
+        name: deviceId,
+        providerType: 'insta360',
+      };
+    } catch (e: unknown) {
       this._connectionState = 'error';
-      this._lastError = makeIntegrationError('CONNECT_FAILED', e.message, 'insta360');
+      const msg = e instanceof Error ? e.message : String(e);
+      this._lastError = makeIntegrationError('CONNECT_FAILED', msg, 'insta360');
       throw this._lastError;
     }
   }
 
   async disconnect(): Promise<void> {
-    // TODO: INSCameraManager.socket().disconnect()
-    this._connectionState = 'disconnected';
-    this._connectedDevice = null;
+    try {
+      await Insta360Camera.disconnect();
+    } catch (e: unknown) {
+      // Best-effort disconnect; log and continue.
+      const msg = e instanceof Error ? e.message : String(e);
+      console.warn('[Insta360] disconnect error:', msg);
+    } finally {
+      this._connectionState = 'disconnected';
+      this._connectedDevice = null;
+    }
   }
 
   getConnectionState(): CameraConnectionState {
@@ -102,50 +127,89 @@ export class Insta360CameraProvider implements CameraProvider {
 
   getCapabilities(): CameraCapabilities {
     if (this._connectionState !== 'connected') return ZERO_CAPABILITIES;
-    // TODO: refine based on connected model's feature set from the SDK manifest.
     return Insta360CameraProvider.CAPABILITIES;
   }
 
   async startPreview(): Promise<void> {
-    // TODO: INSCameraManager.socket().startPreviewWith(options:)
-    // Wire the returned preview stream to a UIView/Surface via a native module.
+    try {
+      await Insta360Camera.startPreview();
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      this._lastError = makeIntegrationError('PREVIEW_FAILED', msg, 'insta360');
+      throw this._lastError;
+    }
   }
 
   async stopPreview(): Promise<void> {
-    // TODO: INSCameraManager.socket().stopPreview()
+    try {
+      await Insta360Camera.stopPreview();
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.warn('[Insta360] stopPreview error:', msg);
+    }
   }
 
   async startRecording(config: RecordingConfig): Promise<void> {
-    // TODO: build INSCaptureOptions from config, then call:
-    // INSCameraManager.socket().startCapture(options:) { error in … }
-    //
-    // Resolution mapping example:
-    //   "3840x2160" → INSCaptureResolution._4K
-    //   "1920x1080" → INSCaptureResolution._1080p
-    console.log('[Insta360] startRecording stub — config:', config);
+    try {
+      await Insta360Camera.startRecording({
+        resolution: config.resolution,
+        frameRate: config.frameRate,
+      });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      this._lastError = makeIntegrationError('RECORD_FAILED', msg, 'insta360');
+      throw this._lastError;
+    }
   }
 
   async stopRecording(): Promise<string | null> {
-    // TODO: INSCameraManager.socket().stopCapture { mediaInfo, error in … }
-    // Return mediaInfo.fileKey as the local media ID.
-    return null;
+    try {
+      const fileKey = await Insta360Camera.stopRecording();
+      return fileKey || null;
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      this._lastError = makeIntegrationError('RECORD_STOP_FAILED', msg, 'insta360');
+      throw this._lastError;
+    }
   }
 
   async listMedia(): Promise<ExternalMediaAsset[]> {
-    // TODO: INSCameraMediaFetcher.fetchMediaList { list, error in … }
-    // Map each item to ExternalMediaAsset.
-    return [];
+    try {
+      const rawItems = await Insta360Camera.listMedia();
+      return rawItems.map((item) => ({
+        id: item.id,
+        filename: item.filename,
+        mimeType: item.mimeType,
+        sizeBytes: item.size,
+        createdAt: item.createdAt ?? 0,
+        imported: false,
+      }));
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      this._lastError = makeIntegrationError('LIST_MEDIA_FAILED', msg, 'insta360');
+      throw this._lastError;
+    }
   }
 
   async importMedia(mediaId: string, destinationPath: string): Promise<ExternalMediaAsset> {
-    // TODO: INSCameraMediaFetcher.downloadMedia(mediaId, to: destinationPath)
-    const err = makeIntegrationError(
-      'IMPORT_STUB',
-      `Insta360 SDK import not yet implemented for mediaId=${mediaId}`,
-      'insta360'
-    );
-    this._lastError = err;
-    throw err;
+    try {
+      const localPath = await Insta360Camera.importMedia(mediaId, destinationPath);
+      const filename = (mediaId.split('/').pop() ?? mediaId);
+      const isVideo = /\.(insv|mp4|mov)$/i.test(filename);
+      return {
+        id: mediaId,
+        filename,
+        mimeType: isVideo ? 'video/mp4' : 'image/jpeg',
+        localPath,
+        createdAt: Date.now(),
+        imported: true,
+      };
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      const err = makeIntegrationError('IMPORT_FAILED', msg, 'insta360');
+      this._lastError = err;
+      throw err;
+    }
   }
 
   getLastError(): AppIntegrationError | null {
@@ -153,10 +217,48 @@ export class Insta360CameraProvider implements CameraProvider {
   }
 
   getTelemetrySnapshot(): Partial<CaptureSessionTelemetry> {
-    // TODO: read battery/signal from INSCameraManager telemetry delegate.
     return {
       batteryLevel: this._connectedDevice?.batteryLevel,
       signalStrength: this._connectedDevice?.signalStrength,
     };
+  }
+
+  // ── Live GPS telemetry subscription ──────────────────────────────────────
+
+  /**
+   * Subscribes to the camera's live GPS telemetry stream.
+   * Called by ExternalCameraGPSProvider.startLocationStream() when this
+   * camera is attached and supportsCameraGPS === true.
+   *
+   * Returns an unsubscribe function.  Every GPS 'onTelemetry' event from
+   * the native module is forwarded to the provided callback so it can be
+   * ingested into the session GPS track via ExternalCameraGPSProvider.
+   */
+  subscribeToGPSTelemetry(callback: (point: Omit<GPSPoint, 'source'>) => void): () => void {
+    return addTelemetryListener((event: Insta360TelemetryEvent) => {
+      if (
+        event.type === 'gps' &&
+        typeof event.latitude === 'number' &&
+        typeof event.longitude === 'number'
+      ) {
+        callback({
+          timestamp: event.timestamp ?? Date.now(),
+          latitude: event.latitude,
+          longitude: event.longitude,
+          altitude: event.altitude,
+          speed: event.speed,
+        });
+      }
+
+      // Keep the cached device record's battery level fresh.
+      if (event.type === 'battery' && typeof event.batteryLevel === 'number') {
+        if (this._connectedDevice) {
+          this._connectedDevice = {
+            ...this._connectedDevice,
+            batteryLevel: event.batteryLevel,
+          };
+        }
+      }
+    });
   }
 }

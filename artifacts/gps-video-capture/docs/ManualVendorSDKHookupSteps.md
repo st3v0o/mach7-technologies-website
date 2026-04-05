@@ -4,38 +4,105 @@
 
 ## Insta360 Provider (`Insta360CameraProvider.ts`)
 
-### Status: Skeleton — requires NDA binary
-The Insta360 Open SDK requires a non-disclosure agreement.
-All code is ready to accept the binary; see Task #5 for the drop-in steps.
+### Status: Native module wired — requires NDA binary + EAS build
+
+All TypeScript and Swift code is in place.  The native module
+(`modules/insta360-camera/`) uses `requireOptionalNativeModule` so JS
+compiles and runs safely without the SDK; the Swift side will only link
+once the `INSCameraSDK.xcframework` binary is dropped in.
 
 ### Prerequisites
-- Obtain the **Insta360 Open SDK** from developer.insta360.com (requires NDA).
-- Add the framework to your Xcode project via Swift Package Manager or
-  manually drop the `.xcframework` into `ios/Frameworks/`.
-- Declare `NSBluetoothAlwaysUsageDescription` and
-  `NSLocalNetworkUsageDescription` in `Info.plist` (already done in `app.json`).
+- Obtain the **Insta360 Open SDK** from https://developer.insta360.com
+  (requires NDA / developer account approval).
+- The framework is distributed as `INSCameraSDK.xcframework`.
 
-### Step-by-step
-1. **Import the SDK** — replace the TODO import block:
-   ```swift
-   import INSCameraSDK
-   ```
-2. **Start the connection manager** in `connect()`:
-   ```swift
-   INSCameraManager.socket().setup()
-   INSCameraManager.socket().cameraDelegate = self
-   ```
-3. **Device discovery** — iterate `INSCameraManager.socket().cameras` inside
-   `discoverDevices()`.
-4. **Preview** — use `INSCameraManager.socket().startPreviewWith(options:)` in
-   `startPreview()`.
-5. **Recording** — call `INSCameraManager.socket().startCapture(options:)` /
-   `stopCapture()` inside the recording methods.
-6. **GPS telemetry** — subscribe to `INSCameraDelegate.camera(_:didUpdate:)` for
-   gyroscope/GPS payloads; normalise into `GPSPoint` in
-   `ExternalCameraGPSProvider`.
-7. **Media import** — use `INSCameraMediaFetcher` in `listMedia()` and
-   `importMedia()`.
+### Drop-in steps (one-time, after SDK is approved)
+
+#### 1 — Place the xcframework
+```
+ios/
+└── Frameworks/
+    └── INSCameraSDK.xcframework   ← copy here
+```
+Create the `Frameworks/` directory if it does not exist:
+```bash
+mkdir -p artifacts/gps-video-capture/ios/Frameworks
+cp ~/Downloads/INSCameraSDK.xcframework \
+   artifacts/gps-video-capture/ios/Frameworks/
+```
+
+#### 2 — Add the framework to the Podfile
+Open `ios/Podfile` and add these lines **inside** the `target 'GPSVideoCapture'` block:
+```ruby
+# Insta360 Open SDK — binary xcframework
+pod 'INSCameraSDK', :path => '../Frameworks/INSCameraSDK.xcframework'
+```
+Or, if the framework is not distributed as a CocoaPod, embed it directly:
+```ruby
+# Option B — direct xcframework embed
+s.vendored_frameworks = 'Frameworks/INSCameraSDK.xcframework'
+```
+
+#### 3 — Run pod install & EAS build
+```bash
+cd artifacts/gps-video-capture/ios && pod install
+# Then from the project root:
+eas build --platform ios --profile development
+```
+
+#### 4 — Verify
+- `isAvailableOnCurrentDevice()` will return `true` on a physical device
+  once the native module is linked.
+- In the UI, the Insta360 tab should go from "SDK not installed" → "Scan".
+
+---
+
+### How it works (post-binary)
+
+#### Discovery
+1. User ensures the iPhone is connected to the Insta360 camera's Wi-Fi AP
+   (the camera creates a hotspot when powered on).
+2. App calls `discoverDevices()` → native module calls
+   `INSCameraManager.socket().setup()` then returns
+   `INSCameraManager.socket().cameras`.
+
+#### Connection
+`connect(deviceId)` calls `INSCameraManager.socket().connect(camera:, finish:)`
+and waits for the delegate callback before resolving.
+
+#### Preview
+`startPreview()` calls `INSCameraManager.socket().startPreviewWith(options:, for:, finish:)`.
+The preview stream is rendered by the camera's own protocol; a future
+enhancement can expose a native `UvPreviewView`-style React component.
+
+#### Recording
+- `startRecording(config)` maps resolution + frameRate to `INSCaptureOptions`
+  and calls `INSCameraManager.socket().startCapture(options:, for:, finish:)`.
+- `stopRecording()` calls `INSCameraManager.socket().stopCapture(for:, finish:)`
+  and returns the camera-side file key (used as the `mediaId` for import).
+
+#### GPS telemetry (live)
+The native module emits `onTelemetry` events via Expo's `sendEvent`.
+These events fire through `INSTelemetry` delegate callbacks in
+`Insta360TelemetryDelegate` (see `ios/Insta360CameraModule.swift`).
+
+`Insta360CameraProvider.subscribeToGPSTelemetry()` subscribes to these
+events and forwards GPS samples to `ExternalCameraGPSProvider.ingestPoint()`.
+No polling is needed — data flows automatically once `startPreview()` is called.
+
+#### Media import
+- `listMedia()` → `INSCameraMediaFetcher.fetchMediaList(…)`.
+- `importMedia(id, path)` → `INSCameraMediaFetcher.downloadFile(withUri:toLocalPath:)`.
+
+---
+
+### EAS build requirements
+- `NSBluetoothAlwaysUsageDescription` — **already in `app.json`** ✅
+- `NSLocalNetworkUsageDescription` — **already in `app.json`** ✅
+- `insta360-camera` local module linked — **already in `package.json`** ✅
+- `./modules/insta360-camera/plugin/index.js` — **already in `app.json`** ✅
+- Podfile patched with xcframework (see step 2 above)
+- Run `eas build --platform ios --profile development`
 
 ---
 
@@ -152,8 +219,10 @@ No external SDK needed.  The built-in provider wraps the existing
 - [ ] `react-native-ble-plx` plugin — in `app.json` ✅
 - [ ] `react-native-wifi-reborn` plugin (with `addHotspotEntitlement: true`) — in `app.json` ✅
 - [ ] `uvc-capture` local module linked — in `package.json` ✅
+- [ ] `insta360-camera` local module linked — in `package.json` ✅
 - [ ] All providers pass `pnpm typecheck` — ✅
 - [ ] EAS build submitted and installed on a physical iPhone 15+
 - [ ] GoPro tested: scan → BLE pair → Wi-Fi join → record → import → GPS track extracted
 - [ ] Canon tested: discovery scan → REST connect → photo/video → import
 - [ ] UVC tested: USB-C camera attached → discover → record
+- [ ] Insta360 tested: SDK binary dropped in → connect to camera AP → discover → record → GPS track live
