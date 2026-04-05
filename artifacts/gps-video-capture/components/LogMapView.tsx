@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useMemo, useRef } from 'react';
+import { Image } from 'expo-image';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Platform,
   Pressable,
@@ -136,6 +137,108 @@ export default function LogMapView({ sections, onSelectEntry, demoMode, onDemoPr
   );
 }
 
+function fmtTimestamp(ms: number): string {
+  const d = new Date(ms);
+  return (
+    d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) +
+    '  ' +
+    d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+  );
+}
+
+function fmtCoord(lat: number, lon: number): string {
+  const latStr = `${Math.abs(lat).toFixed(6)}° ${lat >= 0 ? 'N' : 'S'}`;
+  const lonStr = `${Math.abs(lon).toFixed(6)}° ${lon >= 0 ? 'E' : 'W'}`;
+  return `${latStr}  ${lonStr}`;
+}
+
+function MapPreviewCard({
+  entry,
+  sessionColor,
+  onDismiss,
+  onOpen,
+  bottomOffset,
+}: {
+  entry: LogEntry;
+  sessionColor: string;
+  onDismiss: () => void;
+  onOpen: () => void;
+  bottomOffset: number;
+}) {
+  const hasPhoto = Boolean(entry.localPath);
+  const isDemo = !hasPhoto;
+
+  return (
+    <View style={[styles.previewCard, { bottom: bottomOffset + 8 }]}>
+      {/* Colored left accent bar */}
+      <View style={[styles.previewAccent, { backgroundColor: sessionColor }]} />
+
+      {/* Thumbnail */}
+      <View style={styles.previewThumb}>
+        {hasPhoto ? (
+          <Image
+            source={{ uri: entry.localPath }}
+            style={styles.previewThumbImage}
+            contentFit="cover"
+            transition={120}
+          />
+        ) : (
+          <View style={styles.previewThumbPlaceholder}>
+            <Ionicons name="image-outline" size={22} color={Colors.textTertiary} />
+          </View>
+        )}
+      </View>
+
+      {/* Info */}
+      <View style={styles.previewInfo}>
+        <Text style={styles.previewTime}>{fmtTimestamp(entry.timestamp)}</Text>
+        <View style={styles.previewGpsRow}>
+          <Ionicons name="location" size={11} color={Colors.gpsGreen} />
+          <Text style={styles.previewGps}>{fmtCoord(entry.latitude, entry.longitude)}</Text>
+        </View>
+        {entry.detectionLabel && (
+          <View style={styles.previewDetRow}>
+            <Ionicons name="eye" size={11} color={Colors.gpsGreen} />
+            <Text style={styles.previewDet}>
+              {entry.detectionLabel.toUpperCase()}
+              {entry.detectionConfidence != null
+                ? `  ${(entry.detectionConfidence * 100).toFixed(0)}%`
+                : ''}
+            </Text>
+          </View>
+        )}
+        <Text style={styles.previewSeg} numberOfLines={1}>
+          {entry.filename}
+        </Text>
+      </View>
+
+      {/* Actions */}
+      <View style={styles.previewActions}>
+        <Pressable
+          onPress={onDismiss}
+          style={({ pressed }) => [styles.previewActionBtn, pressed && { opacity: 0.6 }]}
+          hitSlop={10}
+        >
+          <Ionicons name="close" size={18} color={Colors.textSecondary} />
+        </Pressable>
+        {!isDemo && (
+          <Pressable
+            onPress={onOpen}
+            style={({ pressed }) => [
+              styles.previewOpenBtn,
+              { borderColor: sessionColor },
+              pressed && { opacity: 0.7 },
+            ]}
+          >
+            <Text style={[styles.previewOpenText, { color: sessionColor }]}>View</Text>
+            <Ionicons name="expand-outline" size={13} color={sessionColor} />
+          </Pressable>
+        )}
+      </View>
+    </View>
+  );
+}
+
 function NativeMapView({
   sections,
   allValidCoords,
@@ -154,6 +257,8 @@ function NativeMapView({
   const { Marker, Polyline } = maps;
 
   const mapRef = useRef<any>(null);
+  const [activeEntry, setActiveEntry] = useState<{ entry: LogEntry; color: string } | null>(null);
+
   const totalEntries = sections.reduce((n, s) => n + s.data.length, 0);
   const showMarkers = totalEntries <= MAX_MARKERS;
 
@@ -178,6 +283,7 @@ function NativeMapView({
         showsCompass
         showsScale
         pitchEnabled={false}
+        onPress={() => setActiveEntry(null)}
       >
         {sections.map((section, idx) => {
           const color = SESSION_COLORS[idx % SESSION_COLORS.length];
@@ -197,20 +303,39 @@ function NativeMapView({
               {showMarkers &&
                 section.data
                   .filter((e) => e.latitude !== 0 || e.longitude !== 0)
-                  .map((entry) => (
-                    <Marker
-                      key={entry.id}
-                      coordinate={{
-                        latitude: entry.latitude,
-                        longitude: entry.longitude,
-                      }}
-                      tracksViewChanges={false}
-                      anchor={{ x: 0.5, y: 0.5 }}
-                      onPress={() => onSelectEntry(entry)}
-                    >
-                      <View style={[styles.dot, { backgroundColor: color }]} />
-                    </Marker>
-                  ))}
+                  .map((entry) => {
+                    const isActive = activeEntry?.entry.id === entry.id;
+                    return (
+                      <Marker
+                        key={entry.id}
+                        coordinate={{
+                          latitude: entry.latitude,
+                          longitude: entry.longitude,
+                        }}
+                        tracksViewChanges={isActive}
+                        anchor={{ x: 0.5, y: 0.5 }}
+                        onPress={(e: any) => {
+                          e.stopPropagation();
+                          setActiveEntry(
+                            isActive ? null : { entry, color }
+                          );
+                        }}
+                      >
+                        <View style={styles.markerWrap}>
+                          {isActive && (
+                            <View style={[styles.markerRing, { borderColor: color }]} />
+                          )}
+                          <View
+                            style={[
+                              styles.dot,
+                              { backgroundColor: color },
+                              isActive && styles.dotActive,
+                            ]}
+                          />
+                        </View>
+                      </Marker>
+                    );
+                  })}
             </React.Fragment>
           );
         })}
@@ -230,6 +355,19 @@ function NativeMapView({
           <Ionicons name="flask-outline" size={13} color="#000" />
           <Text style={styles.demoBannerText}>DEMO — simulated San Francisco routes</Text>
         </View>
+      )}
+
+      {activeEntry && (
+        <MapPreviewCard
+          entry={activeEntry.entry}
+          sessionColor={activeEntry.color}
+          onDismiss={() => setActiveEntry(null)}
+          onOpen={() => {
+            onSelectEntry(activeEntry.entry);
+            setActiveEntry(null);
+          }}
+          bottomOffset={bottomOffset}
+        />
       )}
 
       <Legend sections={sections} bottomOffset={bottomOffset} />
@@ -258,12 +396,128 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
   },
+  markerWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 28,
+    height: 28,
+  },
+  markerRing: {
+    position: 'absolute',
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    borderWidth: 2,
+    opacity: 0.55,
+  },
   dot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    borderWidth: 1.5,
-    borderColor: 'rgba(0,0,0,0.6)',
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.85)',
+  },
+  dotActive: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    borderColor: '#fff',
+  },
+  previewCard: {
+    position: 'absolute',
+    left: 12,
+    right: 12,
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    backgroundColor: 'rgba(12,12,18,0.96)',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    overflow: 'hidden',
+    minHeight: 92,
+  },
+  previewAccent: {
+    width: 4,
+    borderTopLeftRadius: 14,
+    borderBottomLeftRadius: 14,
+  },
+  previewThumb: {
+    width: 72,
+    margin: 10,
+    borderRadius: 8,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+  },
+  previewThumbImage: {
+    flex: 1,
+    borderRadius: 8,
+  },
+  previewThumbPlaceholder: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  previewInfo: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingRight: 4,
+    gap: 4,
+    justifyContent: 'center',
+  },
+  previewTime: {
+    color: Colors.text,
+    fontFamily: 'Inter_500Medium',
+    fontSize: 11.5,
+  },
+  previewGpsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  previewGps: {
+    color: Colors.gpsGreen,
+    fontFamily: 'Inter_400Regular',
+    fontSize: 11,
+    flex: 1,
+  },
+  previewDetRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  previewDet: {
+    color: Colors.gpsGreen,
+    fontFamily: 'Inter_500Medium',
+    fontSize: 11,
+  },
+  previewSeg: {
+    color: Colors.textTertiary,
+    fontFamily: 'Inter_400Regular',
+    fontSize: 10.5,
+  },
+  previewActions: {
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    paddingRight: 10,
+    paddingLeft: 6,
+    gap: 8,
+  },
+  previewActionBtn: {
+    padding: 4,
+  },
+  previewOpenBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderWidth: 1,
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  previewOpenText: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 12,
   },
   legend: {
     position: 'absolute',
