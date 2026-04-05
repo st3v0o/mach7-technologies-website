@@ -20,6 +20,7 @@ import Colors from '@/constants/colors';
 import { LogEntry, useRecording } from '@/contexts/RecordingContext';
 import LogMapView, { SessionSection } from '@/components/LogMapView';
 import { useUpload } from '@/contexts/UploadContext';
+import { DEMO_SECTIONS } from '@/lib/demoData';
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 
@@ -386,8 +387,10 @@ export default function LogScreen() {
   const [isSharing, setIsSharing] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<LogEntry | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
+  const [isDemoMode, setIsDemoMode] = useState(false);
 
   const sections = useMemo(() => groupEntriesBySessions(logEntries), [logEntries]);
+  const mapSections = isDemoMode ? DEMO_SECTIONS : sections;
 
   const handleShare = async () => {
     if (Platform.OS === 'web') return;
@@ -428,24 +431,48 @@ export default function LogScreen() {
           </Text>
         </View>
         <View style={styles.headerActions}>
-          {logEntries.length > 0 && (
+          <Pressable
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setViewMode((v) => {
+                if (v === 'map') setIsDemoMode(false);
+                return v === 'list' ? 'map' : 'list';
+              });
+            }}
+            style={({ pressed }) => [
+              styles.actionBtn,
+              viewMode === 'map' ? styles.mapBtnActive : styles.mapBtn,
+              pressed && { opacity: 0.7 },
+            ]}
+            testID="map-toggle"
+          >
+            <Ionicons
+              name={viewMode === 'map' ? 'list-outline' : 'map-outline'}
+              size={16}
+              color={Colors.amber}
+            />
+          </Pressable>
+          {viewMode === 'map' && (
             <Pressable
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setViewMode((v) => (v === 'list' ? 'map' : 'list'));
+                setIsDemoMode((d) => !d);
               }}
               style={({ pressed }) => [
                 styles.actionBtn,
-                viewMode === 'map' ? styles.mapBtnActive : styles.mapBtn,
+                isDemoMode ? styles.demoBtnActive : styles.demoToggleBtn,
                 pressed && { opacity: 0.7 },
               ]}
-              testID="map-toggle"
+              testID="demo-toggle"
             >
               <Ionicons
-                name={viewMode === 'map' ? 'list-outline' : 'map-outline'}
-                size={16}
-                color={Colors.amber}
+                name="flask-outline"
+                size={15}
+                color={isDemoMode ? '#000' : Colors.amber}
               />
+              {isDemoMode && (
+                <Text style={[styles.actionBtnText, { color: '#000', fontSize: 12 }]}>Demo</Text>
+              )}
             </Pressable>
           )}
           {logEntries.length > 0 && viewMode === 'list' && (
@@ -491,8 +518,14 @@ export default function LogScreen() {
 
       {viewMode === 'map' ? (
         <LogMapView
-          sections={sections}
+          sections={mapSections}
+          demoMode={isDemoMode}
+          onDemoPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            setIsDemoMode(true);
+          }}
           onSelectEntry={(entry) => {
+            if (isDemoMode) return;
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
             setSelectedEntry(entry);
           }}
@@ -623,6 +656,16 @@ const styles = StyleSheet.create({
   mapBtnActive: {
     borderColor: 'rgba(255, 184, 0, 0.6)',
     backgroundColor: 'rgba(255, 184, 0, 0.15)',
+    paddingHorizontal: 10,
+  },
+  demoToggleBtn: {
+    borderColor: 'rgba(255, 184, 0, 0.3)',
+    backgroundColor: 'rgba(255, 184, 0, 0.06)',
+    paddingHorizontal: 10,
+  },
+  demoBtnActive: {
+    borderColor: Colors.amber,
+    backgroundColor: Colors.amber,
     paddingHorizontal: 10,
   },
   actionBtnText: {

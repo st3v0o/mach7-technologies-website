@@ -43,12 +43,21 @@ function WebFallback() {
   );
 }
 
-function NoDataFallback() {
+function NoDataFallback({ onDemoPress }: { onDemoPress?: () => void }) {
   return (
     <View style={styles.fallback}>
       <Ionicons name="location-outline" size={44} color={Colors.textTertiary} />
       <Text style={styles.fallbackTitle}>No GPS data yet</Text>
       <Text style={styles.fallbackSub}>Record a session to see the route on the map</Text>
+      {onDemoPress && (
+        <Pressable
+          onPress={onDemoPress}
+          style={({ pressed }) => [styles.demoBtn, pressed && { opacity: 0.7 }]}
+        >
+          <Ionicons name="play-circle-outline" size={15} color={Colors.amber} />
+          <Text style={styles.demoBtnText}>Preview demo data</Text>
+        </Pressable>
+      )}
     </View>
   );
 }
@@ -96,9 +105,11 @@ function Legend({
 interface Props {
   sections: SessionSection[];
   onSelectEntry: (entry: LogEntry) => void;
+  demoMode?: boolean;
+  onDemoPress?: () => void;
 }
 
-export default function LogMapView({ sections, onSelectEntry }: Props) {
+export default function LogMapView({ sections, onSelectEntry, demoMode, onDemoPress }: Props) {
   const insets = useSafeAreaInsets();
 
   const allValidCoords = useMemo(
@@ -112,7 +123,7 @@ export default function LogMapView({ sections, onSelectEntry }: Props) {
   );
 
   if (Platform.OS === 'web') return <WebFallback />;
-  if (allValidCoords.length === 0) return <NoDataFallback />;
+  if (allValidCoords.length === 0) return <NoDataFallback onDemoPress={onDemoPress} />;
 
   return (
     <NativeMapView
@@ -120,6 +131,7 @@ export default function LogMapView({ sections, onSelectEntry }: Props) {
       allValidCoords={allValidCoords}
       onSelectEntry={onSelectEntry}
       bottomOffset={insets.bottom + 90}
+      demoMode={demoMode}
     />
   );
 }
@@ -129,11 +141,13 @@ function NativeMapView({
   allValidCoords,
   onSelectEntry,
   bottomOffset,
+  demoMode,
 }: {
   sections: SessionSection[];
   allValidCoords: { latitude: number; longitude: number }[];
   onSelectEntry: (entry: LogEntry) => void;
   bottomOffset: number;
+  demoMode?: boolean;
 }) {
   const maps = require('react-native-maps');
   const MapView = maps.default;
@@ -208,6 +222,13 @@ function NativeMapView({
           <Text style={styles.perfBannerText}>
             Frame dots hidden — too many to render ({totalEntries}). Zoom in to explore.
           </Text>
+        </View>
+      )}
+
+      {demoMode && (
+        <View style={styles.demoBanner}>
+          <Ionicons name="flask-outline" size={13} color="#000" />
+          <Text style={styles.demoBannerText}>DEMO — simulated San Francisco routes</Text>
         </View>
       )}
 
@@ -297,5 +318,40 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_400Regular',
     fontSize: 12,
     flex: 1,
+  },
+  demoBanner: {
+    position: 'absolute',
+    top: 12,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: Colors.amber,
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+  },
+  demoBannerText: {
+    color: '#000',
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 12,
+    letterSpacing: 0.3,
+  },
+  demoBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255,184,0,0.4)',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: 'rgba(255,184,0,0.08)',
+  },
+  demoBtnText: {
+    color: Colors.amber,
+    fontFamily: 'Inter_500Medium',
+    fontSize: 14,
   },
 });
