@@ -53,7 +53,8 @@ end
 
 **2b — Reference the podspec from `ios/Podfile`** (inside the `target` block):
 ```ruby
-pod 'INSCameraSDK', :podspec => '../Frameworks/INSCameraSDK.podspec'
+# Path is relative to ios/Podfile, so Frameworks/ resolves to ios/Frameworks/
+pod 'INSCameraSDK', :podspec => 'Frameworks/INSCameraSDK.podspec'
 ```
 
 #### 3 — Run pod install & EAS build
