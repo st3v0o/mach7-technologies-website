@@ -743,14 +743,15 @@ export default function CaptureScreen() {
     await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     isRecordingRef.current = false;
     clearTimers();
-    if (settingsRef.current.captureMode === 'photo') {
+    const captureMode = settingsRef.current.captureMode;
+    if (captureMode === 'photo') {
       stopPhotoLoop();
       setIsRecording(false);
       setElapsedSeconds(0);
     } else {
       cameraRef.current?.stopRecording();
     }
-    stopGps();
+    stopGps(captureMode);
   }, [clearTimers, stopPhotoLoop, stopGps]);
 
   const segmentProgress = Math.min(elapsedSeconds / (currentSegmentMs / 1000), 1);

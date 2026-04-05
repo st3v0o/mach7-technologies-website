@@ -1,15 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Dimensions,
-  FlatList,
   Modal,
   Platform,
   Pressable,
+  SectionList,
   StyleSheet,
   Text,
   View,
@@ -317,11 +317,82 @@ function UploadStatusBanner() {
   );
 }
 
+interface SessionSection {
+  sessionId: string;
+  mode: 'video' | 'photo' | 'mixed';
+  startMs: number;
+  data: LogEntry[];
+}
+
+function groupEntriesBySessions(entries: LogEntry[]): SessionSection[] {
+  const map = new Map<string, LogEntry[]>();
+  for (const e of entries) {
+    const key = e.sessionId || 'unknown';
+    if (!map.has(key)) map.set(key, []);
+    map.get(key)!.push(e);
+  }
+  const sections: SessionSection[] = [];
+  for (const [sid, frames] of map) {
+    const sorted = [...frames].sort((a, b) => a.timestamp - b.timestamp);
+    const hasVideo = sorted.some((f) => f.videoSegment !== 'photo' && f.videoSegment !== 'detection');
+    const hasPhoto = sorted.some((f) => f.videoSegment === 'photo');
+    const mode: 'video' | 'photo' | 'mixed' =
+      hasVideo && hasPhoto ? 'mixed' : hasPhoto ? 'photo' : 'video';
+    sections.push({ sessionId: sid, mode, startMs: sorted[0]?.timestamp ?? 0, data: sorted });
+  }
+  return sections.sort((a, b) => b.startMs - a.startMs);
+}
+
+function SessionHeader({ section, onShareGpx }: { section: SessionSection; onShareGpx: () => void }) {
+  const [sharing, setSharing] = useState(false);
+  const d = new Date(section.startMs);
+  const dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  const modeColor =
+    section.mode === 'video' ? Colors.blue :
+    section.mode === 'photo' ? Colors.gpsGreen : Colors.amber;
+  const modeLabel =
+    section.mode === 'video' ? 'VIDEO' :
+    section.mode === 'photo' ? 'PHOTO' : 'MIXED';
+
+  const handleGpx = async () => {
+    if (sharing) return;
+    setSharing(true);
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    await onShareGpx();
+    setSharing(false);
+  };
+
+  return (
+    <View style={sessionStyles.header}>
+      <View style={sessionStyles.headerLeft}>
+        <View style={[sessionStyles.modeBadge, { borderColor: modeColor }]}>
+          <Text style={[sessionStyles.modeText, { color: modeColor }]}>{modeLabel}</Text>
+        </View>
+        <View>
+          <Text style={sessionStyles.dateText}>{dateStr} · {timeStr}</Text>
+          <Text style={sessionStyles.countText}>{section.data.length} frames</Text>
+        </View>
+      </View>
+      <Pressable
+        onPress={handleGpx}
+        disabled={sharing || Platform.OS === 'web'}
+        style={({ pressed }) => [sessionStyles.gpxBtn, pressed && { opacity: 0.7 }]}
+      >
+        <Ionicons name="map-outline" size={13} color={Colors.amber} />
+        <Text style={sessionStyles.gpxBtnText}>{sharing ? 'Sharing…' : 'GPX'}</Text>
+      </Pressable>
+    </View>
+  );
+}
+
 export default function LogScreen() {
   const insets = useSafeAreaInsets();
-  const { logEntries, shareLog, clearLog, processingStatus, totalFrames, segmentCount } = useRecording();
+  const { logEntries, shareLog, shareGpx, clearLog, processingStatus, totalFrames, segmentCount } = useRecording();
   const [isSharing, setIsSharing] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<LogEntry | null>(null);
+
+  const sections = useMemo(() => groupEntriesBySessions(logEntries), [logEntries]);
 
   const handleShare = async () => {
     if (Platform.OS === 'web') return;
@@ -430,26 +501,36 @@ export default function LogScreen() {
           </View>
         </View>
       ) : (
-        <FlatList
-          data={logEntries}
+        <SectionList
+          sections={sections}
           keyExtractor={(item) => item.id}
-          renderItem={({ item, index }) => (
-            <FrameRow
-              entry={item}
-              index={index}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setSelectedEntry(item);
-              }}
+          renderItem={({ item, index, section }) => {
+            const globalIndex = logEntries.indexOf(item);
+            return (
+              <FrameRow
+                entry={item}
+                index={globalIndex >= 0 ? globalIndex : index}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setSelectedEntry(item);
+                }}
+              />
+            );
+          }}
+          renderSectionHeader={({ section }) => (
+            <SessionHeader
+              section={section}
+              onShareGpx={() => shareGpx(section.sessionId)}
             />
           )}
+          SectionSeparatorComponent={() => <View style={styles.sectionSeparator} />}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           contentContainerStyle={[
             styles.listContent,
             { paddingBottom: insets.bottom + 100 + (Platform.OS === 'web' ? 34 : 0) },
           ]}
           showsVerticalScrollIndicator={false}
-          scrollEnabled={logEntries.length > 0}
+          stickySectionHeadersEnabled={false}
         />
       )}
 
@@ -648,6 +729,10 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.separator,
     marginLeft: 80,
   },
+  sectionSeparator: {
+    height: 8,
+    backgroundColor: Colors.background,
+  },
   rowContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -749,6 +834,64 @@ const styles = StyleSheet.create({
   },
   uploadBadge: {
     opacity: 0.9,
+  },
+});
+
+const sessionStyles = StyleSheet.create({
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: Colors.card,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: Colors.border,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  modeBadge: {
+    borderWidth: 1,
+    borderRadius: 5,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+  },
+  modeText: {
+    fontFamily: 'Inter_700Bold',
+    fontSize: 10,
+    letterSpacing: 0.8,
+  },
+  dateText: {
+    color: Colors.text,
+    fontFamily: 'Inter_500Medium',
+    fontSize: 12,
+  },
+  countText: {
+    color: Colors.textSecondary,
+    fontFamily: 'Inter_400Regular',
+    fontSize: 11,
+    marginTop: 1,
+  },
+  gpxBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 179, 0, 0.35)',
+    backgroundColor: 'rgba(255, 179, 0, 0.07)',
+  },
+  gpxBtnText: {
+    color: Colors.amber,
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 12,
   },
 });
 

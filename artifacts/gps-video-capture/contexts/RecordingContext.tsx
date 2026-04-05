@@ -11,6 +11,7 @@ import React, {
 } from 'react';
 import { Platform } from 'react-native';
 
+import { buildGpxXml } from '@/lib/gpx';
 import { FrameSettings } from './SettingsContext';
 
 export interface GpsPoint {
@@ -50,7 +51,8 @@ interface RecordingContextType {
   sessionId: string;
   gpsPointsRef: React.MutableRefObject<GpsPoint[]>;
   startGps: () => Promise<void>;
-  stopGps: () => void;
+  stopGps: (mode?: 'video' | 'photo') => void;
+  shareGpx: (sessionId: string) => Promise<void>;
   processSegment: (
     uri: string,
     segmentNum: number,
@@ -94,12 +96,13 @@ function makeSessionId(): string {
   return `session_${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
 }
 
-async function getOrCreatePaths(): Promise<{ framesDir: string; videosDir: string; csvPath: string }> {
+async function getOrCreatePaths(): Promise<{ framesDir: string; videosDir: string; csvPath: string; gpxDir: string }> {
   const FileSystem = await import('expo-file-system/legacy');
   const base = FileSystem.documentDirectory + 'gps-capture/';
   const framesDir = base + 'frames/';
   const videosDir = base + 'segments/';
   const csvPath = base + 'log.csv';
+  const gpxDir = base + 'gpx/';
 
   const framesDirInfo = await FileSystem.getInfoAsync(framesDir);
   if (!framesDirInfo.exists) {
@@ -109,11 +112,15 @@ async function getOrCreatePaths(): Promise<{ framesDir: string; videosDir: strin
   if (!videosDirInfo.exists) {
     await FileSystem.makeDirectoryAsync(videosDir, { intermediates: true });
   }
+  const gpxDirInfo = await FileSystem.getInfoAsync(gpxDir);
+  if (!gpxDirInfo.exists) {
+    await FileSystem.makeDirectoryAsync(gpxDir, { intermediates: true });
+  }
   const csvInfo = await FileSystem.getInfoAsync(csvPath);
   if (!csvInfo.exists) {
     await FileSystem.writeAsStringAsync(csvPath, CSV_HEADER);
   }
-  return { framesDir, videosDir, csvPath };
+  return { framesDir, videosDir, csvPath, gpxDir };
 }
 
 export function RecordingProvider({ children }: { children: React.ReactNode }) {
@@ -129,7 +136,7 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
   const gpsPointsRef = useRef<GpsPoint[]>([]);
   const sessionIdRef = useRef<string>('');
   const locationSubRef = useRef<Location.LocationSubscription | null>(null);
-  const nativePathsRef = useRef<{ framesDir: string; videosDir: string; csvPath: string } | null>(null);
+  const nativePathsRef = useRef<{ framesDir: string; videosDir: string; csvPath: string; gpxDir: string } | null>(null);
 
   useEffect(() => {
     loadLog();
@@ -192,11 +199,56 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const stopGps = useCallback(() => {
+  const saveGpx = useCallback(async (
+    sid: string,
+    points: GpsPoint[],
+    mode: 'video' | 'photo'
+  ) => {
+    if (Platform.OS === 'web' || points.length === 0 || !sid) return;
+    try {
+      const FileSystem = await import('expo-file-system/legacy');
+      if (!nativePathsRef.current) {
+        nativePathsRef.current = await getOrCreatePaths();
+      }
+      const gpxPath = nativePathsRef.current.gpxDir + sid + '.gpx';
+      const xml = buildGpxXml(sid, points, mode);
+      await FileSystem.writeAsStringAsync(gpxPath, xml, {
+        encoding: (FileSystem as any).EncodingType?.UTF8 ?? 'utf8',
+      });
+    } catch {}
+  }, []);
+
+  const stopGps = useCallback((mode?: 'video' | 'photo') => {
+    const points = [...gpsPointsRef.current];
+    const sid = sessionIdRef.current;
     locationSubRef.current?.remove();
     locationSubRef.current = null;
     setGpsStatus('idle');
     setCurrentGps(null);
+    if (mode && sid && points.length > 0) {
+      saveGpx(sid, points, mode);
+    }
+  }, [saveGpx]);
+
+  const shareGpx = useCallback(async (sid: string) => {
+    if (Platform.OS === 'web') return;
+    try {
+      if (!nativePathsRef.current) {
+        nativePathsRef.current = await getOrCreatePaths();
+      }
+      const gpxPath = nativePathsRef.current.gpxDir + sid + '.gpx';
+      const FileSystem = await import('expo-file-system/legacy');
+      const info = await FileSystem.getInfoAsync(gpxPath);
+      if (!info.exists) return;
+      const canShare = await Sharing.isAvailableAsync();
+      if (canShare) {
+        await Sharing.shareAsync(gpxPath, {
+          mimeType: 'application/gpx+xml',
+          dialogTitle: 'Share GPX Track',
+          UTI: 'com.topografix.gpx',
+        });
+      }
+    } catch {}
   }, []);
 
   const processSegment = useCallback(
@@ -513,6 +565,7 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
           await FileSystem.deleteAsync(nativePathsRef.current.csvPath, { idempotent: true });
           await FileSystem.deleteAsync(nativePathsRef.current.framesDir, { idempotent: true });
           await FileSystem.deleteAsync(nativePathsRef.current.videosDir, { idempotent: true });
+          await FileSystem.deleteAsync(nativePathsRef.current.gpxDir, { idempotent: true });
         }
         nativePathsRef.current = await getOrCreatePaths();
       } catch {}
@@ -533,6 +586,7 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
         gpsPointsRef,
         startGps,
         stopGps,
+        shareGpx,
         processSegment,
         savePhoto,
         saveDetectionFrame,
