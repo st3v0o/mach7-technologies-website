@@ -1,9 +1,13 @@
 /**
  * JS bridge to the native UvcCaptureModule.
- * Loads the native module when available; falls back to no-ops on web / simulator.
+ *
+ * Uses Expo Modules API's `requireOptionalNativeModule` which:
+ *  - Returns the native module instance when running on a physical iOS 17+ device
+ *    with the uvc-capture module linked.
+ *  - Returns null on simulators, web, Android, or when the module is not linked.
  */
 
-import { NativeModules, Platform } from 'react-native';
+import { requireOptionalNativeModule } from 'expo-modules-core';
 
 interface UvcCaptureNativeModule {
   discoverDevices(): Promise<Array<{ id: string; name: string; modelID?: string }>>;
@@ -25,11 +29,8 @@ const noopModule: UvcCaptureNativeModule = {
   stopRecording: async () => '',
 };
 
-// On iOS the native module is auto-linked by Expo Modules / Podfile.
-// On other platforms or simulators it may not exist; use the noop.
+// 'UvcCapture' matches the Name("UvcCapture") declaration in Swift.
 const native: UvcCaptureNativeModule =
-  Platform.OS === 'ios' && NativeModules.UvcCaptureModule
-    ? (NativeModules.UvcCaptureModule as UvcCaptureNativeModule)
-    : noopModule;
+  requireOptionalNativeModule<UvcCaptureNativeModule>('UvcCapture') ?? noopModule;
 
 export default native;

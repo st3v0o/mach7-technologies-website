@@ -12,6 +12,7 @@
  */
 
 import { Platform } from 'react-native';
+import { documentDirectory, cacheDirectory } from 'expo-file-system/legacy';
 import type { CameraProvider } from '../CameraProvider';
 import type {
   AppIntegrationError,
@@ -127,8 +128,8 @@ export class GenericUVCCameraProvider implements CameraProvider {
     // See startPreview() note above.
   }
 
-  async startRecording(config: RecordingConfig): Promise<void> {
-    const destPath = await this._buildDestinationPath();
+  async startRecording(_config: RecordingConfig): Promise<void> {
+    const destPath = this._buildDestinationPath();
     try {
       await startUvcRecording(destPath);
     } catch (e: any) {
@@ -175,9 +176,8 @@ export class GenericUVCCameraProvider implements CameraProvider {
 
   // ─── private helpers ─────────────────────────────────────────────────────
 
-  private async _buildDestinationPath(): Promise<string> {
-    const FileSystem = await import('expo-file-system/legacy');
-    const dir = (FileSystem as any).documentDirectory ?? (FileSystem as any).cacheDirectory ?? '';
+  private _buildDestinationPath(): string {
+    const dir = documentDirectory ?? cacheDirectory ?? '';
     const timestamp = Date.now();
     return `${dir}uvc_${timestamp}.mov`;
   }

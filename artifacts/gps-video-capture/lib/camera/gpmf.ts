@@ -13,6 +13,15 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import type { GPSPoint } from './types';
 
+// expo-file-system/legacy readAsStringAsync supports partial reads but the
+// position + length options are not reflected in the public TypeScript types.
+// We cast the function signature here rather than scattering `as any` elsewhere.
+type PartialReadFn = (
+  uri: string,
+  opts: { encoding: 'base64'; position: number; length: number },
+) => Promise<string>;
+const readStringPartial = FileSystem.readAsStringAsync as unknown as PartialReadFn;
+
 // ─── constants ───────────────────────────────────────────────────────────────
 
 const GPMF_GPS_HZ = 18;            // GoPro GPS polling rate (samples per second)
@@ -32,11 +41,7 @@ async function readFileBytes(
   offset: number,
   length: number,
 ): Promise<Uint8Array> {
-  const b64 = await (FileSystem as any).readAsStringAsync(uri, {
-    encoding: 'base64',
-    position: offset,
-    length,
-  });
+  const b64 = await readStringPartial(uri, { encoding: 'base64', position: offset, length });
   return base64ToBytes(b64);
 }
 
@@ -372,7 +377,8 @@ export async function extractGpsFromGoProMp4(
   clipStartMs: number = Date.now(),
 ): Promise<Array<Omit<GPSPoint, 'source'>>> {
   try {
-    const info = await (FileSystem as any).getInfoAsync(localFilePath, { size: true });
+    const info = await FileSystem.getInfoAsync(localFilePath);
+    if (!info.exists) return [];
     const fileSize: number = (info as any).size ?? 0;
     if (fileSize < 1024) return [];
 

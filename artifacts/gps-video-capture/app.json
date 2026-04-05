@@ -70,7 +70,8 @@
           "addHotspotEntitlement": true,
           "locationWhenInUsePermission": "Allow $(PRODUCT_NAME) to use your location to join camera Wi-Fi networks."
         }
-      ]
+      ],
+      "./modules/uvc-capture/plugin/index.js"
     ],
     "experiments": {
       "typedRoutes": true,

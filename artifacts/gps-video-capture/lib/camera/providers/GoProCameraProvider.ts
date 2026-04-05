@@ -355,17 +355,7 @@ export class GoProCameraProvider implements CameraProvider {
     const filename = mediaId.split('/').pop() ?? mediaId;
     const isVideo = /\.(MP4|MOV)$/i.test(filename);
 
-    // Parse GPMF GPS data from the downloaded file
-    let gpsPoints: Array<Omit<import('../types').GPSPoint, 'source'>> = [];
-    if (isVideo) {
-      try {
-        gpsPoints = await extractGpsFromGoProMp4(destinationPath, Date.now());
-      } catch (gpsErr) {
-        console.warn('[GoPro] GPMF parse failed:', gpsErr);
-      }
-    }
-
-    const asset: ExternalMediaAsset = {
+    return {
       id: mediaId,
       filename,
       mimeType: isVideo ? 'video/mp4' : 'image/jpeg',
@@ -373,11 +363,14 @@ export class GoProCameraProvider implements CameraProvider {
       localPath: destinationPath,
       createdAt: Date.now(),
     };
+  }
 
-    // Attach GPS points to the asset as a non-standard property for the orchestrator
-    (asset as any).gpsPoints = gpsPoints;
-
-    return asset;
+  /**
+   * Extract GPS points from a GPMF telemetry track embedded in a GoPro MP4.
+   * Called by the orchestrator after importMedia() completes.
+   */
+  async extractGpsPoints(localPath: string): Promise<Array<Omit<import('../types').GPSPoint, 'source'>>> {
+    return extractGpsFromGoProMp4(localPath, Date.now());
   }
 
   getLastError(): AppIntegrationError | null {

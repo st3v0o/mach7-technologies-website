@@ -6,6 +6,7 @@ import type {
   CameraProviderType,
   CaptureSessionTelemetry,
   ExternalMediaAsset,
+  GPSPoint,
   RecordingConfig,
 } from './types';
 
@@ -77,4 +78,14 @@ export interface CameraProvider {
   // ── Diagnostics ─────────────────────────────────────────────────────────
   getLastError(): AppIntegrationError | null;
   getTelemetrySnapshot(): Partial<CaptureSessionTelemetry>;
+
+  /**
+   * Optional: extract GPS points embedded in a locally-downloaded media file.
+   * Implement this when the camera records GPS into the media container
+   * (e.g. GoPro GPMF telemetry track).
+   *
+   * The orchestrator calls this after `importMedia()` and feeds the result to
+   * `ExternalCameraGPSProvider.ingestPoints()`.
+   */
+  extractGpsPoints?(localPath: string): Promise<Array<Omit<GPSPoint, 'source'>>>;
 }

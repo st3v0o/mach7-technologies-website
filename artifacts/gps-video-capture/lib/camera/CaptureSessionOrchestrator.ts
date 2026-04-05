@@ -231,7 +231,24 @@ export class CaptureSessionOrchestrator {
 
   async importMedia(mediaId: string, destinationPath: string) {
     if (!this._camera) throw this._makeError('NO_CAMERA', 'No camera provider selected.');
-    return this._camera.importMedia(mediaId, destinationPath);
+    const asset = await this._camera.importMedia(mediaId, destinationPath);
+
+    // If the provider can extract GPS from the media file (e.g. GoPro GPMF),
+    // ingest those points into the camera GPS provider and the active session.
+    if (this._camera.extractGpsPoints && asset.localPath) {
+      try {
+        const pts = await this._camera.extractGpsPoints(asset.localPath);
+        if (pts.length > 0) {
+          this._cameraGPS.ingestPoints(pts);
+          const withSource = pts.map(p => ({ ...p, source: 'camera' as const }));
+          withSource.forEach(p => this._session?.gpsPoints.push(p));
+        }
+      } catch (e) {
+        console.warn('[Orchestrator] extractGpsPoints failed:', e);
+      }
+    }
+
+    return asset;
   }
 
   // ── Public API: state reads ─────────────────────────────────────────────────
