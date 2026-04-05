@@ -31,16 +31,29 @@ cp ~/Downloads/INSCameraSDK.xcframework \
    artifacts/gps-video-capture/ios/Frameworks/
 ```
 
-#### 2 — Add the framework to the Podfile
-Open `ios/Podfile` and add these lines **inside** the `target 'GPSVideoCapture'` block:
+#### 2 — Write a local podspec and add it to the Podfile
+
+The Insta360 SDK ships as a raw xcframework, not a CocoaPod.  You must
+write a minimal podspec so CocoaPods can reference it.
+
+**2a — Create `ios/Frameworks/INSCameraSDK.podspec`:**
 ```ruby
-# Insta360 Open SDK — binary xcframework
-pod 'INSCameraSDK', :path => '../Frameworks/INSCameraSDK.xcframework'
+Pod::Spec.new do |s|
+  s.name             = 'INSCameraSDK'
+  s.version          = '1.0.0'
+  s.summary          = 'Insta360 Open SDK'
+  s.homepage         = 'https://developer.insta360.com'
+  s.license          = { :type => 'Commercial' }
+  s.author           = { 'Insta360' => 'developer@insta360.com' }
+  s.platform         = :ios, '13.0'
+  s.source           = { :path => '.' }
+  s.vendored_frameworks = 'INSCameraSDK.xcframework'
+end
 ```
-Or, if the framework is not distributed as a CocoaPod, embed it directly:
+
+**2b — Reference the podspec from `ios/Podfile`** (inside the `target` block):
 ```ruby
-# Option B — direct xcframework embed
-s.vendored_frameworks = 'Frameworks/INSCameraSDK.xcframework'
+pod 'INSCameraSDK', :podspec => '../Frameworks/INSCameraSDK.podspec'
 ```
 
 #### 3 — Run pod install & EAS build
