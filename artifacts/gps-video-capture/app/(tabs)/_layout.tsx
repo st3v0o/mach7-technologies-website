@@ -20,6 +20,10 @@ function NativeTabLayout() {
         <Icon sf={{ default: 'list.bullet.rectangle', selected: 'list.bullet.rectangle.fill' }} />
         <Label>Log</Label>
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="external">
+        <Icon sf={{ default: 'camera.on.rectangle', selected: 'camera.on.rectangle.fill' }} />
+        <Label>External</Label>
+      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="settings">
         <Icon sf={{ default: 'slider.horizontal.3', selected: 'slider.horizontal.3' }} />
         <Label>Settings</Label>
@@ -81,6 +85,18 @@ function ClassicTabLayout() {
               <SymbolView name="list.bullet.rectangle" tintColor={color} size={24} />
             ) : (
               <Ionicons name="list-outline" size={22} color={color} />
+            ),
+        }}
+      />
+      <Tabs.Screen
+        name="external"
+        options={{
+          title: 'External',
+          tabBarIcon: ({ color }) =>
+            isIOS ? (
+              <SymbolView name="camera.on.rectangle" tintColor={color} size={24} />
+            ) : (
+              <Ionicons name="camera-outline" size={22} color={color} />
             ),
         }}
       />
