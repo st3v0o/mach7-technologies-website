@@ -10,7 +10,6 @@ import {
   Pressable,
   StyleSheet,
   Text,
-  useWindowDimensions,
   View,
 } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -19,10 +18,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import Colors from '@/constants/colors';
 import UploadProgressModal from '@/components/UploadProgressModal';
-import { useDetection } from '@/contexts/DetectionContext';
 import { useRecording } from '@/contexts/RecordingContext';
 import { FEET_PER_METER, MPH_PER_MPS, useSettings } from '@/contexts/SettingsContext';
-import { Detection, runDetection } from '@/lib/detectionModel';
 
 const TARGET_SEGMENT_BYTES = 250 * 1024 * 1024; // 250 MB
 const DEFAULT_SEGMENT_MS = 90_000;              // initial guess before bitrate is known
@@ -85,252 +82,10 @@ function GpsStatusDot({ status }: { status: string }) {
   );
 }
 
-const CORNER_ARM = 22;
-const CORNER_THICK = 3;
-const LOCK_COLOR = '#00FF88';
-const LOCK_GLOW = 'rgba(0,255,136,0.45)';
-
-function LockOnOverlay({
-  detection,
-  cameraW,
-  cameraH,
-}: {
-  detection: Detection | null;
-  cameraW: number;
-  cameraH: number;
-}) {
-  const enterAnim = useRef(new Animated.Value(0)).current;
-  const sweepAnim = useRef(new Animated.Value(0)).current;
-  const prevActive = useRef(false);
-
-  useEffect(() => {
-    const active = !!detection;
-    if (active === prevActive.current) return;
-    prevActive.current = active;
-    if (active) {
-      Animated.spring(enterAnim, {
-        toValue: 1,
-        friction: 5,
-        tension: 110,
-        useNativeDriver: true,
-      }).start();
-    } else {
-      Animated.timing(enterAnim, {
-        toValue: 0,
-        duration: 250,
-        easing: Easing.out(Easing.ease),
-        useNativeDriver: true,
-      }).start();
-    }
-  }, [!!detection, enterAnim]);
-
-  useEffect(() => {
-    if (!detection) {
-      sweepAnim.setValue(0);
-      return;
-    }
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(sweepAnim, { toValue: 1, duration: 1300, easing: Easing.inOut(Easing.ease), useNativeDriver: false }),
-        Animated.timing(sweepAnim, { toValue: 0, duration: 1300, easing: Easing.inOut(Easing.ease), useNativeDriver: false }),
-      ])
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [!!detection, sweepAnim]);
-
-  const scaleInterp = enterAnim.interpolate({ inputRange: [0, 1], outputRange: [1.08, 1] });
-
-  const bbox = detection?.bbox ?? { x: 0.15, y: 0.15, width: 0.7, height: 0.7 };
-
-  // Map normalised Roboflow bbox (0–1) → camera view pixels.
-  // Cap to 60% of the camera dimension so a full-frame region (e.g. a detected
-  // lane) never fills the whole screen.  When the cap triggers we re-centre the
-  // box on the original detection centre so it still points at the right spot.
-  const MAX_BOX_W = cameraW * 0.60;
-  const MAX_BOX_H = cameraH * 0.60;
-
-  const rawW = Math.max(bbox.width  * cameraW, 40);
-  const rawH = Math.max(bbox.height * cameraH, 40);
-  const bW   = Math.min(rawW, MAX_BOX_W);
-  const bH   = Math.min(rawH, MAX_BOX_H);
-
-  // Centre of the original detection in camera pixels
-  const cxPx = (bbox.x + bbox.width  / 2) * cameraW;
-  const cyPx = (bbox.y + bbox.height / 2) * cameraH;
-
-  // Top-left after capping, kept inside the camera area
-  const bLeft = Math.max(0, Math.min(cxPx - bW / 2, cameraW - bW));
-  const bTop  = Math.max(0, Math.min(cyPx - bH / 2, cameraH - bH - 50)); // 50 = label chip
-
-  const sweepY = sweepAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, bH - 2],
-  });
-
-  return (
-    <Animated.View
-      pointerEvents="none"
-      style={[
-        StyleSheet.absoluteFill,
-        { opacity: enterAnim, transform: [{ scale: scaleInterp }] },
-      ]}
-    >
-      <View style={{ position: 'absolute', left: bLeft, top: bTop, width: bW, height: bH }}>
-        <View style={[loStyles.cornerTL]} />
-        <View style={[loStyles.cornerTR]} />
-        <View style={[loStyles.cornerBL]} />
-        <View style={[loStyles.cornerBR]} />
-
-        <Animated.View
-          style={{
-            position: 'absolute',
-            left: 0,
-            right: 0,
-            height: 2,
-            backgroundColor: LOCK_GLOW,
-            transform: [{ translateY: sweepY }],
-          }}
-        />
-
-        {detection && (
-          <View style={loStyles.labelChip}>
-            <Animated.View
-              style={[
-                loStyles.labelDot,
-                { opacity: sweepAnim.interpolate({ inputRange: [0, 0.5, 1], outputRange: [1, 0.4, 1] }) },
-              ]}
-            />
-            <Text style={loStyles.labelText} numberOfLines={1}>
-              {detection.label.toUpperCase()}
-            </Text>
-            <View style={loStyles.labelDivider} />
-            <Text style={loStyles.confText}>{Math.round(detection.confidence * 100)}%</Text>
-            <Text style={loStyles.lockedTag}>LOCKED</Text>
-          </View>
-        )}
-      </View>
-
-      {detection && (
-        <>
-          <View style={[loStyles.crossH, { top: bTop + bH / 2 - 0.5, left: bLeft + bW / 2 - 10 }]} />
-          <View style={[loStyles.crossV, { top: bTop + bH / 2 - 10, left: bLeft + bW / 2 - 0.5 }]} />
-        </>
-      )}
-    </Animated.View>
-  );
-}
-
-const loStyles = StyleSheet.create({
-  cornerTL: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    width: CORNER_ARM,
-    height: CORNER_ARM,
-    borderTopWidth: CORNER_THICK,
-    borderLeftWidth: CORNER_THICK,
-    borderTopColor: LOCK_COLOR,
-    borderLeftColor: LOCK_COLOR,
-  },
-  cornerTR: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    width: CORNER_ARM,
-    height: CORNER_ARM,
-    borderTopWidth: CORNER_THICK,
-    borderRightWidth: CORNER_THICK,
-    borderTopColor: LOCK_COLOR,
-    borderRightColor: LOCK_COLOR,
-  },
-  cornerBL: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    width: CORNER_ARM,
-    height: CORNER_ARM,
-    borderBottomWidth: CORNER_THICK,
-    borderLeftWidth: CORNER_THICK,
-    borderBottomColor: LOCK_COLOR,
-    borderLeftColor: LOCK_COLOR,
-  },
-  cornerBR: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: CORNER_ARM,
-    height: CORNER_ARM,
-    borderBottomWidth: CORNER_THICK,
-    borderRightWidth: CORNER_THICK,
-    borderBottomColor: LOCK_COLOR,
-    borderRightColor: LOCK_COLOR,
-  },
-  labelChip: {
-    position: 'absolute',
-    bottom: -40,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(0,0,0,0.78)',
-    borderWidth: 1.5,
-    borderColor: LOCK_COLOR,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    alignSelf: 'center',
-  },
-  labelDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-    backgroundColor: LOCK_COLOR,
-  },
-  labelText: {
-    color: LOCK_COLOR,
-    fontFamily: 'Inter_700Bold',
-    fontSize: 13,
-    letterSpacing: 0.8,
-    flexShrink: 1,
-  },
-  labelDivider: {
-    width: 1,
-    height: 12,
-    backgroundColor: 'rgba(0,255,136,0.35)',
-  },
-  confText: {
-    color: LOCK_COLOR,
-    fontFamily: 'Inter_600SemiBold',
-    fontSize: 12,
-  },
-  lockedTag: {
-    color: 'rgba(0,255,136,0.6)',
-    fontFamily: 'Inter_400Regular',
-    fontSize: 9,
-    letterSpacing: 1.2,
-  },
-  crossH: {
-    position: 'absolute',
-    width: 20,
-    height: 1,
-    backgroundColor: LOCK_COLOR,
-  },
-  crossV: {
-    position: 'absolute',
-    width: 1,
-    height: 20,
-    backgroundColor: LOCK_COLOR,
-  },
-});
-
 export default function CaptureScreen() {
   const insets = useSafeAreaInsets();
   // iOS tab bar is 49pt; add the safe-area bottom inset (home indicator) on top
   const tabBarHeight = 49 + insets.bottom;
-  const { width: screenW, height: screenH } = useWindowDimensions();
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const [micPermission, requestMicPermission] = useMicrophonePermissions();
   const {
@@ -346,7 +101,6 @@ export default function CaptureScreen() {
     stopGps,
     processSegment,
     savePhoto,
-    saveDetectionFrame,
   } = useRecording();
 
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -459,12 +213,6 @@ export default function CaptureScreen() {
     prevIsRecording.current = isRecording;
   }, [isRecording]);
 
-  type ApiCallState = 'idle' | 'calling' | 'ok' | 'err' | 'nokey';
-  const [apiCallState, setApiCallState] = useState<ApiCallState>('idle');
-  const [apiLastMs, setApiLastMs] = useState(0);
-  const [apiLastCount, setApiLastCount] = useState(0);
-  const hasApiKey = !!process.env.EXPO_PUBLIC_ROBOFLOW_API_KEY;
-
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const pulseLoop = useRef<Animated.CompositeAnimation | null>(null);
 
@@ -483,111 +231,6 @@ export default function CaptureScreen() {
     }
   }, [isRecording, pulseAnim]);
 
-  const {
-    detectionEnabled,
-    setDetectionEnabled,
-    isDetecting,
-    currentEvent,
-    currentDetection,
-    lastCommittedEvent,
-    reportResult,
-    clearCurrentEvent,
-    clearLastCommittedEvent,
-  } = useDetection();
-
-  useEffect(() => {
-    if (!lastCommittedEvent?.bestFrameUri) return;
-    saveDetectionFrame(
-      lastCommittedEvent.bestFrameUri,
-      lastCommittedEvent.startedAt,
-      lastCommittedEvent.label || 'sign',
-      lastCommittedEvent.confidence
-    );
-    clearLastCommittedEvent();
-  }, [lastCommittedEvent, saveDetectionFrame, clearLastCommittedEvent]);
-
-  const detectionIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const scanAnim = useRef(new Animated.Value(0)).current;
-
-  // Stable ref so runRecordingLoop always sees the latest detection state
-  const detectionEnabledRef = useRef(detectionEnabled);
-  const reportResultRef = useRef(reportResult);
-  useEffect(() => { detectionEnabledRef.current = detectionEnabled; }, [detectionEnabled]);
-  useEffect(() => { reportResultRef.current = reportResult; }, [reportResult]);
-
-  const onSegmentFrameReady = useCallback(async (frameUri: string, _timestamp: number) => {
-    if (!detectionEnabledRef.current || !hasApiKey) return;
-    try {
-      setApiCallState('calling');
-      const result = await runDetection(frameUri);
-      setApiCallState('ok');
-      setApiLastMs(result.inferenceMs);
-      setApiLastCount(result.detections.length);
-      reportResultRef.current(result, frameUri);
-    } catch (e) {
-      console.log('[Detection] segment frame error:', e);
-      setApiCallState('err');
-    }
-  }, [hasApiKey]);
-
-  useEffect(() => {
-    if (isDetecting) {
-      const loop = Animated.loop(
-        Animated.sequence([
-          Animated.timing(scanAnim, { toValue: 1, duration: 600, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
-          Animated.timing(scanAnim, { toValue: 0.3, duration: 600, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
-        ])
-      );
-      loop.start();
-      return () => loop.stop();
-    } else {
-      scanAnim.setValue(detectionEnabled ? 0.25 : 0);
-    }
-  }, [isDetecting, detectionEnabled, scanAnim]);
-
-  // Detection during PREVIEW (not recording): takePictureAsync works fine when
-  // recordAsync is not running. During recording, detection is driven by
-  // processSegment's onFrameReady callback instead (see call site below).
-  useEffect(() => {
-    if (detectionEnabled && !isRecording && Platform.OS !== 'web') {
-      if (!hasApiKey) {
-        setApiCallState('nokey');
-        return;
-      }
-      console.log('[Detection] preview interval starting');
-      detectionIntervalRef.current = setInterval(async () => {
-        try {
-          if (!cameraRef.current) return;
-          setApiCallState('calling');
-          const photo = await (cameraRef.current as any).takePictureAsync({
-            quality: 0.7,
-          });
-          if (!photo?.uri) { setApiCallState('err'); return; }
-          const result = await runDetection(photo.uri);
-          setApiCallState('ok');
-          setApiLastMs(result.inferenceMs);
-          setApiLastCount(result.detections.length);
-          reportResult(result, photo.uri);
-        } catch (e) {
-          console.log('[Detection] takePicture error:', e);
-          setApiCallState('err');
-        }
-      }, 900);
-    } else {
-      if (detectionIntervalRef.current) {
-        clearInterval(detectionIntervalRef.current);
-        detectionIntervalRef.current = null;
-      }
-      if (!isRecording && !detectionEnabled) clearCurrentEvent();
-    }
-    return () => {
-      if (detectionIntervalRef.current) {
-        clearInterval(detectionIntervalRef.current);
-        detectionIntervalRef.current = null;
-      }
-    };
-  }, [isRecording, detectionEnabled, hasApiKey, reportResult, clearCurrentEvent]);
-
   const clearTimers = useCallback(() => {
     if (segmentTimerRef.current) clearTimeout(segmentTimerRef.current);
     if (elapsedIntervalRef.current) clearInterval(elapsedIntervalRef.current);
@@ -604,12 +247,12 @@ export default function CaptureScreen() {
       const photo = await (cameraRef.current as any).takePictureAsync({ quality: 0.85 });
       if (photo?.uri) {
         const ts = Date.now();
-        await savePhoto(photo.uri, ts, onSegmentFrameReady);
+        await savePhoto(photo.uri, ts);
         setPhotoCount((n) => n + 1);
       }
     } catch {}
     photoCapturingRef.current = false;
-  }, [savePhoto, onSegmentFrameReady]);
+  }, [savePhoto]);
 
   const startPhotoLoop = useCallback(() => {
     photoCapturingRef.current = false;
@@ -704,7 +347,7 @@ export default function CaptureScreen() {
         // Adapt duration for next segment based on measured bitrate, then process
         // (both happen in background — recording loop restarts immediately)
         adaptSegmentDuration(result.uri, actualDurationMs);
-        processSegment(result.uri, segNum, startTime, actualDurationMs, settingsRef.current, onSegmentFrameReady);
+        processSegment(result.uri, segNum, startTime, actualDurationMs, settingsRef.current);
       }
 
       // No artificial delay — restart the next segment immediately
@@ -713,7 +356,7 @@ export default function CaptureScreen() {
 
     setIsRecording(false);
     setElapsedSeconds(0);
-  }, [clearTimers, processSegment, adaptSegmentDuration, onSegmentFrameReady]);
+  }, [clearTimers, processSegment, adaptSegmentDuration]);
 
   const handleStartRecording = useCallback(async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
@@ -985,78 +628,15 @@ export default function CaptureScreen() {
             </View>
           </View>
 
-          <View style={styles.detectionRow}>
-            {!isRecording ? (
-              <Pressable
-                onPress={() => setDetectionEnabled(!detectionEnabled)}
-                style={({ pressed }) => [
-                  styles.detectToggle,
-                  detectionEnabled && styles.detectToggleOn,
-                  pressed && { opacity: 0.75 },
-                ]}
-              >
-                <Ionicons
-                  name={detectionEnabled ? 'eye' : 'eye-outline'}
-                  size={15}
-                  color={detectionEnabled ? Colors.gpsGreen : Colors.textSecondary}
-                />
-                <Text style={[styles.detectToggleText, detectionEnabled && styles.detectToggleTextOn]}>
-                  Real-Time Detection
-                </Text>
-                <View style={[styles.detectTogglePill, detectionEnabled && styles.detectTogglePillOn]}>
-                  <Text style={[styles.detectTogglePillText, detectionEnabled && styles.detectTogglePillTextOn]}>
-                    {detectionEnabled ? 'ON' : 'OFF'}
-                  </Text>
-                </View>
-              </Pressable>
-            ) : detectionEnabled ? (
-              <View style={styles.aiActiveRow}>
-                {apiCallState === 'nokey' ? (
-                  <>
-                    <Ionicons name="warning-outline" size={12} color={Colors.amber} />
-                    <Text style={[styles.aiActiveLabel, { color: Colors.amber }]}>NO API KEY SET</Text>
-                  </>
-                ) : apiCallState === 'err' ? (
-                  <>
-                    <Ionicons name="close-circle-outline" size={12} color={Colors.accent} />
-                    <Text style={[styles.aiActiveLabel, { color: Colors.accent }]}>API ERROR</Text>
-                  </>
-                ) : (
-                  <>
-                    <Animated.View style={[styles.aiDot, {
-                      opacity: scanAnim,
-                      backgroundColor: isDetecting ? Colors.gpsGreen : apiCallState === 'calling' ? Colors.amber : Colors.textTertiary,
-                    }]} />
-                    <Text style={[styles.aiActiveLabel, isDetecting && { color: Colors.gpsGreen }]}>
-                      {isDetecting ? 'SIGN DETECTED' : apiCallState === 'calling' ? 'CALLING API…' : 'AI SCANNING'}
-                    </Text>
-                    {apiCallState === 'ok' && (
-                      <Text style={styles.aiStatText}>
-                        {apiLastCount > 0 ? `${apiLastCount} hit${apiLastCount > 1 ? 's' : ''}` : '0 hits'} · {apiLastMs}ms
-                      </Text>
-                    )}
-                  </>
-                )}
-              </View>
-            ) : (
-              <Text style={styles.hintText}>
-                {settings.captureMode === 'photo'
-                  ? 'Photos saved directly · GPS tagged'
-                  : 'Auto-saves every ~250 MB · frames tagged with GPS'}
-              </Text>
-            )}
+          <View style={styles.hintRow}>
+            <Text style={styles.hintText}>
+              {settings.captureMode === 'photo'
+                ? 'Photos saved directly · GPS tagged'
+                : 'Auto-saves every ~250 MB · frames tagged with GPS'}
+            </Text>
           </View>
         </BlurView>
       </View>
-
-      {/* Lock-on targeting overlay — rendered last so it always sits on top */}
-      {detectionEnabled && (
-        <LockOnOverlay
-          detection={currentDetection}
-          cameraW={screenW}
-          cameraH={screenH - tabBarHeight}
-        />
-      )}
 
       {/* Zoom level pill */}
       <Animated.View
@@ -1346,86 +926,16 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_500Medium',
     fontSize: 13,
   },
+  hintRow: {
+    alignItems: 'center',
+    paddingTop: 6,
+    paddingBottom: 2,
+  },
   hintText: {
     textAlign: 'center',
     color: Colors.textTertiary,
     fontFamily: 'Inter_400Regular',
     fontSize: 11,
-    marginTop: 10,
-    letterSpacing: 0.3,
-  },
-  detectionRow: {
-    alignItems: 'center',
-    paddingTop: 6,
-    paddingBottom: 2,
-    minHeight: 36,
-    justifyContent: 'center',
-  },
-  detectToggle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 20,
-    backgroundColor: Colors.surface,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  detectToggleOn: {
-    borderColor: Colors.gpsGreen,
-    backgroundColor: Colors.gpsDim,
-  },
-  detectToggleText: {
-    color: Colors.textSecondary,
-    fontFamily: 'Inter_500Medium',
-    fontSize: 13,
-  },
-  detectToggleTextOn: {
-    color: Colors.gpsGreen,
-  },
-  detectTogglePill: {
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 8,
-    backgroundColor: Colors.card,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  detectTogglePillOn: {
-    backgroundColor: Colors.gpsGreen,
-    borderColor: Colors.gpsGreen,
-  },
-  detectTogglePillText: {
-    color: Colors.textTertiary,
-    fontFamily: 'Inter_700Bold',
-    fontSize: 10,
-    letterSpacing: 0.5,
-  },
-  detectTogglePillTextOn: {
-    color: '#000',
-  },
-  aiActiveRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  aiDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: Colors.gpsGreen,
-  },
-  aiActiveLabel: {
-    color: Colors.textSecondary,
-    fontFamily: 'Inter_700Bold',
-    fontSize: 11,
-    letterSpacing: 1.2,
-  },
-  aiStatText: {
-    color: Colors.textTertiary,
-    fontFamily: 'Inter_400Regular',
-    fontSize: 10,
     letterSpacing: 0.3,
   },
   zoomStepRow: {

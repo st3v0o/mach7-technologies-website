@@ -160,17 +160,6 @@ function SheetPage({
           </View>
         )}
 
-        {entry.detectionLabel && (
-          <View style={styles.detBadge}>
-            <Ionicons name="eye" size={12} color={Colors.gpsGreen} />
-            <Text style={styles.detBadgeText}>
-              {entry.detectionLabel.toUpperCase()}
-              {entry.detectionConfidence != null
-                ? `  ${(entry.detectionConfidence * 100).toFixed(0)}%`
-                : ''}
-            </Text>
-          </View>
-        )}
       </View>
 
       {/* Info panel — flex fills bottom half */}

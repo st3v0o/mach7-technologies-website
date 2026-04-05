@@ -64,8 +64,6 @@ function UploadBadge({ frameId }: { frameId: string }) {
 
 function FrameDetailModal({ entry, onClose }: { entry: LogEntry; onClose: () => void }) {
   const insets = useSafeAreaInsets();
-  const hasDetection = Boolean(entry.detectionLabel);
-  const confidence = entry.detectionConfidence ?? 0;
 
   return (
     <Modal
@@ -111,49 +109,6 @@ function FrameDetailModal({ entry, onClose }: { entry: LogEntry; onClose: () => 
           </View>
         </View>
 
-        {/* Detection lock-on overlay — shown when detection exists */}
-        {hasDetection && (
-          <View style={modalStyles.detectionOverlay} pointerEvents="none">
-            {/* Corner brackets */}
-            <View style={modalStyles.bracketTL}>
-              <View style={[modalStyles.bracketH, { left: 0, top: 0 }]} />
-              <View style={[modalStyles.bracketV, { left: 0, top: 0 }]} />
-            </View>
-            <View style={modalStyles.bracketTR}>
-              <View style={[modalStyles.bracketH, { right: 0, top: 0 }]} />
-              <View style={[modalStyles.bracketV, { right: 0, top: 0 }]} />
-            </View>
-            <View style={modalStyles.bracketBL}>
-              <View style={[modalStyles.bracketH, { left: 0, bottom: 0 }]} />
-              <View style={[modalStyles.bracketV, { left: 0, bottom: 0 }]} />
-            </View>
-            <View style={modalStyles.bracketBR}>
-              <View style={[modalStyles.bracketH, { right: 0, bottom: 0 }]} />
-              <View style={[modalStyles.bracketV, { right: 0, bottom: 0 }]} />
-            </View>
-
-            {/* Center crosshair */}
-            <View style={modalStyles.crosshairH} />
-            <View style={modalStyles.crosshairV} />
-
-            {/* LOCKED chip */}
-            <View style={modalStyles.lockedChip}>
-              <Text style={modalStyles.lockedText}>LOCKED</Text>
-            </View>
-
-            {/* Label + confidence */}
-            <View style={modalStyles.detectionLabel}>
-              <Ionicons name="eye" size={13} color={Colors.gpsGreen} />
-              <Text style={modalStyles.detectionLabelText}>
-                {entry.detectionLabel!.toUpperCase()}
-              </Text>
-              <Text style={modalStyles.detectionConfText}>
-                {(confidence * 100).toFixed(0)}%
-              </Text>
-            </View>
-          </View>
-        )}
-
         {/* Bottom info panel */}
         <View style={[modalStyles.bottomPanel, { paddingBottom: insets.bottom + 16 }]}>
           <View style={modalStyles.gpsRow}>
@@ -171,17 +126,6 @@ function FrameDetailModal({ entry, onClose }: { entry: LogEntry; onClose: () => 
               <Text style={modalStyles.metaLabel}>SEGMENT</Text>
               <Text style={modalStyles.metaValue}>{entry.videoSegment.replace('seg_', '')}</Text>
             </View>
-            {hasDetection && (
-              <>
-                <View style={modalStyles.metaDivider} />
-                <View style={modalStyles.metaItem}>
-                  <Text style={[modalStyles.metaLabel, { color: Colors.gpsGreen }]}>DETECTION</Text>
-                  <Text style={[modalStyles.metaValue, { color: Colors.gpsGreen }]}>
-                    {(confidence * 100).toFixed(0)}% CONF
-                  </Text>
-                </View>
-              </>
-            )}
           </View>
         </View>
       </View>
@@ -231,18 +175,9 @@ function FrameRow({
       </View>
 
       <View style={styles.rowRight}>
-        {entry.detectionLabel ? (
-          <View style={styles.detectionBadge}>
-            <Ionicons name="eye" size={10} color={Colors.gpsGreen} />
-            <Text style={styles.detectionBadgeText} numberOfLines={1}>
-              {entry.detectionLabel}
-            </Text>
-          </View>
-        ) : (
-          <View style={styles.segmentBadge}>
-            <Text style={styles.segmentBadgeText}>{entry.videoSegment.replace('seg_', '')}</Text>
-          </View>
-        )}
+        <View style={styles.segmentBadge}>
+          <Text style={styles.segmentBadgeText}>{entry.videoSegment.replace('seg_', '')}</Text>
+        </View>
         <UploadBadge frameId={entry.id} />
         <Ionicons name="chevron-forward" size={14} color={Colors.textTertiary} />
       </View>
