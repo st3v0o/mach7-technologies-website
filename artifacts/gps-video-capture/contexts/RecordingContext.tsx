@@ -50,6 +50,8 @@ interface RecordingContextType {
   gpsPointsRef: React.MutableRefObject<GpsPoint[]>;
   startGps: () => Promise<void>;
   stopGps: (mode?: 'video' | 'photo' | 'manual') => void;
+  pauseGps: () => void;
+  resumeGps: () => void;
   shareGpx: (sessionId: string) => Promise<void>;
   processSegment: (
     uri: string,
@@ -130,7 +132,18 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
   const [logEntries, setLogEntries] = useState<LogEntry[]>([]);
   const [sessionId, setSessionId] = useState<string>('');
 
+  // ── GPS refs ────────────────────────────────────────────────────────────────
+  // Flat array used for frame-matching (distance calculations, photo matching).
   const gpsPointsRef = useRef<GpsPoint[]>([]);
+
+  // Segmented arrays: each sub-array is one continuous GPS track segment.
+  // A new segment is opened on resume after a pause.
+  const gpsSegmentsRef = useRef<GpsPoint[][]>([]);
+  // Points being collected in the current (open) segment.
+  const currentSegmentRef = useRef<GpsPoint[]>([]);
+  // Whether GPS is currently paused (don't add to current segment).
+  const isPausedRef = useRef(false);
+
   const sessionIdRef = useRef<string>('');
   const locationSubRef = useRef<Location.LocationSubscription | null>(null);
   const nativePathsRef = useRef<{ framesDir: string; videosDir: string; csvPath: string; gpxDir: string } | null>(null);
@@ -160,7 +173,12 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
   const startGps = useCallback(async () => {
     if (Platform.OS === 'web') return;
     setGpsStatus('searching');
+    // Reset all segment tracking
     gpsPointsRef.current = [];
+    gpsSegmentsRef.current = [];
+    currentSegmentRef.current = [];
+    isPausedRef.current = false;
+
     const sid = makeSessionId();
     sessionIdRef.current = sid;
     setSessionId(sid);
@@ -186,7 +204,12 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
             accuracy: loc.coords.accuracy,
             speed: loc.coords.speed,
           };
+          // Always push to flat ref (used for frame-time GPS matching).
           gpsPointsRef.current.push(point);
+          // Only add to the active segment when not paused.
+          if (!isPausedRef.current) {
+            currentSegmentRef.current.push(point);
+          }
           setCurrentGps(point);
           setGpsStatus('locked');
         }
@@ -196,34 +219,67 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // ── Pause GPS tracking (seal current segment) ───────────────────────────────
+  const pauseGps = useCallback(() => {
+    if (isPausedRef.current) return;
+    isPausedRef.current = true;
+    // Seal the current open segment.
+    if (currentSegmentRef.current.length > 0) {
+      gpsSegmentsRef.current.push([...currentSegmentRef.current]);
+      currentSegmentRef.current = [];
+    }
+  }, []);
+
+  // ── Resume GPS tracking (open a fresh segment) ──────────────────────────────
+  const resumeGps = useCallback(() => {
+    if (!isPausedRef.current) return;
+    isPausedRef.current = false;
+    currentSegmentRef.current = [];
+  }, []);
+
+  // ── Internal: save segments as a GPX file ───────────────────────────────────
   const saveGpx = useCallback(async (
     sid: string,
-    points: GpsPoint[],
+    segments: GpsPoint[][],
     mode: 'video' | 'photo' | 'manual'
   ) => {
-    if (Platform.OS === 'web' || points.length === 0 || !sid) return;
+    const allPoints = segments.flat();
+    if (Platform.OS === 'web' || allPoints.length === 0 || !sid) return;
     try {
       const FileSystem = await import('expo-file-system/legacy');
       if (!nativePathsRef.current) {
         nativePathsRef.current = await getOrCreatePaths();
       }
       const gpxPath = nativePathsRef.current.gpxDir + sid + '.gpx';
-      const xml = buildGpxXml(sid, points, mode);
+      const xml = buildGpxXml(sid, segments, mode);
       await FileSystem.writeAsStringAsync(gpxPath, xml, {
         encoding: (FileSystem as any).EncodingType?.UTF8 ?? 'utf8',
       });
     } catch {}
   }, []);
 
+  // ── Stop GPS, finalize all segments, write GPX ──────────────────────────────
   const stopGps = useCallback((mode?: 'video' | 'photo' | 'manual') => {
-    const points = [...gpsPointsRef.current];
     const sid = sessionIdRef.current;
     locationSubRef.current?.remove();
     locationSubRef.current = null;
     setGpsStatus('idle');
     setCurrentGps(null);
-    if (mode && sid && points.length > 0) {
-      saveGpx(sid, points, mode);
+
+    // Reset pause state
+    isPausedRef.current = false;
+
+    // Seal any open segment before stopping.
+    if (currentSegmentRef.current.length > 0) {
+      gpsSegmentsRef.current.push([...currentSegmentRef.current]);
+      currentSegmentRef.current = [];
+    }
+
+    const segments = [...gpsSegmentsRef.current];
+    gpsSegmentsRef.current = [];
+
+    if (mode && sid && segments.some((seg) => seg.length > 0)) {
+      saveGpx(sid, segments, mode);
     }
   }, [saveGpx]);
 
@@ -526,6 +582,8 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
         gpsPointsRef,
         startGps,
         stopGps,
+        pauseGps,
+        resumeGps,
         shareGpx,
         processSegment,
         savePhoto,

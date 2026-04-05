@@ -99,6 +99,8 @@ export default function CaptureScreen() {
     gpsPointsRef,
     startGps,
     stopGps,
+    pauseGps,
+    resumeGps,
     processSegment,
     savePhoto,
   } = useRecording();
@@ -180,6 +182,13 @@ export default function CaptureScreen() {
   const segmentDurationMsRef = useRef(DEFAULT_SEGMENT_MS);
   const micGrantedRef = useRef(micPermission?.granted ?? false);
 
+  // ── Pause / resume ────────────────────────────────────────────────────────
+  const [isPaused, setIsPaused] = useState(false);
+  const isPausedRef = useRef(false);
+  // Resolves the promise that the recording loop waits on when paused.
+  const pauseResolverRef = useRef<(() => void) | null>(null);
+  // ─────────────────────────────────────────────────────────────────────────
+
   // ── Auto photo mode refs ──────────────────────────────────────────────────
   const [photoCount, setPhotoCount] = useState(0);
   const photoIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -260,7 +269,7 @@ export default function CaptureScreen() {
   const pulseLoop = useRef<Animated.CompositeAnimation | null>(null);
 
   useEffect(() => {
-    if (isRecording) {
+    if (isRecording && !isPaused) {
       pulseLoop.current = Animated.loop(
         Animated.sequence([
           Animated.timing(pulseAnim, { toValue: 1.18, duration: 800, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
@@ -272,7 +281,7 @@ export default function CaptureScreen() {
       pulseLoop.current?.stop();
       pulseAnim.setValue(1);
     }
-  }, [isRecording, pulseAnim]);
+  }, [isRecording, isPaused, pulseAnim]);
 
   const clearTimers = useCallback(() => {
     if (segmentTimerRef.current) clearTimeout(segmentTimerRef.current);
@@ -366,7 +375,8 @@ export default function CaptureScreen() {
       }, 1000);
 
       const autoStopTimer = setTimeout(() => {
-        if (isRecordingRef.current) {
+        // Only auto-stop when not paused (pause handles its own stopRecording call)
+        if (isRecordingRef.current && !isPausedRef.current) {
           cameraRef.current?.stopRecording();
         }
       }, segDuration);
@@ -393,11 +403,17 @@ export default function CaptureScreen() {
         processSegment(result.uri, segNum, startTime, actualDurationMs, settingsRef.current);
       }
 
-      // No artificial delay — restart the next segment immediately
       if (!isRecordingRef.current) break;
+
+      // If paused, wait here until resume() wakes us up.
+      if (isPausedRef.current) {
+        await new Promise<void>(resolve => { pauseResolverRef.current = resolve; });
+        if (!isRecordingRef.current) break;
+      }
     }
 
     setIsRecording(false);
+    setIsPaused(false);
     setElapsedSeconds(0);
   }, [clearTimers, processSegment, adaptSegmentDuration]);
 
@@ -428,6 +444,13 @@ export default function CaptureScreen() {
   const handleStopRecording = useCallback(async () => {
     await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     isRecordingRef.current = false;
+    isPausedRef.current = false;
+    setIsPaused(false);
+    // If the loop is waiting on a pause, release it so it can exit.
+    if (pauseResolverRef.current) {
+      pauseResolverRef.current();
+      pauseResolverRef.current = null;
+    }
     clearTimers();
     const captureMode = settingsRef.current.captureMode;
     if (captureMode === 'photo') {
@@ -439,6 +462,47 @@ export default function CaptureScreen() {
     }
     stopGps(captureMode);
   }, [clearTimers, stopPhotoLoop, stopGps]);
+
+  const handlePauseRecording = useCallback(async () => {
+    if (!isRecordingRef.current || isPausedRef.current) return;
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    isPausedRef.current = true;
+    setIsPaused(true);
+    // Seal current GPS segment.
+    pauseGps();
+    const captureMode = settingsRef.current.captureMode;
+    if (captureMode === 'photo') {
+      stopPhotoLoop();
+      clearTimers();
+    } else {
+      // Stop the current video segment — the loop will detect isPausedRef and wait.
+      clearTimers();
+      cameraRef.current?.stopRecording();
+    }
+  }, [pauseGps, stopPhotoLoop, clearTimers]);
+
+  const handleResumeRecording = useCallback(async () => {
+    if (!isRecordingRef.current || !isPausedRef.current) return;
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    // Open a fresh GPS segment.
+    resumeGps();
+    isPausedRef.current = false;
+    setIsPaused(false);
+    const captureMode = settingsRef.current.captureMode;
+    if (captureMode === 'photo') {
+      setElapsedSeconds(0);
+      elapsedIntervalRef.current = setInterval(() => {
+        setElapsedSeconds((s) => s + 1);
+      }, 1000);
+      startPhotoLoop();
+    } else {
+      // Wake up the recording loop — it will start a new video segment.
+      if (pauseResolverRef.current) {
+        pauseResolverRef.current();
+        pauseResolverRef.current = null;
+      }
+    }
+  }, [resumeGps, startPhotoLoop]);
 
   const segmentProgress = Math.min(elapsedSeconds / (currentSegmentMs / 1000), 1);
   // fraction of segment elapsed × 250 MB target
@@ -654,10 +718,15 @@ export default function CaptureScreen() {
 
           <View style={styles.controlsRow}>
             <View style={styles.controlSide}>
-              {isRecording ? (
+              {isRecording && !isPaused ? (
                 <View style={styles.recIndicator}>
                   <View style={styles.recDot} />
                   <Text style={styles.recLabel}>REC</Text>
+                </View>
+              ) : isRecording && isPaused ? (
+                <View style={styles.recIndicator}>
+                  <View style={[styles.recDot, { backgroundColor: Colors.amber }]} />
+                  <Text style={[styles.recLabel, { color: Colors.amber }]}>PAUSED</Text>
                 </View>
               ) : (
                 <Text style={styles.readyLabel}>READY</Text>
@@ -697,7 +766,27 @@ export default function CaptureScreen() {
             </Animated.View>
 
             <View style={styles.controlSide}>
-              {(segmentCount > 0 || processingStatus === 'processing') && (
+              {/* Pause / resume button — shown while a video/photo session is active */}
+              {isRecording && settings.captureMode !== 'manual' && (
+                <Pressable
+                  onPress={isPaused ? handleResumeRecording : handlePauseRecording}
+                  style={({ pressed }) => [
+                    styles.pauseButton,
+                    isPaused && styles.pauseButtonActive,
+                    pressed && { opacity: 0.7 },
+                  ]}
+                  testID="pause-button"
+                >
+                  <Ionicons
+                    name={isPaused ? 'play' : 'pause'}
+                    size={16}
+                    color={isPaused ? Colors.background : Colors.amber}
+                  />
+                </Pressable>
+              )}
+
+              {/* Segment count badge — hidden while pause button is shown */}
+              {!isRecording && (segmentCount > 0 || processingStatus === 'processing') && (
                 <View style={styles.segCountBadge}>
                   <Ionicons name="layers-outline" size={12} color={Colors.textSecondary} />
                   <Text style={styles.segCountText}>{segmentCount}</Text>
@@ -1021,6 +1110,20 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     fontFamily: 'Inter_500Medium',
     fontSize: 13,
+  },
+  pauseButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 2,
+    borderColor: Colors.amber,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,184,0,0.12)',
+  },
+  pauseButtonActive: {
+    backgroundColor: Colors.amber,
+    borderColor: Colors.amber,
   },
   hintRow: {
     alignItems: 'center',

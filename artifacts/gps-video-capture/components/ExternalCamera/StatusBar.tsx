@@ -40,6 +40,8 @@ export function ExternalCameraStatusBar({
   const recColor =
     recordingState === 'recording'
       ? Colors.accent
+      : recordingState === 'paused'
+      ? Colors.amber
       : recordingState === 'error'
       ? '#ff4444'
       : Colors.textTertiary;

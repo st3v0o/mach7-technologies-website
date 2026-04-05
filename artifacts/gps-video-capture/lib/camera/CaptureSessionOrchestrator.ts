@@ -34,21 +34,21 @@ type EventCallback = (event: OrchestratorEvent) => void;
  * Manages:
  *  - Camera provider connection lifecycle
  *  - GPS provider lifecycle (CoreLocation, camera GPS, or hybrid)
- *  - Recording start/stop
- *  - GPS point accumulation and timestamp alignment
+ *  - Recording start/stop/pause/resume
+ *  - GPS track-segment accumulation (each pause opens a new segment)
  *  - Session persistence to AsyncStorage
  *  - Error propagation and recovery
  *
- * Usage:
- *   const orch = new CaptureSessionOrchestrator();
- *   orch.onEvent(e => { ... });
- *   await orch.setCamera(provider);
- *   await orch.connectDevice(deviceId);
- *   orch.setGPSMode('hybrid');
- *   await orch.startSession();
- *   await orch.startRecording(config);
- *   await orch.stopRecording();
- *   await orch.endSession();
+ * Pause / resume:
+ *   pauseRecording()  — stops recording on the external camera (most cameras
+ *                       do not support a native pause API), seals the current
+ *                       GPS track segment, and sets state → 'paused'.
+ *   resumeRecording() — opens a fresh GPS segment and restarts recording,
+ *                       setting state → 'recording'.
+ *
+ *   getGpsSegments()  — returns the accumulated GPS track segments; each
+ *                       element is one continuous segment to be written as a
+ *                       separate <trkseg> in the exported GPX file.
  */
 export class CaptureSessionOrchestrator {
   // ── Dependencies ────────────────────────────────────────────────────────────
@@ -64,6 +64,14 @@ export class CaptureSessionOrchestrator {
   private _session: CaptureSession | null = null;
   private _recordingState: RecordingState = 'idle';
   private _gpsUnsub: (() => void) | null = null;
+
+  // ── GPS segment tracking ─────────────────────────────────────────────────────
+  // Sealed segments (each is one continuous block of GPS points).
+  private _gpsSegments: GPSPoint[][] = [];
+  // Points being collected in the currently open segment.
+  private _currentSegmentPoints: GPSPoint[] = [];
+  // Whether GPS is paused (new points are not added to the current segment).
+  private _isPaused = false;
 
   // ── Listeners ───────────────────────────────────────────────────────────────
   private _listeners = new Set<EventCallback>();
@@ -120,6 +128,20 @@ export class CaptureSessionOrchestrator {
     return this._gpsMode;
   }
 
+  // ── Public API: GPS segments ────────────────────────────────────────────────
+
+  /**
+   * Returns a copy of all sealed GPS track segments plus any currently open
+   * segment.  Use this to build a multi-segment GPX file.
+   */
+  getGpsSegments(): GPSPoint[][] {
+    const result = [...this._gpsSegments];
+    if (this._currentSegmentPoints.length > 0) {
+      result.push([...this._currentSegmentPoints]);
+    }
+    return result;
+  }
+
   // ── Public API: session lifecycle ───────────────────────────────────────────
 
   async startSession(): Promise<CaptureSession> {
@@ -146,13 +168,23 @@ export class CaptureSessionOrchestrator {
     };
     this._session = session;
 
+    // Reset GPS segment state
+    this._gpsSegments = [];
+    this._currentSegmentPoints = [];
+    this._isPaused = false;
+
     // Start GPS
     const gpsProvider = this._resolveGPSProvider();
     this._gpsProvider = gpsProvider;
     await gpsProvider.requestPermissionsIfNeeded();
     await gpsProvider.startLocationStream(sessionId);
     this._gpsUnsub = gpsProvider.onLocationUpdate(point => {
+      // Always push to flat session list (for telemetry / backward-compat).
       this._session?.gpsPoints.push(point);
+      // Only push to the current segment when not paused.
+      if (!this._isPaused) {
+        this._currentSegmentPoints.push(point);
+      }
       this._emit({ type: 'gpsPoint', point });
     });
 
@@ -163,14 +195,17 @@ export class CaptureSessionOrchestrator {
   async endSession(): Promise<CaptureSession | null> {
     if (!this._session) return null;
 
-    if (this._recordingState === 'recording') {
-      await this.stopRecording().catch(() => {});
+    if (this._recordingState === 'recording' || this._recordingState === 'paused') {
+      await this._stopCameraRecordingQuiet();
     }
 
     const sid = this._session.sessionId;
     this._gpsProvider?.stopLocationStream(sid);
     this._gpsUnsub?.();
     this._gpsUnsub = null;
+
+    // Seal any open GPS segment.
+    this._sealCurrentSegment();
 
     this._session.endTimestamp = Date.now();
     this._session.recordingState = 'idle';
@@ -179,6 +214,7 @@ export class CaptureSessionOrchestrator {
     const finished = { ...this._session };
     this._session = null;
     this._recordingState = 'idle';
+    this._isPaused = false;
 
     this._emit({ type: 'sessionEnded', session: finished });
     return finished;
@@ -195,16 +231,17 @@ export class CaptureSessionOrchestrator {
     try {
       await this._camera!.startRecording(config);
       this._setRecordingState('recording');
-    } catch (e: any) {
+    } catch (e: unknown) {
       this._setRecordingState('error');
-      const err = this._makeError('RECORDING_START_FAILED', e.message);
+      const msg = e instanceof Error ? e.message : String(e);
+      const err = this._makeError('RECORDING_START_FAILED', msg);
       this._session?.errorLog.push(err.message);
       throw err;
     }
   }
 
   async stopRecording(): Promise<string | null> {
-    if (this._recordingState !== 'recording') return null;
+    if (this._recordingState !== 'recording' && this._recordingState !== 'paused') return null;
     this._setRecordingState('stopping');
     try {
       const mediaId = await this._camera!.stopRecording();
@@ -215,9 +252,64 @@ export class CaptureSessionOrchestrator {
       }
       if (this._session) await saveSession(this._session);
       return mediaId;
-    } catch (e: any) {
+    } catch (e: unknown) {
       this._setRecordingState('error');
-      const err = this._makeError('RECORDING_STOP_FAILED', e.message);
+      const msg = e instanceof Error ? e.message : String(e);
+      const err = this._makeError('RECORDING_STOP_FAILED', msg);
+      this._session?.errorLog.push(err.message);
+      throw err;
+    }
+  }
+
+  /**
+   * Pause: stop the external camera recording, seal the current GPS segment,
+   * and transition to 'paused' state.
+   *
+   * Most external cameras (GoPro, Canon CCAPI, UVC, Insta360) do not expose a
+   * native pause API, so pause is implemented as stop + resume-as-new-recording.
+   */
+  async pauseRecording(): Promise<void> {
+    if (this._recordingState !== 'recording') return;
+
+    // Seal current GPS segment.
+    this._sealCurrentSegment();
+    this._isPaused = true;
+
+    // Stop the physical recording; the media clip is saved.
+    this._setRecordingState('stopping');
+    try {
+      const mediaId = await this._camera!.stopRecording();
+      if (mediaId) {
+        this._session?.importedMediaIds.push(mediaId);
+        this._emit({ type: 'mediaAvailable', mediaId });
+      }
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      this._session?.errorLog.push(`pause: ${msg}`);
+    }
+
+    if (this._session) await saveSession(this._session).catch(() => {});
+    this._setRecordingState('paused');
+  }
+
+  /**
+   * Resume: open a fresh GPS segment and restart recording.
+   */
+  async resumeRecording(config: RecordingConfig = {}): Promise<void> {
+    if (this._recordingState !== 'paused') return;
+
+    // Open a new GPS segment.
+    this._currentSegmentPoints = [];
+    this._isPaused = false;
+
+    this._setRecordingState('starting');
+    try {
+      await this._camera!.startRecording(config);
+      this._setRecordingState('recording');
+    } catch (e: unknown) {
+      this._setRecordingState('error');
+      const msg = e instanceof Error ? e.message : String(e);
+      const err = this._makeError('RECORDING_START_FAILED', msg);
       this._session?.errorLog.push(err.message);
       throw err;
     }
@@ -303,6 +395,24 @@ export class CaptureSessionOrchestrator {
   }
 
   // ── Private helpers ─────────────────────────────────────────────────────────
+
+  private _sealCurrentSegment(): void {
+    if (this._currentSegmentPoints.length > 0) {
+      this._gpsSegments.push([...this._currentSegmentPoints]);
+      this._currentSegmentPoints = [];
+    }
+  }
+
+  /** Stop the physical camera recording without throwing; used by endSession. */
+  private async _stopCameraRecordingQuiet(): Promise<void> {
+    try {
+      const mediaId = await this._camera?.stopRecording();
+      if (mediaId) {
+        this._session?.importedMediaIds.push(mediaId);
+        this._emit({ type: 'mediaAvailable', mediaId });
+      }
+    } catch {}
+  }
 
   private _guard(): void {
     if (!this._camera) throw this._makeError('NO_CAMERA', 'No camera provider selected.');

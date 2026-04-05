@@ -43,8 +43,16 @@ function ExternalScreen() {
     }
     if (cam.recordingState === 'recording') {
       await cam.stopRecording();
-    } else if (cam.recordingState === 'idle') {
+    } else if (cam.recordingState === 'idle' || cam.recordingState === 'paused') {
       await cam.startRecording();
+    }
+  }
+
+  async function handlePauseResume() {
+    if (cam.recordingState === 'recording') {
+      await cam.pauseRecording();
+    } else if (cam.recordingState === 'paused') {
+      await cam.resumeRecording();
     }
   }
 
@@ -63,6 +71,7 @@ function ExternalScreen() {
   const canRecord =
     isConnected && capabilities?.supportsStartStopRecording && cam.isSessionActive;
   const isRecording = cam.recordingState === 'recording';
+  const isPaused = cam.recordingState === 'paused';
 
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
@@ -156,19 +165,36 @@ function ExternalScreen() {
               )}
 
               {cam.isSessionActive && capabilities?.supportsStartStopRecording && (
-                <TouchableOpacity
-                  style={[styles.recordBtn, isRecording && styles.recordBtnActive]}
-                  onPress={handleStartStop}
-                >
-                  <Ionicons
-                    name={isRecording ? 'stop' : 'radio-button-on'}
-                    size={16}
-                    color={isRecording ? '#fff' : Colors.accent}
-                  />
-                  <Text style={[styles.recordBtnLabel, isRecording && styles.recordBtnLabelActive]}>
-                    {isRecording ? 'Stop Rec' : 'Record'}
-                  </Text>
-                </TouchableOpacity>
+                <>
+                  <TouchableOpacity
+                    style={[styles.recordBtn, isRecording && styles.recordBtnActive, isPaused && styles.recordBtnPaused]}
+                    onPress={handleStartStop}
+                  >
+                    <Ionicons
+                      name={isRecording ? 'stop' : 'radio-button-on'}
+                      size={16}
+                      color={isRecording ? '#fff' : isPaused ? Colors.amber : Colors.accent}
+                    />
+                    <Text style={[styles.recordBtnLabel, isRecording && styles.recordBtnLabelActive, isPaused && styles.recordBtnLabelPaused]}>
+                      {isRecording ? 'Stop' : isPaused ? 'Resume' : 'Record'}
+                    </Text>
+                  </TouchableOpacity>
+                  {(isRecording || isPaused) && (
+                    <TouchableOpacity
+                      style={[styles.recordBtn, styles.pauseBtn]}
+                      onPress={handlePauseResume}
+                    >
+                      <Ionicons
+                        name={isPaused ? 'play' : 'pause'}
+                        size={16}
+                        color={Colors.amber}
+                      />
+                      <Text style={[styles.recordBtnLabel, { color: Colors.amber }]}>
+                        {isPaused ? 'Resume' : 'Pause'}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </>
               )}
             </View>
 
@@ -339,6 +365,18 @@ const styles = StyleSheet.create({
   },
   recordBtnLabelActive: {
     color: '#fff',
+  },
+  recordBtnPaused: {
+    borderColor: Colors.amber,
+    backgroundColor: Colors.amberDim,
+  },
+  recordBtnLabelPaused: {
+    color: Colors.amber,
+  },
+  pauseBtn: {
+    borderColor: Colors.amber,
+    backgroundColor: Colors.amberDim,
+    paddingHorizontal: 14,
   },
   notice: {
     flexDirection: 'row',

@@ -7,8 +7,10 @@ import React, {
   useState,
 } from 'react';
 import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
 import { CaptureSessionOrchestrator } from '@/lib/camera/CaptureSessionOrchestrator';
 import { getAllProviders } from '@/lib/camera/providers';
+import { buildGpxXml } from '@/lib/gpx';
 import type { CameraProvider } from '@/lib/camera/CameraProvider';
 import type {
   AppIntegrationError,
@@ -54,6 +56,11 @@ interface ExternalCameraContextValue {
   recordingState: RecordingState;
   startRecording: (config?: RecordingConfig) => Promise<void>;
   stopRecording: () => Promise<void>;
+  pauseRecording: () => Promise<void>;
+  resumeRecording: (config?: RecordingConfig) => Promise<void>;
+
+  // GPX export
+  shareGpx: () => Promise<void>;
 
   // Media
   mediaList: ExternalMediaAsset[];
@@ -135,8 +142,9 @@ export function ExternalCameraProvider({ children }: { children: React.ReactNode
     try {
       const devices = await orchRef.current.discoverDevices();
       setDiscoveredDevices(devices);
-    } catch (e: any) {
-      setLastError({ code: 'DISCOVER_FAILED', message: e.message, recoverable: true, timestamp: Date.now() });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setLastError({ code: 'DISCOVER_FAILED', message: msg, recoverable: true, timestamp: Date.now() });
     } finally {
       setIsDiscovering(false);
     }
@@ -148,9 +156,10 @@ export function ExternalCameraProvider({ children }: { children: React.ReactNode
       await orchRef.current.connectDevice(deviceId);
       setConnectedDeviceId(deviceId);
       setConnectionState('connected');
-    } catch (e: any) {
+    } catch (e: unknown) {
       setConnectionState('error');
-      setLastError({ code: 'CONNECT_FAILED', message: e.message, recoverable: true, timestamp: Date.now() });
+      const msg = e instanceof Error ? e.message : String(e);
+      setLastError({ code: 'CONNECT_FAILED', message: msg, recoverable: true, timestamp: Date.now() });
     }
   }, []);
 
@@ -170,8 +179,9 @@ export function ExternalCameraProvider({ children }: { children: React.ReactNode
     try {
       await orchRef.current.startSession();
       setIsSessionActive(true);
-    } catch (e: any) {
-      setLastError({ code: 'SESSION_START_FAILED', message: e.message, recoverable: true, timestamp: Date.now() });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setLastError({ code: 'SESSION_START_FAILED', message: msg, recoverable: true, timestamp: Date.now() });
     }
   }, []);
 
@@ -186,6 +196,47 @@ export function ExternalCameraProvider({ children }: { children: React.ReactNode
 
   const stopRecording = useCallback(async () => {
     await orchRef.current.stopRecording();
+  }, []);
+
+  const pauseRecording = useCallback(async () => {
+    await orchRef.current.pauseRecording();
+  }, []);
+
+  const resumeRecording = useCallback(async (config: RecordingConfig = {}) => {
+    await orchRef.current.resumeRecording(config);
+  }, []);
+
+  // ── GPX export ─────────────────────────────────────────────────────────────
+
+  const shareGpx = useCallback(async () => {
+    const session = orchRef.current.getSession();
+    if (!session) return;
+
+    const segments = orchRef.current.getGpsSegments();
+    const allPoints = segments.flat();
+    if (allPoints.length === 0) return;
+
+    try {
+      const xml = buildGpxXml(session.sessionId, segments, 'video');
+      const baseDir = FileSystem.documentDirectory ?? FileSystem.cacheDirectory ?? '';
+      const gpxPath = `${baseDir}ext_gpx_${session.sessionId}.gpx`;
+
+      await FileSystem.writeAsStringAsync(gpxPath, xml, {
+        encoding: (FileSystem as any).EncodingType?.UTF8 ?? 'utf8',
+      });
+
+      const canShare = await Sharing.isAvailableAsync();
+      if (canShare) {
+        await Sharing.shareAsync(gpxPath, {
+          mimeType: 'application/gpx+xml',
+          dialogTitle: 'Share GPX Track',
+          UTI: 'com.topografix.gpx',
+        });
+      }
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setLastError({ code: 'GPX_SHARE_FAILED', message: msg, recoverable: true, timestamp: Date.now() });
+    }
   }, []);
 
   const fetchMedia = useCallback(async () => {
@@ -234,6 +285,9 @@ export function ExternalCameraProvider({ children }: { children: React.ReactNode
     recordingState,
     startRecording,
     stopRecording,
+    pauseRecording,
+    resumeRecording,
+    shareGpx,
     mediaList,
     fetchMedia,
     importMedia,

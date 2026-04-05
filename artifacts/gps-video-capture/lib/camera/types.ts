@@ -25,6 +25,7 @@ export type RecordingState =
   | 'idle'
   | 'starting'
   | 'recording'
+  | 'paused'
   | 'stopping'
   | 'error';
 
