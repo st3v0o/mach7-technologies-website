@@ -10,11 +10,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import React, {
   useCallback,
+  useEffect,
   useMemo,
   useRef,
   useState,
 } from 'react';
 import {
+  Dimensions,
   FlatList,
   Modal,
   Platform,
@@ -184,49 +186,102 @@ const miniStyles = StyleSheet.create({
   },
 });
 
-// ── Detail modal ──────────────────────────────────────────────────────────────
+// ── Detail modal (swipeable photos) ──────────────────────────────────────────
 
 function FrameDetailModal({
-  entry,
+  initialEntry,
   sessionEntries,
   color,
   onClose,
-  onPrev,
-  onNext,
-  hasPrev,
-  hasNext,
 }: {
-  entry: LogEntry;
+  initialEntry: LogEntry;
   sessionEntries: LogEntry[];
   color: string;
   onClose: () => void;
-  onPrev: () => void;
-  onNext: () => void;
-  hasPrev: boolean;
-  hasNext: boolean;
 }) {
   const insets = useSafeAreaInsets();
+  const { width: SW } = Dimensions.get('window');
+  const flatRef = useRef<FlatList<LogEntry>>(null);
+
+  const initialIndex = useMemo(
+    () => Math.max(0, sessionEntries.findIndex((e) => e.id === initialEntry.id)),
+    [sessionEntries, initialEntry.id],
+  );
+
+  const [currentIndex, setCurrentIndex] = useState(initialIndex);
+  const currentEntry = sessionEntries[currentIndex] ?? initialEntry;
+
+  // Scroll to initial position on mount (if not the first item)
+  useEffect(() => {
+    if (initialIndex > 0) {
+      const t = setTimeout(() => {
+        flatRef.current?.scrollToIndex({ index: initialIndex, animated: false });
+      }, 50);
+      return () => clearTimeout(t);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleScrollEnd = useCallback(
+    (e: any) => {
+      const idx = Math.round(e.nativeEvent.contentOffset.x / SW);
+      setCurrentIndex(Math.min(Math.max(0, idx), sessionEntries.length - 1));
+    },
+    [SW, sessionEntries.length],
+  );
+
+  const getItemLayout = useCallback(
+    (_: unknown, index: number) => ({ length: SW, offset: SW * index, index }),
+    [SW],
+  );
+
+  const goTo = useCallback((idx: number) => {
+    flatRef.current?.scrollToIndex({ index: idx, animated: true });
+    setCurrentIndex(idx);
+  }, []);
+
+  const hasPrev = currentIndex > 0;
+  const hasNext = currentIndex < sessionEntries.length - 1;
+
+  // Max pips to show in the dot row
+  const MAX_PIPS = 20;
 
   return (
     <Modal visible animationType="slide" onRequestClose={onClose} statusBarTranslucent>
       <View style={detailStyles.root}>
 
-        {/* ── Top: full photo ──────────────────────────────────────────── */}
+        {/* ── Top: swipeable photo strip ──────────────────────────────── */}
         <View style={detailStyles.photoSection}>
-          {Platform.OS !== 'web' && entry.localPath ? (
-            <Image
-              source={{ uri: entry.localPath }}
-              style={StyleSheet.absoluteFill}
-              contentFit="contain"
-              transition={100}
-            />
-          ) : (
-            <View style={[StyleSheet.absoluteFill, detailStyles.photoPlaceholder]}>
-              <Ionicons name="image-outline" size={52} color={Colors.textTertiary} />
-            </View>
-          )}
+          <FlatList<LogEntry>
+            ref={flatRef}
+            data={sessionEntries}
+            horizontal
+            pagingEnabled
+            bounces
+            showsHorizontalScrollIndicator={false}
+            keyExtractor={(item) => item.id}
+            initialScrollIndex={initialIndex}
+            getItemLayout={getItemLayout}
+            onMomentumScrollEnd={handleScrollEnd}
+            style={StyleSheet.absoluteFill}
+            renderItem={({ item }) => (
+              <View style={{ width: SW, flex: 1 }}>
+                {Platform.OS !== 'web' && item.localPath ? (
+                  <Image
+                    source={{ uri: item.localPath }}
+                    style={StyleSheet.absoluteFill}
+                    contentFit="contain"
+                    transition={80}
+                  />
+                ) : (
+                  <View style={[StyleSheet.absoluteFill, detailStyles.photoPlaceholder]}>
+                    <Ionicons name="image-outline" size={52} color={Colors.textTertiary} />
+                  </View>
+                )}
+              </View>
+            )}
+          />
 
-          {/* Close + navigation bar */}
+          {/* Top bar: close · counter · prev/next */}
           <View style={[detailStyles.topBar, { paddingTop: insets.top + 8 }]}>
             <Pressable
               onPress={onClose}
@@ -236,10 +291,17 @@ function FrameDetailModal({
               <Ionicons name="close" size={22} color="#fff" />
             </Pressable>
 
-            {/* Frame nav */}
+            {/* Counter pill */}
+            <View style={detailStyles.counterPill}>
+              <Text style={detailStyles.counterText}>
+                {currentIndex + 1} / {sessionEntries.length}
+              </Text>
+            </View>
+
+            {/* Prev / Next */}
             <View style={detailStyles.navRow}>
               <Pressable
-                onPress={onPrev}
+                onPress={() => goTo(currentIndex - 1)}
                 disabled={!hasPrev}
                 hitSlop={8}
                 style={({ pressed }) => [
@@ -251,7 +313,7 @@ function FrameDetailModal({
                 <Ionicons name="chevron-back" size={20} color="#fff" />
               </Pressable>
               <Pressable
-                onPress={onNext}
+                onPress={() => goTo(currentIndex + 1)}
                 disabled={!hasNext}
                 hitSlop={8}
                 style={({ pressed }) => [
@@ -264,46 +326,69 @@ function FrameDetailModal({
               </Pressable>
             </View>
           </View>
+
+          {/* Dot pips — position indicator */}
+          {sessionEntries.length > 1 && (
+            <View style={detailStyles.pipsRow}>
+              {sessionEntries.slice(0, MAX_PIPS).map((_, i) => (
+                <Pressable key={i} onPress={() => goTo(i)} hitSlop={6}>
+                  <View
+                    style={[
+                      detailStyles.pip,
+                      i === currentIndex && [detailStyles.pipActive, { backgroundColor: color }],
+                    ]}
+                  />
+                </Pressable>
+              ))}
+              {sessionEntries.length > MAX_PIPS && (
+                <Text style={detailStyles.pipMore}>+{sessionEntries.length - MAX_PIPS}</Text>
+              )}
+            </View>
+          )}
         </View>
 
         {/* ── Middle: metadata strip ───────────────────────────────────── */}
         <View style={[detailStyles.metaStrip, { borderLeftColor: color }]}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={detailStyles.metaScroll}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={detailStyles.metaScroll}
+          >
             <View style={detailStyles.metaCell}>
               <Text style={detailStyles.metaLabel}>DATE</Text>
-              <Text style={detailStyles.metaValue}>{fmtDate(entry.timestamp)}</Text>
+              <Text style={detailStyles.metaValue}>{fmtDate(currentEntry.timestamp)}</Text>
             </View>
             <View style={detailStyles.metaDivider} />
             <View style={detailStyles.metaCell}>
               <Text style={detailStyles.metaLabel}>TIME</Text>
-              <Text style={detailStyles.metaValue}>{fmtTime(entry.timestamp)}</Text>
+              <Text style={detailStyles.metaValue}>{fmtTime(currentEntry.timestamp)}</Text>
             </View>
             <View style={detailStyles.metaDivider} />
             <View style={detailStyles.metaCell}>
               <Text style={detailStyles.metaLabel}>LAT</Text>
               <Text style={[detailStyles.metaValue, detailStyles.mono]}>
-                {fmtCoord(entry.latitude, 'N', 'S')}
+                {fmtCoord(currentEntry.latitude, 'N', 'S')}
               </Text>
             </View>
             <View style={detailStyles.metaDivider} />
             <View style={detailStyles.metaCell}>
               <Text style={detailStyles.metaLabel}>LON</Text>
               <Text style={[detailStyles.metaValue, detailStyles.mono]}>
-                {fmtCoord(entry.longitude, 'E', 'W')}
+                {fmtCoord(currentEntry.longitude, 'E', 'W')}
               </Text>
             </View>
             <View style={detailStyles.metaDivider} />
             <View style={detailStyles.metaCell}>
               <Text style={detailStyles.metaLabel}>SEGMENT</Text>
               <Text style={[detailStyles.metaValue, { color }]}>
-                {entry.videoSegment.replace('seg_', 'SEG ').toUpperCase()}
+                {currentEntry.videoSegment.replace('seg_', 'SEG ').toUpperCase()}
               </Text>
             </View>
             <View style={detailStyles.metaDivider} />
             <View style={detailStyles.metaCell}>
               <Text style={detailStyles.metaLabel}>SESSION</Text>
               <Text style={detailStyles.metaValue} numberOfLines={1}>
-                {entry.sessionId.slice(-8).toUpperCase()}
+                {currentEntry.sessionId.slice(-8).toUpperCase()}
               </Text>
             </View>
           </ScrollView>
@@ -311,17 +396,18 @@ function FrameDetailModal({
 
         {/* ── Bottom: mini-map ─────────────────────────────────────────── */}
         <View style={detailStyles.mapSection}>
-          <MiniMap entry={entry} sessionEntries={sessionEntries} color={color} />
+          <MiniMap entry={currentEntry} sessionEntries={sessionEntries} color={color} />
 
           {/* Map label badge */}
           <View style={detailStyles.mapBadge}>
             <View style={[detailStyles.mapBadgeDot, { backgroundColor: color }]} />
             <Text style={detailStyles.mapBadgeText}>
               {sessionEntries.filter((e) => e.latitude !== 0 || e.longitude !== 0).length} GPS points
-              &nbsp;·&nbsp;{entry.sessionId.replace('session_', '').replace(/_/g, ' ')}
+              &nbsp;·&nbsp;{currentEntry.sessionId.replace('session_', '').replace(/_/g, ' ')}
             </Text>
           </View>
         </View>
+
       </View>
     </Modal>
   );
@@ -333,15 +419,24 @@ const detailStyles = StyleSheet.create({
   photoPlaceholder: {
     alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.surface,
   },
+
+  // Top bar
   topBar: {
     position: 'absolute', top: 0, left: 0, right: 0,
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: 16, paddingBottom: 10,
-    backgroundColor: 'rgba(0,0,0,0.45)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
   },
   iconBtn: {
     width: 34, height: 34, borderRadius: 17,
     backgroundColor: 'rgba(0,0,0,0.55)', alignItems: 'center', justifyContent: 'center',
+  },
+  counterPill: {
+    paddingHorizontal: 12, paddingVertical: 5, borderRadius: 14,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+  },
+  counterText: {
+    color: '#fff', fontFamily: 'Inter_600SemiBold', fontSize: 12, letterSpacing: 0.3,
   },
   navRow: { flexDirection: 'row', gap: 8 },
   navBtn: {
@@ -349,6 +444,20 @@ const detailStyles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.55)', alignItems: 'center', justifyContent: 'center',
   },
   navBtnDisabled: { opacity: 0.3 },
+
+  // Dot pips
+  pipsRow: {
+    position: 'absolute', bottom: 10, left: 0, right: 0,
+    flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 5,
+  },
+  pip: {
+    width: 6, height: 6, borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.35)',
+  },
+  pipActive: { width: 16, borderRadius: 3 },
+  pipMore: {
+    color: 'rgba(255,255,255,0.5)', fontFamily: 'Inter_400Regular', fontSize: 10, marginLeft: 2,
+  },
 
   metaStrip: {
     borderLeftWidth: 3,
@@ -584,7 +693,6 @@ export default function LocalDatabaseSheet({ sections }: LocalDatabaseSheetProps
     entry: LogEntry;
     sessionEntries: LogEntry[];
     color: string;
-    sessionIdx: number;
   } | null>(null);
 
   // Flatten sections into a typed list of header + row items
@@ -611,32 +719,10 @@ export default function LocalDatabaseSheet({ sections }: LocalDatabaseSheetProps
 
   const handleRowPress = useCallback(
     (entry: LogEntry, sessionEntries: LogEntry[], color: string) => {
-      const sessionIdx = sessionEntries.findIndex((e) => e.id === entry.id);
-      setSelectedEntry({ entry, sessionEntries, color, sessionIdx });
+      setSelectedEntry({ entry, sessionEntries, color });
     },
-    []
+    [],
   );
-
-  const handlePrev = useCallback(() => {
-    if (!selectedEntry || selectedEntry.sessionIdx <= 0) return;
-    const next = selectedEntry.sessionIdx - 1;
-    setSelectedEntry((prev) => prev ? {
-      ...prev,
-      entry: prev.sessionEntries[next],
-      sessionIdx: next,
-    } : null);
-  }, [selectedEntry]);
-
-  const handleNext = useCallback(() => {
-    if (!selectedEntry) return;
-    const next = selectedEntry.sessionIdx + 1;
-    if (next >= selectedEntry.sessionEntries.length) return;
-    setSelectedEntry((prev) => prev ? {
-      ...prev,
-      entry: prev.sessionEntries[next],
-      sessionIdx: next,
-    } : null);
-  }, [selectedEntry]);
 
   if (totalFrames === 0) {
     return (
@@ -691,17 +777,13 @@ export default function LocalDatabaseSheet({ sections }: LocalDatabaseSheetProps
         windowSize={5}
       />
 
-      {/* Frame detail modal with mini-map */}
+      {/* Frame detail modal — swipeable photos + mini-map */}
       {selectedEntry && (
         <FrameDetailModal
-          entry={selectedEntry.entry}
+          initialEntry={selectedEntry.entry}
           sessionEntries={selectedEntry.sessionEntries}
           color={selectedEntry.color}
           onClose={() => setSelectedEntry(null)}
-          onPrev={handlePrev}
-          onNext={handleNext}
-          hasPrev={selectedEntry.sessionIdx > 0}
-          hasNext={selectedEntry.sessionIdx < selectedEntry.sessionEntries.length - 1}
         />
       )}
     </View>
