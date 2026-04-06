@@ -19,6 +19,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import Colors from '@/constants/colors';
 import { LogEntry, useRecording } from '@/contexts/RecordingContext';
+import LocalDatabaseSheet from '@/components/LocalDatabaseSheet';
 import LogMapView, { SessionSection } from '@/components/LogMapView';
 import { useUpload } from '@/contexts/UploadContext';
 import { DEMO_SECTIONS } from '@/lib/demoData';
@@ -323,7 +324,7 @@ export default function LogScreen() {
   const { logEntries, shareLog, shareGpx, clearLog, processingStatus, totalFrames, segmentCount } = useRecording();
   const [isSharing, setIsSharing] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<LogEntry | null>(null);
-  const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
+  const [viewMode, setViewMode] = useState<'list' | 'map' | 'table'>('list');
   const [isDemoMode, setIsDemoMode] = useState(false);
   const [mapSheetOpen, setMapSheetOpen] = useState(false);
 
@@ -377,27 +378,45 @@ export default function LogScreen() {
           </Text>
         </View>
         <View style={styles.headerActions}>
+          {/* 3-way view mode cycle: list → table → map */}
           <Pressable
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               setViewMode((v) => {
-                if (v === 'map') setIsDemoMode(false);
-                return v === 'list' ? 'map' : 'list';
+                if (v === 'list') return 'table';
+                if (v === 'table') return 'map';
+                setIsDemoMode(false);
+                return 'list';
               });
             }}
             style={({ pressed }) => [
               styles.actionBtn,
-              viewMode === 'map' ? styles.mapBtnActive : styles.mapBtn,
+              viewMode === 'map'
+                ? styles.mapBtnActive
+                : viewMode === 'table'
+                  ? styles.tableBtnActive
+                  : styles.mapBtn,
               pressed && { opacity: 0.7 },
             ]}
-            testID="map-toggle"
+            testID="view-mode-toggle"
           >
             <Ionicons
-              name={viewMode === 'map' ? 'list-outline' : 'map-outline'}
+              name={
+                viewMode === 'list'
+                  ? 'grid-outline'
+                  : viewMode === 'table'
+                    ? 'map-outline'
+                    : 'list-outline'
+              }
               size={16}
-              color={Colors.amber}
+              color={viewMode === 'table' ? Colors.gpsGreen : Colors.amber}
             />
+            {viewMode === 'table' && (
+              <Text style={[styles.actionBtnText, { color: Colors.gpsGreen, fontSize: 11 }]}>DB</Text>
+            )}
           </Pressable>
+
+          {/* Demo toggle — only on map */}
           {viewMode === 'map' && (
             <Pressable
               onPress={() => {
@@ -421,6 +440,8 @@ export default function LogScreen() {
               )}
             </Pressable>
           )}
+
+          {/* Share + clear — only on list */}
           {logEntries.length > 0 && viewMode === 'list' && (
             <Pressable
               onPress={handleShare}
@@ -462,7 +483,9 @@ export default function LogScreen() {
         </View>
       )}
 
-      {viewMode === 'map' ? (
+      {viewMode === 'table' ? (
+        <LocalDatabaseSheet sections={sections} />
+      ) : viewMode === 'map' ? (
         <LogMapView
           sections={mapSections}
           demoMode={isDemoMode}
@@ -603,6 +626,11 @@ const styles = StyleSheet.create({
   mapBtnActive: {
     borderColor: 'rgba(255, 184, 0, 0.6)',
     backgroundColor: 'rgba(255, 184, 0, 0.15)',
+    paddingHorizontal: 10,
+  },
+  tableBtnActive: {
+    borderColor: 'rgba(0, 255, 136, 0.5)',
+    backgroundColor: 'rgba(0, 255, 136, 0.1)',
     paddingHorizontal: 10,
   },
   demoToggleBtn: {
