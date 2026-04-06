@@ -72,7 +72,9 @@ export function buildGpxXml(
 ): string {
   const allPoints = segments.flat();
   const modeLabel = mode === 'video' ? 'Video' : mode === 'manual' ? 'Manual' : 'Photo';
-  const humanName = xmlEscape(sessionId.replace('session_', '').replace(/_/g, ' '));
+  // Keep raw (unescaped) — buildTrk / xmlEscape calls at insertion points below
+  // will escape exactly once.
+  const humanName = sessionId.replace('session_', '').replace(/_/g, ' ');
   const startTime =
     allPoints.length > 0
       ? new Date(allPoints[0].timestamp).toISOString()
@@ -83,6 +85,7 @@ export function buildGpxXml(
   const total = nonEmpty.length;
 
   // Each segment → its own <trk> so viewers never connect across the gap.
+  // buildTrk calls xmlEscape(name) internally, so humanName is escaped once.
   const trkBlocks = nonEmpty
     .map((seg, i) => {
       const segName =
@@ -107,7 +110,7 @@ export function buildGpxXml(
     `     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"\n` +
     `     xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd">\n` +
     `  <metadata>\n` +
-    `    <name>${xmlEscape(modeLabel)} Session — ${humanName}</name>\n` +
+    `    <name>${xmlEscape(modeLabel)} Session — ${xmlEscape(humanName)}</name>\n` +
     `    <time>${startTime}</time>\n` +
     `  </metadata>\n` +
     trkBlocks + '\n' +
