@@ -22,6 +22,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import Colors from '@/constants/colors';
 import { LogEntry } from '@/contexts/RecordingContext';
+import { splitByTimeGap } from '@/lib/mapUtils';
 
 // ── Public types ──────────────────────────────────────────────────────────────
 
@@ -535,15 +536,24 @@ function NativeMapView({
           const validEntries = section.data.filter(
             (e) => e.latitude !== 0 || e.longitude !== 0
           );
-          const coords = validEntries.map((e) => ({
-            latitude: e.latitude,
-            longitude: e.longitude,
-          }));
+          // Split into runs separated by pause gaps so no line is drawn
+          // across a location change that happened during a pause.
+          const polylineRuns = splitByTimeGap(validEntries);
 
           return (
             <React.Fragment key={section.sessionId}>
-              {coords.length > 1 && (
-                <Polyline coordinates={coords} strokeColor={color} strokeWidth={3} />
+              {polylineRuns.map((run, ri) =>
+                run.length > 1 ? (
+                  <Polyline
+                    key={`${section.sessionId}_run${ri}`}
+                    coordinates={run.map((e) => ({
+                      latitude: e.latitude,
+                      longitude: e.longitude,
+                    }))}
+                    strokeColor={color}
+                    strokeWidth={3}
+                  />
+                ) : null
               )}
               {showMarkers &&
                 validEntries.map((entry) => {

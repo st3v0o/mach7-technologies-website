@@ -30,6 +30,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import Colors from '@/constants/colors';
 import type { LogEntry } from '@/contexts/RecordingContext';
+import { splitByTimeGap } from '@/lib/mapUtils';
 import type { SessionSection } from './LogMapView';
 import { SESSION_COLORS } from './LogMapView';
 
@@ -69,19 +70,26 @@ function MiniMap({
 }) {
   const mapRef = useRef<any>(null);
 
-  const coords = useMemo(
-    () =>
-      sessionEntries
-        .filter((e) => e.latitude !== 0 || e.longitude !== 0)
-        .map((e) => ({ latitude: e.latitude, longitude: e.longitude })),
-    [sessionEntries]
+  // Valid entries for markers + fitToCoordinates
+  const validEntries = useMemo(
+    () => sessionEntries.filter((e) => e.latitude !== 0 || e.longitude !== 0),
+    [sessionEntries],
   );
 
-  const allCoords = coords.length > 0 ? coords : [
-    { latitude: entry.latitude, longitude: entry.longitude },
-  ];
+  // Flat coord list for fitToCoordinates
+  const allCoords = useMemo(
+    () =>
+      validEntries.length > 0
+        ? validEntries.map((e) => ({ latitude: e.latitude, longitude: e.longitude }))
+        : [{ latitude: entry.latitude, longitude: entry.longitude }],
+    [validEntries, entry.latitude, entry.longitude],
+  );
 
-  // Fit to coords once map is ready
+  // Split into runs — pause/resume gaps produce separate polylines with no
+  // connecting line across the location change.
+  const polylineRuns = useMemo(() => splitByTimeGap(validEntries), [validEntries]);
+
+  // Fit to all coords once map is ready
   const onMapReady = useCallback(() => {
     if (mapRef.current && allCoords.length > 1) {
       mapRef.current.fitToCoordinates(allCoords, {
@@ -122,26 +130,28 @@ function MiniMap({
         }}
         onMapReady={onMapReady}
       >
-        {/* Session route polyline */}
-        {coords.length > 1 && (
-          <Polyline
-            coordinates={coords}
-            strokeColor={color + '99'}
-            strokeWidth={3}
-          />
+        {/* Session route — one Polyline per continuous run (gaps = pauses) */}
+        {polylineRuns.map((run, ri) =>
+          run.length > 1 ? (
+            <Polyline
+              key={`minirun_${ri}`}
+              coordinates={run.map((e) => ({
+                latitude: e.latitude,
+                longitude: e.longitude,
+              }))}
+              strokeColor={color + '99'}
+              strokeWidth={3}
+            />
+          ) : null
         )}
 
         {/* All frame dots */}
-        {coords.map((c, i) => {
-          const e = sessionEntries.filter(
-            (se) => se.latitude !== 0 || se.longitude !== 0
-          )[i];
-          if (!e) return null;
+        {validEntries.map((e) => {
           const isCurrent = e.id === entry.id;
           return (
             <Marker
               key={e.id}
-              coordinate={c}
+              coordinate={{ latitude: e.latitude, longitude: e.longitude }}
               anchor={{ x: 0.5, y: 0.5 }}
               tracksViewChanges={isCurrent}
             >

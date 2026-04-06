@@ -1,9 +1,11 @@
 /**
  * GPX 1.1 builder.
  *
- * Each element of `segments` becomes a separate <trkseg> inside a single
- * <trk>.  This is the standard GPX representation of a paused track: GPS
- * viewers draw a line within each segment and show a gap between them.
+ * Each element of `segments` becomes a separate <trk> element.
+ * Using distinct <trk> elements (rather than multiple <trkseg> inside one
+ * <trk>) guarantees that every GPS viewer — including Apple Maps — treats
+ * each recording interval as a fully independent track and never draws a
+ * connecting line between them.
  *
  * Callers that have a single flat array of points should pass [[...points]].
  */
@@ -25,8 +27,8 @@ function xmlEscape(str: string): string {
     .replace(/"/g, '&quot;');
 }
 
-function buildTrkSeg(points: GpxPoint[]): string {
-  const trkpts = points
+function buildTrkPts(points: GpxPoint[]): string {
+  return points
     .map((p) => {
       const time = new Date(p.timestamp).toISOString();
       const altEl =
@@ -48,8 +50,19 @@ function buildTrkSeg(points: GpxPoint[]): string {
       );
     })
     .join('\n');
+}
 
-  return `    <trkseg>\n${trkpts}\n    </trkseg>`;
+function buildTrk(name: string, desc: string | null, points: GpxPoint[]): string {
+  const descEl = desc ? `    <desc>${xmlEscape(desc)}</desc>\n` : '';
+  return (
+    `  <trk>\n` +
+    `    <name>${xmlEscape(name)}</name>\n` +
+    descEl +
+    `    <trkseg>\n` +
+    buildTrkPts(points) + '\n' +
+    `    </trkseg>\n` +
+    `  </trk>`
+  );
 }
 
 export function buildGpxXml(
@@ -65,10 +78,26 @@ export function buildGpxXml(
       ? new Date(allPoints[0].timestamp).toISOString()
       : new Date().toISOString();
 
-  // Filter out empty segments — a pause right at the end might leave one.
+  // Drop empty segments (e.g. a pause right at the end of recording).
   const nonEmpty = segments.filter((seg) => seg.length > 0);
+  const total = nonEmpty.length;
 
-  const trksegs = nonEmpty.map(buildTrkSeg).join('\n');
+  // Each segment → its own <trk> so viewers never connect across the gap.
+  const trkBlocks = nonEmpty
+    .map((seg, i) => {
+      const segName =
+        total === 1
+          ? `${modeLabel} — ${humanName}`
+          : `${modeLabel} — ${humanName} — Segment ${i + 1} of ${total}`;
+      const desc =
+        total > 1 && i === 0
+          ? `Session paused ${total - 1} time(s). This is segment ${i + 1} of ${total}.`
+          : total > 1
+            ? `Segment ${i + 1} of ${total}.`
+            : null;
+      return buildTrk(segName, desc, seg);
+    })
+    .join('\n');
 
   return (
     `<?xml version="1.0" encoding="UTF-8"?>\n` +
@@ -81,13 +110,7 @@ export function buildGpxXml(
     `    <name>${xmlEscape(modeLabel)} Session — ${humanName}</name>\n` +
     `    <time>${startTime}</time>\n` +
     `  </metadata>\n` +
-    `  <trk>\n` +
-    `    <name>${xmlEscape(modeLabel)} — ${xmlEscape(sessionId)}</name>\n` +
-    (nonEmpty.length > 1
-      ? `    <desc>Paused ${nonEmpty.length - 1} time(s) — ${nonEmpty.length} track segments</desc>\n`
-      : '') +
-    trksegs + '\n' +
-    `  </trk>\n` +
+    trkBlocks + '\n' +
     `</gpx>`
   );
 }
