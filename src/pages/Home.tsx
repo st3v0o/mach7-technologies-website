@@ -1,9 +1,26 @@
+import { useState, FormEvent } from "react";
 import { ArrowRight, Crosshair, Shield, Clock, HardDrive } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PhoneMockup } from "@/components/PhoneMockup";
 import { MapMockup } from "@/components/MapMockup";
 
+// SWAP: replace with your business email
+const CONTACT_EMAIL = "info@mach7technologies.com";
+
 export default function Home() {
+  const [name, setName] = useState("");
+  const [org, setOrg] = useState("");
+  const [message, setMessage] = useState("");
+  const [sent, setSent] = useState(false);
+
+  function handleContact(e: FormEvent) {
+    e.preventDefault();
+    const subject = encodeURIComponent(`Access Request from ${name}${org ? ` — ${org}` : ""}`);
+    const body = encodeURIComponent(`Name: ${name}\nOrganization: ${org}\n\n${message}`);
+    window.location.href = `mailto:${CONTACT_EMAIL}?subject=${subject}&body=${body}`;
+    setSent(true);
+  }
+
   return (
     <div className="flex flex-col">
       {/* HERO SECTION */}
@@ -155,22 +172,79 @@ export default function Home() {
         </div>
       </section>
 
-      {/* CONTACT CTA */}
+      {/* CONTACT */}
       <section id="contact" className="py-32 relative overflow-hidden">
         <div className="absolute inset-0 bg-primary/5 -z-10" />
-        <div className="container mx-auto px-4 text-center max-w-3xl">
-          <Shield className="w-12 h-12 mx-auto text-primary mb-6" />
-          <h2 className="font-display text-4xl md:text-5xl font-bold tracking-tight mb-6">Equip your team.</h2>
-          <p className="text-xl text-muted-foreground mb-10">
-            MACH 7 is currently in active development. If you represent an organization that requires serious spatial documentation tools, we want to hear from you.
-          </p>
-          {/* SWAP: replace with your business email */}
-          <Button asChild size="lg" className="font-display font-bold text-lg rounded-none h-14 px-10">
-            <a href="mailto:contact@mach7technologies.com">
-              Contact Us
-            </a>
-          </Button>
-          <p className="mt-6 text-sm text-muted-foreground font-mono">
+        <div className="container mx-auto px-4 max-w-2xl">
+          <div className="text-center mb-12">
+            <Shield className="w-12 h-12 mx-auto text-primary mb-6" />
+            <h2 className="font-display text-4xl md:text-5xl font-bold tracking-tight mb-4">Equip your team.</h2>
+            <p className="text-lg text-muted-foreground">
+              MACH 7 is currently in active development. If you represent an organization that requires serious spatial documentation tools, we want to hear from you.
+            </p>
+          </div>
+
+          {sent ? (
+            <div className="border border-primary/40 bg-primary/5 p-8 text-center">
+              <p className="font-display font-semibold text-lg mb-2">Your email client should have opened.</p>
+              <p className="text-sm text-muted-foreground">
+                If it didn't, send us a message directly at{" "}
+                {/* SWAP: replace with your business email */}
+                <a href={`mailto:${CONTACT_EMAIL}`} className="text-primary hover:underline">{CONTACT_EMAIL}</a>.
+              </p>
+            </div>
+          ) : (
+            <form onSubmit={handleContact} className="flex flex-col gap-4">
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="contact-name" className="font-mono text-xs text-muted-foreground uppercase tracking-wider">Name *</label>
+                  <input
+                    id="contact-name"
+                    type="text"
+                    required
+                    value={name}
+                    onChange={e => setName(e.target.value)}
+                    placeholder="Your name"
+                    className="bg-card border border-border px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary transition-colors rounded-none"
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="contact-org" className="font-mono text-xs text-muted-foreground uppercase tracking-wider">Organization</label>
+                  <input
+                    id="contact-org"
+                    type="text"
+                    value={org}
+                    onChange={e => setOrg(e.target.value)}
+                    placeholder="Company or agency"
+                    className="bg-card border border-border px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary transition-colors rounded-none"
+                  />
+                </div>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="contact-message" className="font-mono text-xs text-muted-foreground uppercase tracking-wider">Message *</label>
+                <textarea
+                  id="contact-message"
+                  required
+                  rows={5}
+                  value={message}
+                  onChange={e => setMessage(e.target.value)}
+                  placeholder="Describe your use case and team size..."
+                  className="bg-card border border-border px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary transition-colors rounded-none resize-none"
+                />
+              </div>
+              <div className="flex flex-col sm:flex-row items-center gap-4 pt-2">
+                <Button type="submit" size="lg" className="font-display font-bold rounded-none h-12 px-8 w-full sm:w-auto">
+                  Send Request
+                </Button>
+                <p className="text-xs text-muted-foreground font-mono">
+                  {/* SWAP: replace with your business email */}
+                  Opens your mail client — or email us directly at {CONTACT_EMAIL}
+                </p>
+              </div>
+            </form>
+          )}
+
+          <p className="mt-10 text-center text-sm text-muted-foreground font-mono">
             COMING SOON TO iOS
           </p>
         </div>
