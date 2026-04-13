@@ -1,19 +1,32 @@
 import { useState, useEffect } from "react";
+import { SettingsMockup } from "@/components/SettingsMockup";
 
 const BASE = import.meta.env.BASE_URL;
 
-const SLIDES = [
+type Slide =
+  | { kind: "image"; src: string; alt: string }
+  | { kind: "component"; Component: () => React.ReactElement; alt: string };
+
+const SLIDES: Slide[] = [
   {
+    kind: "image",
     src: `${BASE}screenshots/hero-capture.jpg`,
     alt: "MACH 7 app — live GPS recording mode",
   },
   {
+    kind: "image",
+    src: `${BASE}screenshots/hero-photo.jpg`,
+    alt: "MACH 7 app — geotagged photo with coordinate overlay",
+  },
+  {
+    kind: "image",
     src: `${BASE}screenshots/hero-map.jpg`,
     alt: "MACH 7 app — GPS route map with session data",
   },
   {
-    src: `${BASE}screenshots/hero-photo.jpg`,
-    alt: "MACH 7 app — geotagged photo with coordinate overlay",
+    kind: "component",
+    Component: () => <SettingsMockup screenOnly />,
+    alt: "MACH 7 app — settings panel",
   },
 ];
 
@@ -47,16 +60,26 @@ export function PhoneMockup() {
             style={{ aspectRatio: "9 / 19.5" }}
           >
             {SLIDES.map((slide, i) => (
-              <img
-                key={slide.src}
-                src={slide.src}
-                alt={slide.alt}
-                className="absolute inset-0 w-full h-full object-cover object-top"
+              <div
+                key={i}
+                className="absolute inset-0 w-full h-full"
                 style={{
                   opacity: i === current ? 1 : 0,
                   transition: "opacity 1s ease-in-out",
                 }}
-              />
+              >
+                {slide.kind === "image" ? (
+                  <img
+                    src={slide.src}
+                    alt={slide.alt}
+                    className="w-full h-full object-cover object-top"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-[#0a0a0a]">
+                    <slide.Component />
+                  </div>
+                )}
+              </div>
             ))}
 
             {/* Subtle top glare */}

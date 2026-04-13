@@ -1,4 +1,4 @@
-import { useState, FormEvent } from "react";
+import { useState, useRef, useEffect, FormEvent } from "react";
 import { ArrowRight, Crosshair, Shield, Clock, HardDrive } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PhoneMockup } from "@/components/PhoneMockup";
@@ -15,6 +15,19 @@ export default function Home() {
   const [message, setMessage] = useState("");
   const [sent, setSent] = useState(false);
 
+  const textColRef = useRef<HTMLDivElement>(null);
+  const [textHeight, setTextHeight] = useState<number | undefined>(undefined);
+
+  useEffect(() => {
+    const el = textColRef.current;
+    if (!el) return;
+    const obs = new ResizeObserver((entries) => {
+      setTextHeight(entries[0].contentRect.height);
+    });
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+
   function handleContact(e: FormEvent) {
     e.preventDefault();
     const subject = encodeURIComponent(`Access Request from ${name}${org ? ` — ${org}` : ""}`);
@@ -29,7 +42,7 @@ export default function Home() {
       <section className="relative pt-24 pb-16 md:pt-28 md:pb-20 overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/10 via-background to-background -z-10" />
         <div className="container mx-auto px-4 grid lg:grid-cols-2 gap-12 lg:gap-8 items-start">
-          <div className="flex flex-col gap-6 max-w-2xl">
+          <div className="flex flex-col gap-6 max-w-2xl" ref={textColRef}>
             <div className="inline-flex items-center gap-2 border border-border/50 bg-card/50 backdrop-blur px-3 py-1 text-xs font-mono text-muted-foreground uppercase tracking-wider w-fit">
               <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
               STATUS: Currently in Development
@@ -57,7 +70,10 @@ export default function Home() {
             </div>
           </div>
           
-          <div className="mx-auto w-full lg:pt-6" style={{ maxWidth: "340px" }}>
+          <div
+            className="mx-auto w-full lg:pt-6 overflow-hidden"
+            style={{ maxWidth: "340px", maxHeight: textHeight ?? undefined }}
+          >
             <PhoneMockup />
           </div>
         </div>
