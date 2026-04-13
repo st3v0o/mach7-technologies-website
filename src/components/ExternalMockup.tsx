@@ -34,7 +34,7 @@ export function ExternalMockup() {
       {/* Header */}
       <rect x="12" y="56" width="276" height="72" fill="#111111" />
       <text x="24" y="86" fontFamily="'Space Grotesk', system-ui, sans-serif" fontSize="19" fontWeight="700" fill="#ffffff">External Camera</text>
-      <text x="24" y="104" fontFamily="monospace" fontSize="8.5" fill="#444444">Extensible provider architecture</text>
+      <text x="24" y="104" fontFamily="monospace" fontSize="8.5" fill="#444444">USB · Network · IP Stream</text>
       <rect x="12" y="128" width="276" height="1" fill="#1e1e1e" />
 
       {/* Status bar — connected + recording */}
@@ -56,23 +56,23 @@ export function ExternalMockup() {
       <rect x="20" y="206" width="262" height="60" rx="6" fill="#141414" stroke="#222222" strokeWidth="1" />
 
       {/* Provider options */}
-      {/* UVC - selected */}
+      {/* USB - selected */}
       <rect x="28" y="214" width="72" height="42" rx="5" fill="#161616" stroke="#0070f3" strokeWidth="1.5" />
       <text x="64" y="230" fontFamily="monospace" fontSize="8" fill="#0070f3" textAnchor="middle">⊡</text>
-      <text x="64" y="243" fontFamily="monospace" fontSize="7.5" fill="#0070f3" textAnchor="middle">UVC</text>
-      <text x="64" y="252" fontFamily="monospace" fontSize="6.5" fill="#0070f3" textAnchor="middle" opacity="0.7">USB</text>
+      <text x="64" y="243" fontFamily="monospace" fontSize="7.5" fill="#0070f3" textAnchor="middle">USB</text>
+      <text x="64" y="252" fontFamily="monospace" fontSize="6.5" fill="#0070f3" textAnchor="middle" opacity="0.7">Direct</text>
 
-      {/* NDI */}
+      {/* Network */}
       <rect x="108" y="214" width="72" height="42" rx="5" fill="#111111" stroke="#222222" strokeWidth="1" />
       <text x="144" y="230" fontFamily="monospace" fontSize="8" fill="#444444" textAnchor="middle">◈</text>
-      <text x="144" y="243" fontFamily="monospace" fontSize="7.5" fill="#444444" textAnchor="middle">NDI</text>
-      <text x="144" y="252" fontFamily="monospace" fontSize="6.5" fill="#333333" textAnchor="middle">Network</text>
+      <text x="144" y="243" fontFamily="monospace" fontSize="7.5" fill="#444444" textAnchor="middle">Network</text>
+      <text x="144" y="252" fontFamily="monospace" fontSize="6.5" fill="#333333" textAnchor="middle">LAN/WiFi</text>
 
-      {/* RTSP */}
+      {/* Stream */}
       <rect x="188" y="214" width="72" height="42" rx="5" fill="#111111" stroke="#222222" strokeWidth="1" />
       <text x="224" y="230" fontFamily="monospace" fontSize="8" fill="#444444" textAnchor="middle">⬡</text>
-      <text x="224" y="243" fontFamily="monospace" fontSize="7.5" fill="#444444" textAnchor="middle">RTSP</text>
-      <text x="224" y="252" fontFamily="monospace" fontSize="6.5" fill="#333333" textAnchor="middle">Stream</text>
+      <text x="224" y="243" fontFamily="monospace" fontSize="7.5" fill="#444444" textAnchor="middle">Stream</text>
+      <text x="224" y="252" fontFamily="monospace" fontSize="6.5" fill="#333333" textAnchor="middle">IP Feed</text>
 
       {/* Section: Device Discovery */}
       <text x="24" y="286" fontFamily="monospace" fontSize="9" fill="#444444" letterSpacing="1">DEVICE DISCOVERY</text>
@@ -82,15 +82,15 @@ export function ExternalMockup() {
       <rect x="28" y="302" width="246" height="28" rx="4" fill="#00e87a" opacity="0.07" stroke="#00e87a" strokeWidth="0.6" />
       <circle cx="40" cy="316" r="5" fill="#00e87a" opacity="0.3" />
       <circle cx="40" cy="316" r="3" fill="#00e87a" />
-      <text x="52" y="313" fontFamily="monospace" fontSize="8.5" fill="#ffffff">Insta360 Link 2C</text>
-      <text x="52" y="325" fontFamily="monospace" fontSize="7.5" fill="#555555">4K · 30fps · USB 3.0</text>
+      <text x="52" y="313" fontFamily="monospace" fontSize="8.5" fill="#ffffff">USB Cam A — 4K</text>
+      <text x="52" y="325" fontFamily="monospace" fontSize="7.5" fill="#555555">4K · 30fps · USB Direct</text>
       <rect x="230" y="305" width="36" height="18" rx="3" fill="#00e87a" opacity="0.15" stroke="#00e87a" strokeWidth="0.8" />
       <text x="248" y="317" fontFamily="monospace" fontSize="7" fill="#00e87a" textAnchor="middle">Active</text>
 
       {/* Second device */}
       <rect x="28" y="334" width="246" height="24" rx="4" fill="transparent" />
       <circle cx="40" cy="346" r="4" fill="#333333" />
-      <text x="52" y="343" fontFamily="monospace" fontSize="8" fill="#555555">GoPro Hero 12</text>
+      <text x="52" y="343" fontFamily="monospace" fontSize="8" fill="#555555">Action Cam B — 1080p</text>
       <text x="52" y="354" fontFamily="monospace" fontSize="7" fill="#3a3a3a">Disconnected</text>
       <rect x="224" y="336" width="42" height="18" rx="3" fill="#1a1a1a" stroke="#333" strokeWidth="0.8" />
       <text x="245" y="348" fontFamily="monospace" fontSize="7" fill="#555555" textAnchor="middle">Connect</text>
