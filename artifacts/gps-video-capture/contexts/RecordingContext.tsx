@@ -96,13 +96,20 @@ function makeSessionId(): string {
   return `session_${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
 }
 
-async function getOrCreatePaths(): Promise<{ framesDir: string; videosDir: string; csvPath: string; gpxDir: string }> {
+async function getOrCreatePaths(): Promise<{
+  framesDir: string;
+  videosDir: string;
+  csvPath: string;
+  gpxDir: string;
+  logJsonPath: string;
+}> {
   const FileSystem = await import('expo-file-system/legacy');
   const base = FileSystem.documentDirectory + 'gps-capture/';
   const framesDir = base + 'frames/';
   const videosDir = base + 'segments/';
   const csvPath = base + 'log.csv';
   const gpxDir = base + 'gpx/';
+  const logJsonPath = base + 'log.json';
 
   const framesDirInfo = await FileSystem.getInfoAsync(framesDir);
   if (!framesDirInfo.exists) {
@@ -120,7 +127,7 @@ async function getOrCreatePaths(): Promise<{ framesDir: string; videosDir: strin
   if (!csvInfo.exists) {
     await FileSystem.writeAsStringAsync(csvPath, CSV_HEADER);
   }
-  return { framesDir, videosDir, csvPath, gpxDir };
+  return { framesDir, videosDir, csvPath, gpxDir, logJsonPath };
 }
 
 export function RecordingProvider({ children }: { children: React.ReactNode }) {
@@ -147,7 +154,7 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
 
   const sessionIdRef = useRef<string>('');
   const locationSubRef = useRef<Location.LocationSubscription | null>(null);
-  const nativePathsRef = useRef<{ framesDir: string; videosDir: string; csvPath: string; gpxDir: string } | null>(null);
+  const nativePathsRef = useRef<{ framesDir: string; videosDir: string; csvPath: string; gpxDir: string; logJsonPath: string } | null>(null);
 
   useEffect(() => {
     loadLog();
@@ -160,15 +167,56 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
 
   const loadLog = async () => {
     try {
+      // On-device: prefer the JSON file in documentDirectory — it survives Expo Go
+      // bundle reloads reliably, unlike AsyncStorage which can lag or be cleared.
+      if (Platform.OS !== 'web') {
+        const FileSystem = await import('expo-file-system/legacy');
+        if (!nativePathsRef.current) {
+          nativePathsRef.current = await getOrCreatePaths();
+        }
+        const { logJsonPath } = nativePathsRef.current;
+        const info = await FileSystem.getInfoAsync(logJsonPath);
+        if (info.exists) {
+          const raw = await FileSystem.readAsStringAsync(logJsonPath);
+          if (raw) {
+            const entries: LogEntry[] = JSON.parse(raw);
+            setLogEntries(entries);
+            // Restore photo counter so new photos pick up after existing ones
+            const photoCount = entries.filter((e) => e.videoSegment === 'photo').length;
+            photoIndexRef.current = photoCount;
+            return;
+          }
+        }
+      }
+      // Fallback: AsyncStorage (primary on web; backup on native for old installs)
       const raw = await AsyncStorage.getItem(STORAGE_KEY);
-      if (raw) setLogEntries(JSON.parse(raw));
+      if (raw) {
+        const entries: LogEntry[] = JSON.parse(raw);
+        setLogEntries(entries);
+        if (Platform.OS !== 'web') {
+          const photoCount = entries.filter((e) => e.videoSegment === 'photo').length;
+          photoIndexRef.current = photoCount;
+        }
+      }
     } catch {}
   };
 
   const saveLog = async (entries: LogEntry[]) => {
+    const jsonStr = JSON.stringify(entries);
+    // AsyncStorage write (fast, works on web too)
     try {
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+      await AsyncStorage.setItem(STORAGE_KEY, jsonStr);
     } catch {}
+    // FileSystem write — primary persistence on device; survives Expo Go reloads
+    if (Platform.OS !== 'web') {
+      try {
+        const FileSystem = await import('expo-file-system/legacy');
+        if (!nativePathsRef.current) {
+          nativePathsRef.current = await getOrCreatePaths();
+        }
+        await FileSystem.writeAsStringAsync(nativePathsRef.current.logJsonPath, jsonStr);
+      } catch {}
+    }
   };
 
   const startGps = useCallback(async () => {
@@ -579,6 +627,7 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
     setLogEntries([]);
     setTotalFrames(0);
     setSegmentCount(0);
+    photoIndexRef.current = 0;
     await AsyncStorage.removeItem(STORAGE_KEY);
     if (Platform.OS !== 'web') {
       try {
@@ -588,6 +637,7 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
           await FileSystem.deleteAsync(nativePathsRef.current.framesDir, { idempotent: true });
           await FileSystem.deleteAsync(nativePathsRef.current.videosDir, { idempotent: true });
           await FileSystem.deleteAsync(nativePathsRef.current.gpxDir, { idempotent: true });
+          await FileSystem.deleteAsync(nativePathsRef.current.logJsonPath, { idempotent: true });
         }
         nativePathsRef.current = await getOrCreatePaths();
       } catch {}
