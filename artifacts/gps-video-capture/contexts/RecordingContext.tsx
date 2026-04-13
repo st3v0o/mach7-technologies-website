@@ -254,7 +254,7 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
       const gpxPath = nativePathsRef.current.gpxDir + sid + '.gpx';
       const xml = buildGpxXml(sid, segments, mode);
       await FileSystem.writeAsStringAsync(gpxPath, xml, {
-        encoding: (FileSystem as any).EncodingType?.UTF8 ?? 'utf8',
+        encoding: 'utf8',
       });
     } catch {}
   }, []);
@@ -315,7 +315,7 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
       const gpxPath = nativePathsRef.current.gpxDir + trackName + '.gpx';
       const xml = buildGpxXml(trackName, [points], 'manual');
       await FileSystem.writeAsStringAsync(gpxPath, xml, {
-        encoding: (FileSystem as any).EncodingType?.UTF8 ?? 'utf8',
+        encoding: 'utf8',
       });
       const canShare = await Sharing.isAvailableAsync();
       if (canShare) {

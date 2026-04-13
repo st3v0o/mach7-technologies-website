@@ -103,7 +103,7 @@ export function SettingsMockup() {
       <rect x="24" y="432" width="120" height="20" rx="4" fill="#1a1a1a" stroke="#333" strokeWidth="1" />
       <text x="84" y="446" fontFamily="monospace" fontSize="8" fill="#666666" textAnchor="middle">Configure Cloud →</text>
       <rect x="152" y="432" width="122" height="20" rx="4" fill="#1a1a1a" stroke="#0070f3" strokeWidth="0.8" />
-      <text x="213" y="446" fontFamily="monospace" fontSize="8" fill="#0070f3" textAnchor="middle">Supabase / Webhook</text>
+      <text x="213" y="446" fontFamily="monospace" fontSize="8" fill="#0070f3" textAnchor="middle">Cloud Providers →</text>
 
       {/* Video quality */}
       <text x="24" y="482" fontFamily="monospace" fontSize="9" fill="#555555" letterSpacing="1">VIDEO QUALITY</text>

@@ -222,7 +222,7 @@ export function ExternalCameraProvider({ children }: { children: React.ReactNode
       const gpxPath = `${baseDir}ext_gpx_${session.sessionId}.gpx`;
 
       await FileSystem.writeAsStringAsync(gpxPath, xml, {
-        encoding: (FileSystem as any).EncodingType?.UTF8 ?? 'utf8',
+        encoding: 'utf8',
       });
 
       const canShare = await Sharing.isAvailableAsync();

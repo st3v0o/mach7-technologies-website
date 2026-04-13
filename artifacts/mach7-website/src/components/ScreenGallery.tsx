@@ -173,7 +173,7 @@ export function ScreenGallery() {
           </PhoneFrame>
           <PhoneFrame
             label="External Camera"
-            sublabel="UVC · NDI · RTSP providers"
+            sublabel="USB · Network · IP Stream support"
             accent="blue"
           >
             <ExternalMockup />

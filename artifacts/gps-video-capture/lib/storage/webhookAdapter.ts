@@ -76,8 +76,8 @@ export async function uploadFrameWebhook(
   } else {
     headers = buildHeaders(config, 'application/json');
     const FileSystem = await import('expo-file-system/legacy');
-    const base64 = await (FileSystem as any).readAsStringAsync(item.localPath, {
-      encoding: (FileSystem as any).EncodingType.Base64,
+    const base64 = await FileSystem.readAsStringAsync(item.localPath, {
+      encoding: 'base64',
     });
     body = JSON.stringify({
       session_id: item.sessionId,
