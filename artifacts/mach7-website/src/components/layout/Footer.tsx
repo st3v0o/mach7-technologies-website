@@ -30,8 +30,8 @@ export function Footer() {
         <div className="flex flex-col gap-3">
           <h4 className="font-display font-semibold text-sm">Contact</h4>
           {/* SWAP: replace with your business email */}
-          <a href="mailto:contact@mach7technologies.com" className="text-sm text-muted-foreground hover:text-primary transition-colors">
-            contact@mach7technologies.com
+          <a href="mailto:info@mach7technologies.com" className="text-sm text-muted-foreground hover:text-primary transition-colors">
+            info@mach7technologies.com
           </a>
         </div>
       </div>

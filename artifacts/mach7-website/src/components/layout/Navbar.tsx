@@ -12,17 +12,17 @@ export function Navbar() {
           </div>
           <span className="font-display font-bold tracking-tight text-lg">MACH 7</span>
         </Link>
-        
+
         <nav className="hidden md:flex gap-6">
-          <a href="/#features" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Capabilities</a>
-          <a href="/#workflow" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Workflow</a>
-          <a href="/#specs" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Specs</a>
-          <a href="/#contact" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Contact</a>
+          <a href="#features" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Capabilities</a>
+          <a href="#workflow" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Workflow</a>
+          <a href="#specs" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Specs</a>
+          <a href="#contact" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Contact</a>
         </nav>
 
         <div className="flex items-center gap-4">
           <Button asChild variant="default" size="sm" className="font-display font-medium rounded-none">
-            <a href="/#contact">Request Access</a>
+            <a href="#contact">Request Access</a>
           </Button>
         </div>
       </div>
