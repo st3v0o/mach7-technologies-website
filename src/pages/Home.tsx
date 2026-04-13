@@ -3,6 +3,7 @@ import { ArrowRight, Crosshair, Shield, Clock, HardDrive } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PhoneMockup } from "@/components/PhoneMockup";
 import { MapMockup } from "@/components/MapMockup";
+import { ScreenGallery } from "@/components/ScreenGallery";
 
 // SWAP: replace with your business email
 const CONTACT_EMAIL = "info@mach7technologies.com";
@@ -171,6 +172,9 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {/* SCREENSHOTS */}
+      <ScreenGallery />
 
       {/* CONTACT */}
       <section id="contact" className="py-32 relative overflow-hidden">
