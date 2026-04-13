@@ -17,6 +17,7 @@ export function Navbar() {
           <a href="#features" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Capabilities</a>
           <a href="#workflow" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Workflow</a>
           <a href="#specs" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Specs</a>
+          <a href="#screenshots" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Screenshots</a>
           <a href="#contact" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Contact</a>
         </nav>
 
