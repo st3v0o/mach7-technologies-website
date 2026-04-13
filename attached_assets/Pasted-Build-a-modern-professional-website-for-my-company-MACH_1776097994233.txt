@@ -1,0 +1,189 @@
+Build a modern, professional website for my company, MACH 7 TECHNOLOGIES LLC.
+
+## Company context
+MACH 7 Technologies is a software company building products that make field data collection, mapping, and spatial workflows more accessible and practical. The product direction includes mobile app workflows, image/video-based data capture, location-aware tools, and future AI/computer vision capabilities. The brand should feel modern, credible, technical, and startup-like, but still clean and approachable.
+
+This is not a generic agency website. It should present us as a product company building software.
+
+## Goal of the website
+Create a polished public-facing website that:
+- explains what the company does clearly
+- makes the product vision feel real and credible
+- helps with Apple Developer verification by showing a legitimate business presence
+- gives people a way to contact us
+- is flexible enough for me to update later as the product evolves
+
+## Technical requirements
+- Build it as a responsive website
+- Use a clean modern layout
+- Prioritize mobile responsiveness as well as desktop
+- Keep the code organized and easy to edit later
+- Use semantic HTML and good accessibility practices
+- Optimize for fast load times
+- Include placeholder spots where I can later swap in logo, screenshots, app mockups, and brand colors
+- Include SEO basics: page title, meta description, Open Graph tags, favicon placeholder
+- Include a contact form section, but also show an email contact option
+- Do not require a complex backend; use a simple static/contact-friendly setup unless absolutely necessary
+
+## Style direction
+The design should feel:
+- modern
+- minimal
+- technical
+- polished
+- trustworthy
+- slightly premium
+- not overly corporate
+- not overly playful
+
+Visual inspiration:
+- clean SaaS startup landing page
+- subtle motion/hover effects
+- clear hierarchy
+- strong headline section
+- soft shadows
+- clean typography
+- simple iconography
+- generous whitespace
+
+Avoid:
+- cheesy stock-business feel
+- loud gradients everywhere
+- clutter
+- too much marketing fluff
+- fake metrics or fake customer logos
+
+## Site structure
+Create the following sections on the homepage:
+
+### 1. Hero section
+Include:
+- a strong headline
+- a short subheadline
+- primary CTA button
+- secondary CTA button
+- a visual area for future product screenshot or app mockup
+
+Use messaging along these lines:
+Headline ideas:
+- “Field data, mapping, and visual intelligence — made practical.”
+- “Modern tools for collecting and using real-world spatial data.”
+- “A smarter way to capture, organize, and act on field data.”
+
+Subheadline direction:
+MACH 7 Technologies builds software that helps teams collect data in the field, connect it to location, and turn images, video, and observations into useful workflows.
+
+CTA ideas:
+- “Contact Us”
+- “See What We’re Building”
+
+### 2. What we do
+A section with 3 to 4 feature cards that explain the company clearly.
+
+Possible cards:
+- Mobile Field Data Collection
+- Spatial / Mapping Workflows
+- Image and Video-Based Capture
+- AI-Ready Infrastructure
+
+Each card should have a short explanation in plain English.
+
+### 3. Product vision
+A section that explains the broader mission:
+We are building software that lowers the barrier to entry for collecting and using spatially relevant data. The focus is on practical tools that connect field work, visual inputs, and structured workflows.
+
+Keep the copy grounded and credible, not hype-heavy.
+
+### 4. Who it’s for
+A section that describes likely users in a broad but believable way.
+
+Possible audiences:
+- field teams
+- infrastructure and asset workflows
+- mapping-oriented operations
+- organizations that need visual documentation tied to place and time
+- teams exploring AI-assisted data capture
+
+Keep this broad enough that it still works as the product evolves.
+
+### 5. Why MACH 7
+A section with 3 short differentiators such as:
+- Built for real-world workflows
+- Modern, flexible software foundation
+- Designed to reduce friction and complexity
+
+### 6. About the company
+Short company section:
+MACH 7 Technologies LLC is a Virginia-based software company focused on practical tools for field data, mapping, and visual/spatial workflows.
+
+Keep this professional and concise.
+
+### 7. Contact section
+Include:
+- business email placeholder
+- simple contact form
+- a short sentence inviting inquiries, partnerships, and early interest
+
+Also include a footer with:
+- company legal name: MACH 7 TECHNOLOGIES LLC
+- copyright
+- email
+- links for privacy policy and terms placeholders
+
+## Additional pages
+Also create simple placeholder pages for:
+- Privacy Policy
+- Terms of Use
+
+These pages can have starter boilerplate structure and placeholder text sections that I can edit later.
+
+## Copywriting notes
+Write concise copy that sounds real and professional. Avoid overpromising. Avoid pretending the product is fully launched if it is still in progress. It is okay to position the company as “building” or “developing” the platform.
+
+Use phrases like:
+- “building”
+- “developing”
+- “designed for”
+- “focused on”
+- “practical workflows”
+- “field data”
+- “mapping”
+- “visual data”
+- “mobile tools”
+
+Avoid phrases like:
+- “revolutionary”
+- “game-changing”
+- “disruptive”
+- “world-class”
+- “industry-leading” unless clearly justified
+
+## Branding
+For now use a placeholder visual identity:
+- strong sans-serif typography
+- dark text on light background
+- one restrained accent color
+- optional subtle charcoal / slate / blue palette
+- include a simple text logo treatment for “MACH 7”
+
+## Deliverables
+Please generate:
+1. the full website code
+2. clean placeholder copy already filled in
+3. privacy policy page
+4. terms page
+5. clear notes on where I can swap in:
+   - logo
+   - screenshots
+   - business email
+   - final product language
+   - custom colors
+
+## Important
+This site needs to help establish legitimacy for business verification, so it should clearly show:
+- company name
+- business purpose
+- contact method
+- a real, coherent product/software focus
+
+Keep it elegant, simple, and believable.
