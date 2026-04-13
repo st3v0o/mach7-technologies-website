@@ -53,6 +53,7 @@ interface RecordingContextType {
   pauseGps: () => void;
   resumeGps: () => void;
   shareGpx: (sessionId: string) => Promise<void>;
+  exportManualGpxTrack: (points: GpsPoint[], trackName: string) => Promise<void>;
   processSegment: (
     uri: string,
     segmentNum: number,
@@ -302,6 +303,31 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
         });
       }
     } catch {}
+  }, []);
+
+  const exportManualGpxTrack = useCallback(async (points: GpsPoint[], trackName: string) => {
+    if (Platform.OS === 'web' || points.length === 0) return;
+    try {
+      const FileSystem = await import('expo-file-system/legacy');
+      if (!nativePathsRef.current) {
+        nativePathsRef.current = await getOrCreatePaths();
+      }
+      const gpxPath = nativePathsRef.current.gpxDir + trackName + '.gpx';
+      const xml = buildGpxXml(trackName, [points], 'manual');
+      await FileSystem.writeAsStringAsync(gpxPath, xml, {
+        encoding: (FileSystem as any).EncodingType?.UTF8 ?? 'utf8',
+      });
+      const canShare = await Sharing.isAvailableAsync();
+      if (canShare) {
+        await Sharing.shareAsync(gpxPath, {
+          mimeType: 'application/gpx+xml',
+          dialogTitle: 'Export GPX Route',
+          UTI: 'com.topografix.gpx',
+        });
+      }
+    } catch (e: unknown) {
+      if (e instanceof Error) console.warn('exportManualGpxTrack:', e.message);
+    }
   }, []);
 
   const processSegment = useCallback(
@@ -585,6 +611,7 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
         pauseGps,
         resumeGps,
         shareGpx,
+        exportManualGpxTrack,
         processSegment,
         savePhoto,
         updateFrameUrl,

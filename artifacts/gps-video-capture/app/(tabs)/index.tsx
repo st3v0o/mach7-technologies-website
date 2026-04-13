@@ -103,6 +103,7 @@ export default function CaptureScreen() {
     resumeGps,
     processSegment,
     savePhoto,
+    exportManualGpxTrack,
   } = useRecording();
 
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -228,6 +229,50 @@ export default function CaptureScreen() {
     manualCapturingRef.current = false;
   }, [savePhoto, flashShutter]);
 
+  // ── Manual GPX track (user-controlled start/stop) ─────────────────────────
+  const [isGpxTracking, setIsGpxTracking] = useState(false);
+  const [gpxPointCount, setGpxPointCount] = useState(0);
+  const [gpxElapsed, setGpxElapsed] = useState(0);
+  const gpxStartIndexRef = useRef(0);
+  const gpxElapsedIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const isGpxTrackingRef = useRef(false);
+
+  const stopGpxInterval = useCallback(() => {
+    if (gpxElapsedIntervalRef.current) {
+      clearInterval(gpxElapsedIntervalRef.current);
+      gpxElapsedIntervalRef.current = null;
+    }
+  }, []);
+
+  const handleStartGpx = useCallback(async () => {
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    gpxStartIndexRef.current = gpsPointsRef.current.length;
+    isGpxTrackingRef.current = true;
+    setIsGpxTracking(true);
+    setGpxElapsed(0);
+    setGpxPointCount(0);
+    gpxElapsedIntervalRef.current = setInterval(() => {
+      setGpxElapsed((s) => s + 1);
+      setGpxPointCount(gpsPointsRef.current.length - gpxStartIndexRef.current);
+    }, 1000);
+  }, [gpsPointsRef]);
+
+  const handleStopGpx = useCallback(async () => {
+    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    stopGpxInterval();
+    isGpxTrackingRef.current = false;
+    setIsGpxTracking(false);
+    setGpxElapsed(0);
+    setGpxPointCount(0);
+    const points = gpsPointsRef.current.slice(gpxStartIndexRef.current);
+    if (points.length > 0) {
+      const now = new Date();
+      const pad = (n: number) => String(n).padStart(2, '0');
+      const trackName = `gpxtrack_${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+      await exportManualGpxTrack(points, trackName);
+    }
+  }, [gpsPointsRef, stopGpxInterval, exportManualGpxTrack]);
+
   // GPS auto-starts when manual mode is active
   const captureMode = settings.captureMode;
   useEffect(() => {
@@ -235,6 +280,14 @@ export default function CaptureScreen() {
     setManualPhotoCount(0);
     startGps();
     return () => {
+      // Stop any active GPX track before leaving manual mode
+      if (isGpxTrackingRef.current) {
+        stopGpxInterval();
+        isGpxTrackingRef.current = false;
+        setIsGpxTracking(false);
+        setGpxElapsed(0);
+        setGpxPointCount(0);
+      }
       stopGps('manual');
     };
   }, [captureMode]);
@@ -624,6 +677,20 @@ export default function CaptureScreen() {
                 <Text style={styles.segLabel}>PHOTOS</Text>
                 <Text style={styles.segValue}>{manualPhotoCount}</Text>
               </View>
+              {isGpxTracking && (
+                <>
+                  <View style={styles.segInfoDivider} />
+                  <View style={styles.segInfoItem}>
+                    <Text style={styles.segLabel}>GPX PTS</Text>
+                    <Text style={[styles.segValue, { color: Colors.gpsGreen }]}>{gpxPointCount}</Text>
+                  </View>
+                  <View style={styles.segInfoDivider} />
+                  <View style={styles.segInfoItem}>
+                    <Text style={styles.segLabel}>GPX TIME</Text>
+                    <Text style={[styles.segValue, { color: Colors.gpsGreen }]}>{formatTime(gpxElapsed)}</Text>
+                  </View>
+                </>
+              )}
             </View>
           )}
 
@@ -785,8 +852,33 @@ export default function CaptureScreen() {
                 </Pressable>
               )}
 
+              {/* GPX track button — manual mode only */}
+              {settings.captureMode === 'manual' && (
+                <Pressable
+                  onPress={isGpxTracking ? handleStopGpx : handleStartGpx}
+                  style={({ pressed }) => [
+                    styles.gpxButton,
+                    isGpxTracking && styles.gpxButtonActive,
+                    pressed && { opacity: 0.7 },
+                  ]}
+                  testID="gpx-button"
+                >
+                  <Ionicons
+                    name={isGpxTracking ? 'stop' : 'navigate'}
+                    size={14}
+                    color={isGpxTracking ? Colors.background : Colors.gpsGreen}
+                  />
+                  <Text style={[
+                    styles.gpxButtonLabel,
+                    isGpxTracking && { color: Colors.background },
+                  ]}>
+                    {isGpxTracking ? 'STOP\nGPX' : 'START\nGPX'}
+                  </Text>
+                </Pressable>
+              )}
+
               {/* Segment count badge — hidden while pause button is shown */}
-              {!isRecording && (segmentCount > 0 || processingStatus === 'processing') && (
+              {!isRecording && settings.captureMode !== 'manual' && (segmentCount > 0 || processingStatus === 'processing') && (
                 <View style={styles.segCountBadge}>
                   <Ionicons name="layers-outline" size={12} color={Colors.textSecondary} />
                   <Text style={styles.segCountText}>{segmentCount}</Text>
@@ -798,7 +890,9 @@ export default function CaptureScreen() {
           <View style={styles.hintRow}>
             <Text style={styles.hintText}>
               {settings.captureMode === 'manual'
-                ? 'Tap the shutter to capture · GPS tagged instantly'
+                ? isGpxTracking
+                  ? `Recording GPX route · ${gpxPointCount} pts · tap STOP GPX to export`
+                  : 'Tap the shutter to capture · tap START GPX to record a route'
                 : settings.captureMode === 'photo'
                 ? 'Photos saved directly · GPS tagged'
                 : 'Auto-saves every ~250 MB · frames tagged with GPS'}
@@ -1124,6 +1218,28 @@ const styles = StyleSheet.create({
   pauseButtonActive: {
     backgroundColor: Colors.amber,
     borderColor: Colors.amber,
+  },
+  gpxButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: Colors.gpsGreen,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,232,122,0.10)',
+    gap: 2,
+  },
+  gpxButtonActive: {
+    backgroundColor: Colors.gpsGreen,
+    borderColor: Colors.gpsGreen,
+  },
+  gpxButtonLabel: {
+    color: Colors.gpsGreen,
+    fontFamily: 'Inter_700Bold',
+    fontSize: 8,
+    letterSpacing: 0.5,
+    textAlign: 'center',
   },
   hintRow: {
     alignItems: 'center',
