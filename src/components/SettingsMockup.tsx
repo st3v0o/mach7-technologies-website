@@ -1,10 +1,14 @@
-export function SettingsMockup() {
+export function SettingsMockup({ screenOnly = false }: { screenOnly?: boolean }) {
+  const viewBox = screenOnly ? "12 56 276 548" : "0 0 300 620";
+
   return (
     <svg
-      viewBox="0 0 300 620"
+      viewBox={viewBox}
+      width="100%"
+      height="100%"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
-      className="w-full h-full drop-shadow-2xl"
+      style={{ display: "block" }}
       aria-hidden="true"
     >
       <defs>
@@ -17,15 +21,17 @@ export function SettingsMockup() {
         </clipPath>
       </defs>
 
-      {/* Phone body */}
-      <rect x="2" y="2" width="296" height="616" rx="44" fill="url(#settingsBodyGrad)" stroke="#2a2a2a" strokeWidth="2" />
-      {/* Side buttons */}
-      <rect x="0" y="148" width="3" height="38" rx="1.5" fill="#2a2a2a" />
-      <rect x="0" y="198" width="3" height="58" rx="1.5" fill="#2a2a2a" />
-      <rect x="0" y="268" width="3" height="58" rx="1.5" fill="#2a2a2a" />
-      <rect x="297" y="198" width="3" height="78" rx="1.5" fill="#2a2a2a" />
-      {/* Dynamic island */}
-      <rect x="106" y="14" width="88" height="28" rx="14" fill="#000" />
+      {/* Phone body — only when not screenOnly */}
+      {!screenOnly && (
+        <>
+          <rect x="2" y="2" width="296" height="616" rx="44" fill="url(#settingsBodyGrad)" stroke="#2a2a2a" strokeWidth="2" />
+          <rect x="0" y="148" width="3" height="38" rx="1.5" fill="#2a2a2a" />
+          <rect x="0" y="198" width="3" height="58" rx="1.5" fill="#2a2a2a" />
+          <rect x="0" y="268" width="3" height="58" rx="1.5" fill="#2a2a2a" />
+          <rect x="297" y="198" width="3" height="78" rx="1.5" fill="#2a2a2a" />
+          <rect x="106" y="14" width="88" height="28" rx="14" fill="#000" />
+        </>
+      )}
 
       {/* Screen background */}
       <rect x="12" y="56" width="276" height="548" fill="#0a0a0a" clipPath="url(#settingsScreen)" />
@@ -62,22 +68,14 @@ export function SettingsMockup() {
 
       {/* Sampling card */}
       <rect x="20" y="236" width="262" height="56" rx="6" fill="#161616" stroke="#222222" strokeWidth="1" />
-
-      {/* Time-based pill - selected */}
       <rect x="30" y="244" width="108" height="24" rx="4" fill="#0070f3" opacity="0.18" stroke="#0070f3" strokeWidth="1" />
       <text x="84" y="260" fontFamily="monospace" fontSize="8.5" fill="#0070f3" textAnchor="middle">TIME-BASED</text>
-
-      {/* Distance pill */}
       <rect x="148" y="244" width="122" height="24" rx="4" fill="transparent" />
       <text x="209" y="260" fontFamily="monospace" fontSize="8.5" fill="#555555" textAnchor="middle">DISTANCE-BASED</text>
-
-      {/* Value desc */}
       <text x="30" y="284" fontFamily="monospace" fontSize="8" fill="#666666">One frame every 2 seconds · ~0.5 fps</text>
 
       {/* Section label: Frame Rate */}
       <text x="24" y="314" fontFamily="monospace" fontSize="9" fill="#555555" letterSpacing="1">FRAME RATE</text>
-
-      {/* FPS pills */}
       <rect x="20" y="322" width="262" height="36" rx="6" fill="#161616" stroke="#222222" strokeWidth="1" />
       {["0.2", "0.5", "1", "2", "5", "10"].map((fps, i) => {
         const x = 28 + i * 42;
@@ -93,8 +91,6 @@ export function SettingsMockup() {
 
       {/* Section label: Cloud Upload */}
       <text x="24" y="382" fontFamily="monospace" fontSize="9" fill="#555555" letterSpacing="1">CLOUD UPLOAD</text>
-
-      {/* Upload card */}
       <rect x="20" y="390" width="262" height="70" rx="6" fill="#161616" stroke="#222222" strokeWidth="1" />
       <circle cx="40" cy="408" r="8" fill="#1a1a1a" stroke="#333" strokeWidth="1" />
       <text x="40" y="412" fontFamily="monospace" fontSize="7" fill="#555555" textAnchor="middle">⬡</text>
@@ -130,7 +126,6 @@ export function SettingsMockup() {
       {/* Tab bar */}
       <rect x="12" y="574" width="276" height="48" rx="0" fill="#111111" />
       <line x1="12" y1="574" x2="288" y2="574" stroke="#1e1e1e" strokeWidth="1" />
-      {/* Tabs */}
       <text x="56" y="592" fontFamily="monospace" fontSize="7.5" fill="#555555" textAnchor="middle">⊙</text>
       <text x="56" y="604" fontFamily="monospace" fontSize="7" fill="#555555" textAnchor="middle">Capture</text>
       <text x="111" y="592" fontFamily="monospace" fontSize="7.5" fill="#555555" textAnchor="middle">☰</text>
@@ -140,8 +135,8 @@ export function SettingsMockup() {
       <text x="222" y="592" fontFamily="monospace" fontSize="7.5" fill="#ff5500" textAnchor="middle">⚙</text>
       <text x="222" y="604" fontFamily="monospace" fontSize="7" fill="#ff5500" textAnchor="middle">Settings</text>
 
-      {/* Home indicator */}
-      <rect x="118" y="608" width="64" height="4" rx="2" fill="#2a2a2a" />
+      {/* Home indicator — only when not screenOnly */}
+      {!screenOnly && <rect x="118" y="608" width="64" height="4" rx="2" fill="#2a2a2a" />}
     </svg>
   );
 }
