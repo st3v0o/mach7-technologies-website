@@ -1,5 +1,4 @@
 import { SettingsMockup } from "@/components/SettingsMockup";
-import { ExternalMockup } from "@/components/ExternalMockup";
 
 interface PhoneFrameProps {
   src?: string;
@@ -13,9 +12,9 @@ interface PhoneFrameProps {
 
 function PhoneFrame({ src, alt, children, label, sublabel, accent = "orange", featured = false }: PhoneFrameProps) {
   const glowColor = {
-    orange: "rgba(255,85,0,0.25)",
-    green: "rgba(0,232,122,0.2)",
-    blue: "rgba(0,112,243,0.2)",
+    orange: "rgba(255,85,0,0.28)",
+    green: "rgba(0,232,122,0.22)",
+    blue: "rgba(0,112,243,0.22)",
   }[accent];
 
   const borderColor = {
@@ -27,8 +26,8 @@ function PhoneFrame({ src, alt, children, label, sublabel, accent = "orange", fe
   return (
     <div className={`flex flex-col items-center gap-4 group ${featured ? "scale-105" : ""}`}>
       <div
-        className="relative w-full transition-transform duration-300 group-hover:-translate-y-1"
-        style={{ filter: `drop-shadow(0 0 24px ${glowColor})` }}
+        className="relative w-full transition-transform duration-300 group-hover:-translate-y-2"
+        style={{ filter: `drop-shadow(0 0 28px ${glowColor})` }}
       >
         {/* Phone shell */}
         <div
@@ -49,10 +48,7 @@ function PhoneFrame({ src, alt, children, label, sublabel, accent = "orange", fe
           {/* Screen content */}
           <div
             className="relative overflow-hidden"
-            style={{
-              aspectRatio: "9/18",
-              background: "#0a0a0a",
-            }}
+            style={{ aspectRatio: "9/18", background: "#0a0a0a" }}
           >
             {src ? (
               <img
@@ -68,7 +64,8 @@ function PhoneFrame({ src, alt, children, label, sublabel, accent = "orange", fe
             <div
               className="absolute inset-0 pointer-events-none"
               style={{
-                background: "linear-gradient(135deg, rgba(255,255,255,0.04) 0%, transparent 50%)",
+                background:
+                  "linear-gradient(135deg, rgba(255,255,255,0.05) 0%, transparent 50%)",
               }}
             />
           </div>
@@ -80,18 +77,9 @@ function PhoneFrame({ src, alt, children, label, sublabel, accent = "orange", fe
 
           {/* Side buttons */}
           <div className="absolute left-[-3px] top-1/3 w-[3px] h-8 rounded-l bg-[#2a2a2a]" />
-          <div
-            className="absolute left-[-3px] w-[3px] h-10 rounded-l bg-[#2a2a2a]"
-            style={{ top: "calc(33% + 44px)" }}
-          />
-          <div
-            className="absolute left-[-3px] w-[3px] h-10 rounded-l bg-[#2a2a2a]"
-            style={{ top: "calc(33% + 96px)" }}
-          />
-          <div
-            className="absolute right-[-3px] w-[3px] h-14 rounded-r bg-[#2a2a2a]"
-            style={{ top: "calc(33% + 24px)" }}
-          />
+          <div className="absolute left-[-3px] w-[3px] h-10 rounded-l bg-[#2a2a2a]" style={{ top: "calc(33% + 44px)" }} />
+          <div className="absolute left-[-3px] w-[3px] h-10 rounded-l bg-[#2a2a2a]" style={{ top: "calc(33% + 96px)" }} />
+          <div className="absolute right-[-3px] w-[3px] h-14 rounded-r bg-[#2a2a2a]" style={{ top: "calc(33% + 24px)" }} />
 
           {/* Accent glow border overlay */}
           <div
@@ -113,13 +101,14 @@ function PhoneFrame({ src, alt, children, label, sublabel, accent = "orange", fe
 }
 
 export function ScreenGallery() {
+  const base = import.meta.env.BASE_URL;
   return (
     <section id="screenshots" className="py-24 overflow-hidden">
       <div className="container mx-auto px-4">
         <div className="text-center max-w-2xl mx-auto mb-16">
           <div className="inline-flex items-center gap-2 border border-border/40 bg-card/40 px-3 py-1 text-xs font-mono text-muted-foreground uppercase tracking-wider mb-6">
             <span className="w-1.5 h-1.5 rounded-full bg-primary" />
-            Real screenshots · live app
+            Real screenshots · live app · no staging
           </div>
           <h2 className="font-display text-3xl md:text-4xl font-bold tracking-tight mb-4">
             Built for the field.
@@ -129,54 +118,55 @@ export function ScreenGallery() {
           </p>
         </div>
 
-        {/* Main 3-up row — the real screenshots */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-6 md:gap-10 max-w-3xl mx-auto mb-12">
+        {/* Row 1 — capture + both map views */}
+        <div className="grid grid-cols-3 gap-6 md:gap-10 max-w-3xl mx-auto mb-10">
           <PhoneFrame
-            src={`${import.meta.env.BASE_URL}screenshots/capture-manual.png`}
-            alt="Capture screen in manual mode showing GPS lock, shutter, and Start GPX button"
+            src={`${base}screenshots/capture-manual.png`}
+            alt="Capture screen in manual mode showing GPS lock and shutter control"
             label="Capture"
             sublabel="Manual mode · GPS locked"
             accent="green"
+          />
+          <PhoneFrame
+            src={`${base}screenshots/map-wide.jpg`}
+            alt="Wide GPS route map showing full session track with I-64 context"
+            label="Route Map"
+            sublabel="Live GPS track · multi-session"
+            accent="blue"
             featured
           />
           <PhoneFrame
-            src={`${import.meta.env.BASE_URL}screenshots/frame-log.png`}
-            alt="Frame log showing 4 geotagged photos with coordinates"
+            src={`${base}screenshots/map-zoomed.jpg`}
+            alt="Frame Log zoomed map showing 4 color-coded capture sessions with legend"
             label="Frame Log"
-            sublabel="4 geotagged photos"
-            accent="orange"
-          />
-          <PhoneFrame
-            src={`${import.meta.env.BASE_URL}screenshots/map-view.png`}
-            alt="Map view showing GPS track with 4 capture points"
-            label="Map View"
-            sublabel="GPS track with points"
+            sublabel="58 frames · 4 sessions mapped"
             accent="blue"
           />
         </div>
 
-        {/* Second row — photo detail + settings + external */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 md:gap-10 max-w-3xl mx-auto">
+        {/* Row 2 — real field photos + settings */}
+        <div className="grid grid-cols-3 gap-6 md:gap-10 max-w-3xl mx-auto">
           <PhoneFrame
-            src={`${import.meta.env.BASE_URL}screenshots/photo-preview.png`}
-            alt="Photo preview with GPS coordinate overlay"
-            label="Photo Detail"
-            sublabel="GPS overlay · coordinate stamp"
+            src={`${base}screenshots/photo-school.jpg`}
+            alt="In-app photo viewer showing school zone scene with live GPS coordinate stamp"
+            label="Field Shot"
+            sublabel="School zone · GPS stamped"
             accent="orange"
           />
           <PhoneFrame
+            src={`${base}screenshots/photo-yield.jpg`}
+            alt="In-app photo viewer showing yield sign intersection with GPS overlay and session metadata"
+            label="Photo Detail"
+            sublabel="GPS overlay · session metadata"
+            accent="orange"
+            featured
+          />
+          <PhoneFrame
             label="Settings"
-            sublabel="Capture mode · frame rate · cloud"
+            sublabel="Interval · mode · cloud upload"
             accent="orange"
           >
             <SettingsMockup />
-          </PhoneFrame>
-          <PhoneFrame
-            label="External Camera"
-            sublabel="USB · Network · IP Stream support"
-            accent="blue"
-          >
-            <ExternalMockup />
           </PhoneFrame>
         </div>
       </div>
