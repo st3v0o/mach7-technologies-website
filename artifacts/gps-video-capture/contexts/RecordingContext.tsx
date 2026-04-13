@@ -9,7 +9,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { Platform } from 'react-native';
+import { Alert, Platform } from 'react-native';
 
 import { buildGpxXml } from '@/lib/gpx';
 import { FrameSettings } from './SettingsContext';
@@ -341,7 +341,14 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
       const gpxPath = nativePathsRef.current.gpxDir + sid + '.gpx';
       const FileSystem = await import('expo-file-system/legacy');
       const info = await FileSystem.getInfoAsync(gpxPath);
-      if (!info.exists) return;
+      if (!info.exists) {
+        Alert.alert(
+          'No GPX Track',
+          'No GPS track file was found for this session. Use the START GPX button on the Capture tab while in Manual mode to record a route.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
       const canShare = await Sharing.isAvailableAsync();
       if (canShare) {
         await Sharing.shareAsync(gpxPath, {

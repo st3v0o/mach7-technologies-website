@@ -266,12 +266,12 @@ export default function CaptureScreen() {
     setGpxPointCount(0);
     const points = gpsPointsRef.current.slice(gpxStartIndexRef.current);
     if (points.length > 0) {
-      const now = new Date();
-      const pad = (n: number) => String(n).padStart(2, '0');
-      const trackName = `gpxtrack_${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
-      await exportManualGpxTrack(points, trackName);
+      // Save using the current sessionId so the Log screen's GPX button can find the file via shareGpx(sessionId).
+      // stopGps('manual') will later overwrite this with all GPS points from the session, which is fine —
+      // the user already gets the share sheet immediately, and the full-session GPX is more useful in the log.
+      await exportManualGpxTrack(points, sessionId);
     }
-  }, [gpsPointsRef, stopGpxInterval, exportManualGpxTrack]);
+  }, [gpsPointsRef, stopGpxInterval, exportManualGpxTrack, sessionId]);
 
   // GPS auto-starts when manual mode is active
   const captureMode = settings.captureMode;
