@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/mach7/"
+title = "MACH 7 Technologies"
+version = "1.0.0"
+id = "artifacts/mach7-website"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/mach7/" ]
+localPort = 25517
+
+[services.development]
+run = "pnpm --filter @workspace/mach7-website run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/mach7-website", "run", "build" ]
+publicDir = "artifacts/mach7-website/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "25517"
+BASE_PATH = "/mach7/"
