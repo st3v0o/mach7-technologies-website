@@ -26,9 +26,9 @@ export default function Home() {
   return (
     <div className="flex flex-col">
       {/* HERO SECTION */}
-      <section className="relative pt-24 pb-32 md:pt-32 md:pb-48 overflow-hidden">
+      <section className="relative pt-24 pb-16 md:pt-28 md:pb-20 overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/10 via-background to-background -z-10" />
-        <div className="container mx-auto px-4 grid lg:grid-cols-2 gap-12 lg:gap-8 items-center">
+        <div className="container mx-auto px-4 grid lg:grid-cols-2 gap-12 lg:gap-8 items-start">
           <div className="flex flex-col gap-6 max-w-2xl">
             <div className="inline-flex items-center gap-2 border border-border/50 bg-card/50 backdrop-blur px-3 py-1 text-xs font-mono text-muted-foreground uppercase tracking-wider w-fit">
               <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
@@ -57,7 +57,7 @@ export default function Home() {
             </div>
           </div>
           
-          <div className="relative mx-auto w-full max-w-[280px] lg:max-w-none lg:h-[600px] flex items-center justify-center">
+          <div className="mx-auto w-full lg:pt-6" style={{ maxWidth: "340px" }}>
             <PhoneMockup />
           </div>
         </div>

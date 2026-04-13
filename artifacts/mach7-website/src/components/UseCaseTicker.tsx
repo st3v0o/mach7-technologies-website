@@ -346,7 +346,7 @@ const USE_CASES = [
   "farmers market stall condition",
   "campus accessibility survey",
   "historical structure documentation",
-  "tunnle portal inspection",
+  "tunnel portal inspection",
   "bridge infrastructure walkthrough",
   "airport perimeter documentation",
   "port facility inspection",
@@ -357,28 +357,92 @@ const USE_CASES = [
   "landfill boundary survey",
 ];
 
-export function UseCaseTicker() {
-  // Negative delay starts the animation mid-cycle so each page load begins at a
-  // different scroll position — seamless since the list is tripled.
+const COL_DURATIONS = [115, 145, 130] as const;
+
+function TickerColumn({
+  items,
+  duration,
+  startOffset,
+  accentEvery = 7,
+  accentStart = 2,
+}: {
+  items: string[];
+  duration: number;
+  startOffset: number;
+  accentEvery?: number;
+  accentStart?: number;
+}) {
   const animationDelay = useMemo(
-    () => `-${(Math.random() * 120).toFixed(2)}s`,
+    () => `-${(startOffset + Math.random() * 10).toFixed(2)}s`,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     []
   );
 
-  // Scatter orange accent highlights roughly every 7 items
-  const accentSet = useMemo(() => {
-    const s = new Set<number>();
-    for (let i = 2; i < USE_CASES.length; i += 7) s.add(i);
-    return s;
-  }, []);
+  const tripled = useMemo(() => [...items, ...items, ...items], [items]);
 
-  const tripled = useMemo(
-    () => [...USE_CASES, ...USE_CASES, ...USE_CASES],
+  return (
+    <div
+      className="relative overflow-hidden"
+      style={{
+        height: "460px",
+        maskImage:
+          "linear-gradient(to bottom, transparent 0%, black 18%, black 82%, transparent 100%)",
+        WebkitMaskImage:
+          "linear-gradient(to bottom, transparent 0%, black 18%, black 82%, transparent 100%)",
+      }}
+    >
+      <div
+        style={{
+          animation: `ticker-up-col ${duration}s linear infinite`,
+          animationDelay,
+        }}
+      >
+        {tripled.map((text, i) => {
+          const idx = i % items.length;
+          const isAccent = (idx - accentStart) % accentEvery === 0 && idx >= accentStart;
+          return (
+            <div key={i} className="py-[5px] text-center leading-tight select-none">
+              <span
+                className="font-mono text-[12px] uppercase tracking-[0.16em]"
+                style={{
+                  color: isAccent
+                    ? "hsl(var(--primary))"
+                    : "hsl(var(--muted-foreground))",
+                  fontWeight: isAccent ? 600 : 400,
+                  opacity: isAccent ? 1 : 0.55,
+                }}
+              >
+                {text}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+export function UseCaseTicker() {
+  const third = Math.ceil(USE_CASES.length / 3);
+  const cols = useMemo(
+    () => [
+      USE_CASES.slice(0, third),
+      USE_CASES.slice(third, third * 2),
+      USE_CASES.slice(third * 2),
+    ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     []
   );
 
   return (
-    <section className="py-16 overflow-hidden">
+    <section className="py-16 overflow-hidden border-y border-border/30">
+      <style>{`
+        @keyframes ticker-up-col {
+          0%   { transform: translateY(0); }
+          100% { transform: translateY(-33.333%); }
+        }
+      `}</style>
+
       <div className="container mx-auto px-4">
         <div className="text-center mb-10">
           <div className="inline-flex items-center gap-2 border border-border/40 bg-card/40 px-3 py-1 text-xs font-mono text-muted-foreground uppercase tracking-wider mb-4">
@@ -391,52 +455,17 @@ export function UseCaseTicker() {
           </h2>
         </div>
 
-        {/* Ticker window */}
-        <div
-          className="relative mx-auto overflow-hidden"
-          style={{
-            height: "520px",
-            maxWidth: "560px",
-            maskImage:
-              "linear-gradient(to bottom, transparent 0%, black 16%, black 84%, transparent 100%)",
-            WebkitMaskImage:
-              "linear-gradient(to bottom, transparent 0%, black 16%, black 84%, transparent 100%)",
-          }}
-        >
-          <style>{`
-            @keyframes ticker-up {
-              0%   { transform: translateY(0); }
-              100% { transform: translateY(-33.333%); }
-            }
-            .ticker-track {
-              animation: ticker-up 120s linear infinite;
-            }
-          `}</style>
-
-          <div
-            className="ticker-track"
-            style={{ animationDelay }}
-          >
-            {tripled.map((text, i) => {
-              const isAccent = accentSet.has(i % USE_CASES.length);
-              return (
-                <div key={i} className="py-[6px] text-center leading-tight select-none">
-                  <span
-                    className="font-mono text-[13px] uppercase tracking-[0.18em]"
-                    style={{
-                      color: isAccent
-                        ? "hsl(var(--primary))"
-                        : "hsl(var(--muted-foreground))",
-                      fontWeight: isAccent ? 600 : 400,
-                      opacity: isAccent ? 1 : 0.6,
-                    }}
-                  >
-                    {text}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
+        {/* Three-column ticker — spans the full container */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {cols.map((items, ci) => (
+            <TickerColumn
+              key={ci}
+              items={items}
+              duration={COL_DURATIONS[ci]}
+              startOffset={ci * 38}
+              accentStart={ci * 3 + 2}
+            />
+          ))}
         </div>
       </div>
     </section>
