@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { PhoneMockup } from "@/components/PhoneMockup";
 import { MapMockup } from "@/components/MapMockup";
 import { ScreenGallery } from "@/components/ScreenGallery";
+import { UseCaseTicker } from "@/components/UseCaseTicker";
 
 // SWAP: replace with your business email
 const CONTACT_EMAIL = "info@mach7technologies.com";
@@ -61,6 +62,9 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {/* USE CASE TICKER */}
+      <UseCaseTicker />
 
       {/* CORE VALUE PROPS */}
       <section id="features" className="py-24 bg-card border-y border-border">
