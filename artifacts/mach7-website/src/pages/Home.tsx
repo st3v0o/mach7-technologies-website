@@ -1,5 +1,7 @@
-import { ArrowRight, Crosshair, Map, Shield, Clock, HardDrive, Smartphone } from "lucide-react";
+import { ArrowRight, Crosshair, Shield, Clock, HardDrive } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PhoneMockup } from "@/components/PhoneMockup";
+import { MapMockup } from "@/components/MapMockup";
 
 export default function Home() {
   return (
@@ -36,14 +38,8 @@ export default function Home() {
             </div>
           </div>
           
-          <div className="relative mx-auto w-full max-w-[320px] aspect-[9/19] lg:max-w-none lg:aspect-auto lg:h-[600px]">
-            {/* SWAP: screenshot area */}
-            <div className="absolute inset-0 border border-dashed border-primary/30 bg-primary/5 flex flex-col items-center justify-center p-8 text-center gap-4">
-              <Smartphone className="w-12 h-12 text-primary/40" />
-              <p className="font-mono text-sm text-primary/60 uppercase tracking-widest">
-                [ App Mockup Placement ]
-              </p>
-            </div>
+          <div className="relative mx-auto w-full max-w-[280px] lg:max-w-none lg:h-[600px] flex items-center justify-center">
+            <PhoneMockup />
           </div>
         </div>
       </section>
@@ -88,14 +84,8 @@ export default function Home() {
       <section id="workflow" className="py-24">
         <div className="container mx-auto px-4">
           <div className="grid lg:grid-cols-2 gap-16 items-center">
-            <div className="order-2 lg:order-1 aspect-square md:aspect-video lg:aspect-square w-full">
-               {/* SWAP: screenshot area */}
-              <div className="w-full h-full border border-dashed border-muted-foreground/30 bg-muted/10 flex flex-col items-center justify-center p-8 text-center gap-4">
-                <Map className="w-12 h-12 text-muted-foreground/40" />
-                <p className="font-mono text-sm text-muted-foreground/60 uppercase tracking-widest">
-                  [ Map Interface Placeholder ]
-                </p>
-              </div>
+            <div className="order-2 lg:order-1 aspect-square md:aspect-video lg:aspect-square w-full overflow-hidden rounded-sm border border-border/30">
+              <MapMockup />
             </div>
             
             <div className="order-1 lg:order-2 flex flex-col gap-12">
