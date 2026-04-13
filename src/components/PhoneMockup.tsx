@@ -28,21 +28,18 @@ export function PhoneMockup() {
   }, []);
 
   return (
-    <div className="flex flex-col items-center gap-4 select-none">
+    <div className="w-full flex flex-col items-center gap-4 select-none">
       {/* Phone shell */}
-      <div
-        className="relative w-full"
-        style={{ maxWidth: "260px" }}
-      >
+      <div className="relative w-full">
         <div
-          className="relative rounded-[2.75rem] overflow-hidden bg-[#0e0e0e] border-2 border-[#2a2a2a]"
+          className="relative rounded-[2.75rem] overflow-hidden bg-[#0e0e0e] border-[3px] border-[#2a2a2a]"
           style={{
             boxShadow:
-              "0 32px 80px rgba(0,0,0,0.75), 0 0 0 1px #1a1a1a, 0 0 40px rgba(255,85,0,0.06)",
+              "0 40px 100px rgba(0,0,0,0.8), 0 0 0 1px #1a1a1a, 0 0 60px rgba(255,85,0,0.07)",
           }}
         >
           {/* Dynamic island */}
-          <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 w-[88px] h-7 rounded-full bg-black" />
+          <div className="absolute top-[14px] left-1/2 -translate-x-1/2 z-20 w-[96px] h-[30px] rounded-full bg-black" />
 
           {/* Screen — slides fill from top */}
           <div
