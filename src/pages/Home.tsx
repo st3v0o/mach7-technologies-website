@@ -107,31 +107,31 @@ export default function Home() {
             </div>
             <div className="order-1 lg:order-2 flex flex-col gap-12">
               <div>
-                <h2 className="font-display text-4xl md:text-5xl font-bold tracking-tight mb-5">Two modes. One tool.</h2>
+                <h2 className="font-display text-4xl md:text-5xl font-bold tracking-tight mb-5">Video. Photo. Export.</h2>
                 <p className="text-muted-foreground text-xl leading-relaxed">
-                  Systematic coverage sweep or expert-guided documentation — the same app, without compromise.
+                  Three capture modes, each with fixed-rate or speed-adaptive options — all GPS-tagged, all in one app.
                 </p>
               </div>
               <div className="flex flex-col gap-10">
                 <div className="flex gap-5">
                   <div className="w-11 h-11 shrink-0 rounded-full bg-primary/15 border border-primary/30 text-primary flex items-center justify-center font-display text-base font-bold">1</div>
                   <div>
-                    <h4 className="font-display font-semibold text-xl mb-2">Choose your mode</h4>
-                    <p className="text-muted-foreground text-lg leading-relaxed">Auto for continuous coverage drives. Expert for trained inspectors making deliberate captures. GPS runs from the moment you start.</p>
+                    <h4 className="font-display font-semibold text-xl mb-2">Video capture — fixed or dynamic FPS</h4>
+                    <p className="text-muted-foreground text-lg leading-relaxed">Record continuous GPS-tagged video at a set frame rate, or switch to dynamic mode and let your vehicle speed drive the FPS automatically for consistent spatial coverage density.</p>
                   </div>
                 </div>
                 <div className="flex gap-5">
                   <div className="w-11 h-11 shrink-0 rounded-full bg-primary/15 border border-primary/30 text-primary flex items-center justify-center font-display text-base font-bold">2</div>
                   <div>
-                    <h4 className="font-display font-semibold text-xl mb-2">Capture intelligently</h4>
-                    <p className="text-muted-foreground text-lg leading-relaxed">Auto mode adjusts FPS to your speed. Expert mode logs your GPS route continuously as you photograph.</p>
+                    <h4 className="font-display font-semibold text-xl mb-2">Photo capture — fixed or dynamic interval</h4>
+                    <p className="text-muted-foreground text-lg leading-relaxed">Snap GPS-tagged photos at a fixed time interval, or use dynamic spacing so the app adjusts the capture rate to your pace — spacing shots by distance, not by the clock.</p>
                   </div>
                 </div>
                 <div className="flex gap-5">
                   <div className="w-11 h-11 shrink-0 rounded-full bg-primary/15 border border-primary/30 text-primary flex items-center justify-center font-display text-base font-bold">3</div>
                   <div>
-                    <h4 className="font-display font-semibold text-xl mb-2">Verify coverage. Export.</h4>
-                    <p className="text-muted-foreground text-lg leading-relaxed">Every frame's location on the map. Spot gaps before you leave. Export GPX tracks or sync to your database.</p>
+                    <h4 className="font-display font-semibold text-xl mb-2">Review and export</h4>
+                    <p className="text-muted-foreground text-lg leading-relaxed">Every capture plotted on the map. Spot coverage gaps before you pack up. Export GPX routes or sync your full session dataset to the cloud.</p>
                   </div>
                 </div>
               </div>
@@ -167,9 +167,9 @@ export default function Home() {
             <div className="border border-border/60 p-8 bg-background/60 rounded-lg">
               <div className="flex items-center gap-2 mb-5">
                 <span className="w-6 h-6 rounded-full bg-primary/20 text-primary text-xs font-bold flex items-center justify-center">3</span>
-                <span className="text-sm font-semibold text-foreground/80 tracking-wide">Dual Mode</span>
+                <span className="text-sm font-semibold text-foreground/80 tracking-wide">Video + Photo Modes</span>
               </div>
-              <p className="text-lg text-muted-foreground leading-relaxed">Continuous auto capture or deliberate expert photography — same app, same GPS record, full accountability.</p>
+              <p className="text-lg text-muted-foreground leading-relaxed">Continuous GPS-tagged video or deliberate photo capture — each with fixed-rate or speed-adaptive FPS. Same GPS record throughout, full spatial accountability.</p>
             </div>
             <div className="border border-border/60 p-8 bg-background/60 rounded-lg">
               <div className="flex items-center gap-2 mb-5">
