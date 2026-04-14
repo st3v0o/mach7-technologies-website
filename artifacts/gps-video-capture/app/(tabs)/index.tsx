@@ -640,11 +640,15 @@ export default function CaptureScreen() {
               <GpsStatusDot status={gpsStatus} />
               <Text style={[
                 styles.gpsLabel,
-                { color: gpsStatus === 'locked' ? Colors.gpsGreen : Colors.amber },
+                {
+                  color: gpsStatus === 'locked' ? Colors.gpsGreen
+                       : gpsStatus === 'idle' ? 'rgba(255,255,255,0.45)'
+                       : Colors.amber,
+                },
               ]}>
                 {gpsStatus === 'locked' ? 'GPS LOCK' :
                  gpsStatus === 'searching' ? 'ACQUIRING' :
-                 gpsStatus === 'denied' ? 'GPS DENIED' : 'GPS OFF'}
+                 gpsStatus === 'denied' ? 'GPS DENIED' : 'GPS READY'}
               </Text>
             </View>
             {currentGps ? (
@@ -657,7 +661,8 @@ export default function CaptureScreen() {
               </Text>
             ) : (
               <Text style={styles.noGpsLine}>
-                {gpsStatus === 'searching' ? 'Searching…' : 'Waiting for signal'}
+                {gpsStatus === 'searching' ? 'Acquiring…' :
+                 gpsStatus === 'idle' ? 'Starts when you record' : 'Check GPS permissions'}
               </Text>
             )}
           </View>
@@ -693,8 +698,8 @@ export default function CaptureScreen() {
       {/* ── Bottom HUD: cinematic gradient overlay ──────────────────────── */}
       <View style={[styles.bottomOverlay, { paddingBottom: tabBarHeight }]}>
         <LinearGradient
-          colors={['transparent', 'rgba(0,0,0,0.72)', 'rgba(0,0,0,0.97)']}
-          locations={[0, 0.35, 1]}
+          colors={['transparent', 'rgba(0,0,0,0.55)', 'rgba(0,0,0,0.88)']}
+          locations={[0, 0.3, 1]}
           style={styles.bottomGradient}
         >
           {/* ── Job info section ────────────────────────────────────────── */}
@@ -723,15 +728,18 @@ export default function CaptureScreen() {
               </Text>
             </Pressable>
 
-            {/* Rate / speed info line */}
+            {/* Rate / speed / file-size info line */}
             <Text style={styles.infoLine}>
               {rateLabel(settings.frameMode, settings.fixedFps, settings.dynamicMeters, currentGps?.speed)}
               {currentGps?.speed != null && currentGps.speed * MPH_PER_MPS > 1
                 ? `  ·  ${(currentGps.speed * MPH_PER_MPS).toFixed(0)} mph`
                 : ''}
+              {isRecording && settings.captureMode === 'video' && estimatedMB > 0
+                ? `  ·  ~${estimatedMB} MB`
+                : ''}
             </Text>
 
-            {/* SESSION | MODE | PHOTO stats */}
+            {/* SESSION | MODE | FRAMES stats */}
             <View style={styles.statsRow}>
               <View style={styles.statsCol}>
                 <Text style={styles.statsLabel}>SESSION</Text>
@@ -750,7 +758,11 @@ export default function CaptureScreen() {
                 <Text style={styles.statsValue}>
                   {'#'}
                   {settings.captureMode === 'video'
-                    ? totalFrames
+                    ? (isRecording
+                        ? Math.round(elapsedSeconds * (settings.frameMode === 'fixed'
+                            ? settings.fixedFps
+                            : (currentGps?.speed ?? 0) / settings.dynamicMeters))
+                        : totalFrames)
                     : settings.captureMode === 'manual'
                     ? manualPhotoCount
                     : photoCount}
@@ -1154,7 +1166,7 @@ const styles = StyleSheet.create({
   },
   bottomGradient: {
     paddingHorizontal: 18,
-    paddingTop: 60,
+    paddingTop: 36,
     paddingBottom: 12,
   },
   jobInfoSection: {

@@ -493,8 +493,8 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
               setTotalFrames((n) => n + 1);
             }
           } catch {
-            // Frame at this timestamp unavailable — stop extraction
-            break;
+            // Frame at this timestamp unavailable — skip and continue
+            continue;
           }
         }
 
