@@ -73,24 +73,24 @@ export default function Home() {
             </p>
           </div>
           <div className="grid md:grid-cols-3 gap-8">
-            <div className="p-6 border border-border/50 bg-background flex flex-col gap-4">
-              <Crosshair className="w-8 h-8 text-primary" />
-              <h3 className="font-display font-semibold text-xl">Frame-Level GPS Binding</h3>
-              <p className="text-muted-foreground leading-relaxed text-sm">
+            <div className="p-8 border border-border/50 bg-background flex flex-col gap-5">
+              <Crosshair className="w-9 h-9 text-primary" />
+              <h3 className="font-display font-semibold text-2xl">Frame-Level GPS Binding</h3>
+              <p className="text-muted-foreground leading-relaxed text-base">
                 Every frame carries its own GPS coordinate. Not a session stamp — the frame. A precise, queryable location for every second of footage.
               </p>
             </div>
-            <div className="p-6 border border-border/50 bg-background flex flex-col gap-4">
-              <Gauge className="w-8 h-8 text-primary" />
-              <h3 className="font-display font-semibold text-xl">Speed-Adaptive Capture</h3>
-              <p className="text-muted-foreground leading-relaxed text-sm">
+            <div className="p-8 border border-border/50 bg-background flex flex-col gap-5">
+              <Gauge className="w-9 h-9 text-primary" />
+              <h3 className="font-display font-semibold text-2xl">Speed-Adaptive Capture</h3>
+              <p className="text-muted-foreground leading-relaxed text-base">
                 Dynamic FPS reads your vehicle speed and adjusts in real-time. Consistent spatial coverage at any pace. Manual interval control when you need it.
               </p>
             </div>
-            <div className="p-6 border border-border/50 bg-background flex flex-col gap-4">
-              <UserCheck className="w-8 h-8 text-primary" />
-              <h3 className="font-display font-semibold text-xl">Expert Mode + Coverage Proof</h3>
-              <p className="text-muted-foreground leading-relaxed text-sm">
+            <div className="p-8 border border-border/50 bg-background flex flex-col gap-5">
+              <UserCheck className="w-9 h-9 text-primary" />
+              <h3 className="font-display font-semibold text-2xl">Expert Mode + Coverage Proof</h3>
+              <p className="text-muted-foreground leading-relaxed text-base">
                 Your inspector captures what they're trained to see. The app logs their GPS route. Expert judgment with verifiable coverage accountability.
               </p>
             </div>
@@ -112,26 +112,26 @@ export default function Home() {
                   Systematic coverage sweep or expert-guided documentation — the same app, without compromise.
                 </p>
               </div>
-              <div className="flex flex-col gap-8">
-                <div className="flex gap-4">
-                  <div className="w-8 h-8 shrink-0 border border-primary text-primary flex items-center justify-center font-mono text-sm font-bold">01</div>
+              <div className="flex flex-col gap-10">
+                <div className="flex gap-5">
+                  <div className="w-10 h-10 shrink-0 border border-primary text-primary flex items-center justify-center font-mono text-base font-bold">01</div>
                   <div>
-                    <h4 className="font-display font-semibold text-lg mb-1">Choose your mode</h4>
-                    <p className="text-muted-foreground text-sm">Auto for continuous coverage drives. Expert for trained inspectors making deliberate captures. GPS runs from the moment you start.</p>
+                    <h4 className="font-display font-semibold text-xl mb-2">Choose your mode</h4>
+                    <p className="text-muted-foreground text-base leading-relaxed">Auto for continuous coverage drives. Expert for trained inspectors making deliberate captures. GPS runs from the moment you start.</p>
                   </div>
                 </div>
-                <div className="flex gap-4">
-                  <div className="w-8 h-8 shrink-0 border border-primary text-primary flex items-center justify-center font-mono text-sm font-bold">02</div>
+                <div className="flex gap-5">
+                  <div className="w-10 h-10 shrink-0 border border-primary text-primary flex items-center justify-center font-mono text-base font-bold">02</div>
                   <div>
-                    <h4 className="font-display font-semibold text-lg mb-1">Capture intelligently</h4>
-                    <p className="text-muted-foreground text-sm">Auto mode adjusts FPS to your speed. Expert mode logs your GPS route continuously as you photograph.</p>
+                    <h4 className="font-display font-semibold text-xl mb-2">Capture intelligently</h4>
+                    <p className="text-muted-foreground text-base leading-relaxed">Auto mode adjusts FPS to your speed. Expert mode logs your GPS route continuously as you photograph.</p>
                   </div>
                 </div>
-                <div className="flex gap-4">
-                  <div className="w-8 h-8 shrink-0 border border-primary text-primary flex items-center justify-center font-mono text-sm font-bold">03</div>
+                <div className="flex gap-5">
+                  <div className="w-10 h-10 shrink-0 border border-primary text-primary flex items-center justify-center font-mono text-base font-bold">03</div>
                   <div>
-                    <h4 className="font-display font-semibold text-lg mb-1">Verify coverage. Export.</h4>
-                    <p className="text-muted-foreground text-sm">Every frame's location on the map. Spot gaps before you leave. Export GPX tracks or sync to your database.</p>
+                    <h4 className="font-display font-semibold text-xl mb-2">Verify coverage. Export.</h4>
+                    <p className="text-muted-foreground text-base leading-relaxed">Every frame's location on the map. Spot gaps before you leave. Export GPX tracks or sync to your database.</p>
                   </div>
                 </div>
               </div>
@@ -150,21 +150,21 @@ export default function Home() {
             </p>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="border border-border/50 p-6 bg-background">
-              <div className="font-mono text-primary text-sm font-bold mb-4">01 // FRAME TELEMETRY</div>
-              <p className="text-sm text-muted-foreground">GPS on every frame and photo — not the session. Every pixel of footage has an exact, retrievable position on Earth.</p>
+            <div className="border border-border/50 p-8 bg-background">
+              <div className="font-mono text-primary text-sm font-bold mb-5">01 // FRAME TELEMETRY</div>
+              <p className="text-base text-muted-foreground leading-relaxed">GPS on every frame and photo — not the session. Every pixel of footage has an exact, retrievable position on Earth.</p>
             </div>
-            <div className="border border-border/50 p-6 bg-background">
-              <div className="font-mono text-primary text-sm font-bold mb-4">02 // ADAPTIVE FPS</div>
-              <p className="text-sm text-muted-foreground">Vehicle speed drives the frame rate in real-time. No missed coverage. No wasted storage. Fixed interval when you need it.</p>
+            <div className="border border-border/50 p-8 bg-background">
+              <div className="font-mono text-primary text-sm font-bold mb-5">02 // ADAPTIVE FPS</div>
+              <p className="text-base text-muted-foreground leading-relaxed">Vehicle speed drives the frame rate in real-time. No missed coverage. No wasted storage. Fixed interval when you need it.</p>
             </div>
-            <div className="border border-border/50 p-6 bg-background">
-              <div className="font-mono text-primary text-sm font-bold mb-4">03 // DUAL MODE</div>
-              <p className="text-sm text-muted-foreground">Continuous auto capture or deliberate expert photography — same app, same GPS record, full accountability.</p>
+            <div className="border border-border/50 p-8 bg-background">
+              <div className="font-mono text-primary text-sm font-bold mb-5">03 // DUAL MODE</div>
+              <p className="text-base text-muted-foreground leading-relaxed">Continuous auto capture or deliberate expert photography — same app, same GPS record, full accountability.</p>
             </div>
-            <div className="border border-border/50 p-6 bg-background">
-              <div className="font-mono text-primary text-sm font-bold mb-4">04 // FLEXIBLE STORAGE</div>
-              <p className="text-sm text-muted-foreground">Local-first. No internet required in the field. Auto-segmented recordings. Sync to your cloud database when ready.</p>
+            <div className="border border-border/50 p-8 bg-background">
+              <div className="font-mono text-primary text-sm font-bold mb-5">04 // FLEXIBLE STORAGE</div>
+              <p className="text-base text-muted-foreground leading-relaxed">Local-first. No internet required in the field. Auto-segmented recordings. Sync to your cloud database when ready.</p>
             </div>
           </div>
         </div>
