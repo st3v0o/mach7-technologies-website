@@ -23,7 +23,10 @@
         "NSMicrophoneUsageDescription": "Geospector uses the microphone to record audio with your GPS-tagged video.",
         "NSLocationWhenInUseUsageDescription": "Geospector uses your location to tag each video frame and photo with precise GPS coordinates.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "Geospector uses your location to continuously tag video frames with GPS coordinates, even when the screen is locked.",
-        "UIBackgroundModes": ["location"]
+        "NSPhotoLibraryAddUsageDescription": "Geospector saves GPS-tagged photos to your Camera Roll.",
+        "UIBackgroundModes": ["location"],
+        "UIFileSharingEnabled": true,
+        "LSSupportsOpeningDocumentsInPlace": true
       }
     },
     "android": {
@@ -44,7 +47,15 @@
       "expo-font",
       "expo-web-browser",
       "expo-camera",
-      "expo-location"
+      "expo-location",
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Geospector saves GPS-tagged photos to your Camera Roll.",
+          "savePhotosPermission": "Geospector saves GPS-tagged photos to your Camera Roll.",
+          "isAccessMediaLocationEnabled": true
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

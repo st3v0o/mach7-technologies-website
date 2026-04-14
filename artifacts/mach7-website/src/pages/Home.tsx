@@ -136,9 +136,9 @@ export default function Home() {
             </div>
             <div className="order-1 lg:order-2 flex flex-col gap-12">
               <div>
-                <h2 className="font-display text-4xl md:text-5xl font-bold tracking-tight mb-5">Video. Photo. Export.</h2>
+                <h2 className="font-display text-4xl md:text-5xl font-bold tracking-tight mb-5">Video. Photo. Manual.</h2>
                 <p className="text-muted-foreground text-xl leading-relaxed">
-                  Three capture modes, each with fixed-rate or speed-adaptive options — all GPS-tagged, all in one app.
+                  Three capture modes — automated or fully manual — all GPS-tagged, all in one app.
                 </p>
               </div>
               <div className="flex flex-col gap-10">
@@ -159,8 +159,8 @@ export default function Home() {
                 <div className="flex gap-5">
                   <div className="w-11 h-11 shrink-0 rounded-full bg-primary/15 border border-primary/30 text-primary flex items-center justify-center font-display text-base font-bold">3</div>
                   <div>
-                    <h4 className="font-display font-semibold text-xl mb-2">Review and export</h4>
-                    <p className="text-muted-foreground text-lg leading-relaxed">Every capture plotted on the map. Spot coverage gaps before you pack up. Export GPX routes or sync your full session dataset to the cloud.</p>
+                    <h4 className="font-display font-semibold text-xl mb-2">Manual photo — expert-directed</h4>
+                    <p className="text-muted-foreground text-lg leading-relaxed">Tap to shoot on your schedule — a field inspector's shutter, not the clock's. Every frame still gets a GPS tag, and your GPX route records the walk-around for post-processing.</p>
                   </div>
                 </div>
               </div>

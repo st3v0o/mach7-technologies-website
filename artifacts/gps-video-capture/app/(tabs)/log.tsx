@@ -378,44 +378,6 @@ export default function LogScreen() {
           </Text>
         </View>
         <View style={styles.headerActions}>
-          {/* 3-way view mode cycle: list → table → map */}
-          <Pressable
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setViewMode((v) => {
-                if (v === 'list') return 'table';
-                if (v === 'table') return 'map';
-                setIsDemoMode(false);
-                return 'list';
-              });
-            }}
-            style={({ pressed }) => [
-              styles.actionBtn,
-              viewMode === 'map'
-                ? styles.mapBtnActive
-                : viewMode === 'table'
-                  ? styles.tableBtnActive
-                  : styles.mapBtn,
-              pressed && { opacity: 0.7 },
-            ]}
-            testID="view-mode-toggle"
-          >
-            <Ionicons
-              name={
-                viewMode === 'list'
-                  ? 'grid-outline'
-                  : viewMode === 'table'
-                    ? 'map-outline'
-                    : 'list-outline'
-              }
-              size={16}
-              color={viewMode === 'table' ? Colors.gpsGreen : Colors.amber}
-            />
-            {viewMode === 'table' && (
-              <Text style={[styles.actionBtnText, { color: Colors.gpsGreen, fontSize: 11 }]}>DB</Text>
-            )}
-          </Pressable>
-
           {/* Demo toggle — only on map */}
           {viewMode === 'map' && (
             <Pressable
@@ -472,6 +434,50 @@ export default function LogScreen() {
             </Pressable>
           )}
         </View>
+      </View>
+
+      {/* View mode segmented control */}
+      <View style={styles.segControl}>
+        {([
+          { mode: 'list' as const, icon: 'list-outline', label: 'List' },
+          { mode: 'map' as const, icon: 'map-outline', label: 'Map' },
+          { mode: 'table' as const, icon: 'grid-outline', label: 'DB' },
+        ]).map(({ mode, icon, label }) => (
+          <Pressable
+            key={mode}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              if (mode !== 'map') setIsDemoMode(false);
+              setViewMode(mode);
+            }}
+            style={({ pressed }) => [
+              styles.segBtn,
+              viewMode === mode && styles.segBtnActive,
+              pressed && { opacity: 0.75 },
+            ]}
+            testID={`view-mode-${mode}`}
+          >
+            <Ionicons
+              name={icon as never}
+              size={15}
+              color={
+                viewMode === mode
+                  ? mode === 'map' ? Colors.amber : mode === 'table' ? Colors.gpsGreen : Colors.blue
+                  : Colors.textTertiary
+              }
+            />
+            <Text
+              style={[
+                styles.segBtnText,
+                viewMode === mode && {
+                  color: mode === 'map' ? Colors.amber : mode === 'table' ? Colors.gpsGreen : Colors.blue,
+                },
+              ]}
+            >
+              {label}
+            </Text>
+          </Pressable>
+        ))}
       </View>
 
       <UploadStatusBanner />
@@ -645,6 +651,40 @@ const styles = StyleSheet.create({
   },
   actionBtnText: {
     fontFamily: 'Inter_500Medium',
+    fontSize: 13,
+  },
+  segControl: {
+    flexDirection: 'row',
+    marginHorizontal: 16,
+    marginTop: 10,
+    marginBottom: 2,
+    backgroundColor: Colors.card,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: 3,
+    gap: 2,
+  },
+  segBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    borderRadius: 9,
+  },
+  segBtnActive: {
+    backgroundColor: Colors.background,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  segBtnText: {
+    color: Colors.textTertiary,
+    fontFamily: 'Inter_600SemiBold',
     fontSize: 13,
   },
   uploadBanner: {

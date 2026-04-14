@@ -13,6 +13,7 @@ export interface FrameSettings {
   fixedFps: number;
   dynamicMeters: number;
   lockFocusAtInfinity: boolean;
+  savePhotosToLibrary: boolean;
 }
 
 interface SettingsContextType {
@@ -41,6 +42,7 @@ export const DEFAULT_SETTINGS: FrameSettings = {
   fixedFps: 1,
   dynamicMeters: feetToMeters(50),
   lockFocusAtInfinity: false,
+  savePhotosToLibrary: true,
 };
 
 export const FIXED_FPS_OPTIONS = [0.25, 0.5, 1, 2, 4];

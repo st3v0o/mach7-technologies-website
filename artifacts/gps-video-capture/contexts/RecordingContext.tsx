@@ -65,7 +65,8 @@ interface RecordingContextType {
   savePhoto: (
     uri: string,
     timestamp: number,
-    onFrameReady?: (frameUri: string, timestamp: number) => void
+    onFrameReady?: (frameUri: string, timestamp: number) => void,
+    saveToLibrary?: boolean
   ) => Promise<void>;
   updateFrameUrl: (id: string, url: string) => Promise<void>;
   shareLog: () => Promise<void>;
@@ -524,7 +525,8 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
     async (
       uri: string,
       timestamp: number,
-      onFrameReady?: (frameUri: string, timestamp: number) => void
+      onFrameReady?: (frameUri: string, timestamp: number) => void,
+      saveToLibrary?: boolean
     ) => {
       if (Platform.OS === 'web') return;
 
@@ -546,6 +548,16 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
         await FileSystem.copyAsync({ from: uri, to: destPath });
 
         if (onFrameReady) onFrameReady(destPath, timestamp);
+
+        if (saveToLibrary) {
+          try {
+            const MediaLibrary = await import('expo-media-library');
+            const perm = await MediaLibrary.requestPermissionsAsync();
+            if (perm.granted) {
+              await MediaLibrary.saveToLibraryAsync(destPath);
+            }
+          } catch {}
+        }
 
         const gpsLat = nearest?.latitude ?? 0;
         const gpsLon = nearest?.longitude ?? 0;

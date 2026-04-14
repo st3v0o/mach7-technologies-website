@@ -276,6 +276,42 @@ export default function SettingsScreen() {
         </View>
 
         <View style={styles.section}>
+          <Text style={styles.sectionTitle}>LOCAL SAVE</Text>
+          <View style={styles.card}>
+            <Pressable
+              style={({ pressed }) => [styles.toggleRow, pressed && { opacity: 0.75 }]}
+              onPress={() => updateSettings({ savePhotosToLibrary: !settings.savePhotosToLibrary })}
+            >
+              <View style={styles.toggleLeft}>
+                <Ionicons
+                  name="images-outline"
+                  size={20}
+                  color={settings.savePhotosToLibrary ? Colors.blue : Colors.textSecondary}
+                />
+                <View style={styles.toggleText}>
+                  <Text style={[styles.toggleLabel, settings.savePhotosToLibrary && { color: Colors.blue }]}>
+                    Save Photos to Camera Roll
+                  </Text>
+                  <Text style={styles.toggleDesc}>
+                    Each captured photo is also saved to your iPhone Camera Roll
+                  </Text>
+                </View>
+              </View>
+              <View style={[styles.toggleSwitch, settings.savePhotosToLibrary && styles.toggleSwitchOn]}>
+                <View style={[styles.toggleThumb, settings.savePhotosToLibrary && styles.toggleThumbOn]} />
+              </View>
+            </Pressable>
+            <View style={styles.divider} />
+            <View style={styles.summaryRow}>
+              <Ionicons name="folder-outline" size={15} color={Colors.textSecondary} />
+              <Text style={styles.summaryText}>
+                GPX tracks and frame data are also accessible via the Files app under Geospector
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.section}>
           <Text style={styles.sectionTitle}>CLOUD STORAGE</Text>
           <View style={styles.card}>
             <View style={styles.storageStatusRow}>

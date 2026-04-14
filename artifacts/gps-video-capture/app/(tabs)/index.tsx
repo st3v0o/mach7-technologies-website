@@ -222,7 +222,7 @@ export default function CaptureScreen() {
       const photo = await (cameraRef.current as any).takePictureAsync({ quality: 0.9 });
       if (photo?.uri) {
         const ts = Date.now();
-        await savePhoto(photo.uri, ts);
+        await savePhoto(photo.uri, ts, undefined, settingsRef.current.savePhotosToLibrary);
         setManualPhotoCount((n) => n + 1);
       }
     } catch {}
@@ -352,7 +352,7 @@ export default function CaptureScreen() {
       const photo = await (cameraRef.current as any).takePictureAsync({ quality: 0.85 });
       if (photo?.uri) {
         const ts = Date.now();
-        await savePhoto(photo.uri, ts);
+        await savePhoto(photo.uri, ts, undefined, settingsRef.current.savePhotosToLibrary);
         setPhotoCount((n) => n + 1);
       }
     } catch {}
