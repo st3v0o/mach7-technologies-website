@@ -20,6 +20,7 @@ interface Walker {
   fadeOut: number;
   alpha: number;
   trailLength: number;
+  delay: number;
 }
 
 const WALKER_COUNT = 3;
@@ -64,6 +65,7 @@ function spawnWalker(w: number, h: number): Walker {
     dotCounter: 0,
     dotInterval: 18 + Math.floor(Math.random() * 12),
     life: 0,
+    delay: Math.floor(Math.random() * 90),
     maxLife,
     fadeIn,
     fadeOut,
@@ -73,6 +75,10 @@ function spawnWalker(w: number, h: number): Walker {
 }
 
 function stepWalker(w: Walker, canvasW: number, canvasH: number) {
+  if (w.delay > 0) {
+    w.delay -= 1;
+    return;
+  }
   w.life += 1;
 
   if (w.life < w.fadeIn) {
@@ -124,7 +130,7 @@ function drawWalker(ctx: CanvasRenderingContext2D, w: Walker) {
 
   for (let i = 1; i < len; i++) {
     const t = i / len;
-    const segAlpha = t * t * w.alpha * 0.55;
+    const segAlpha = t * t * w.alpha * 0.13;
     ctx.beginPath();
     ctx.moveTo(w.trail[i - 1].x, w.trail[i - 1].y);
     ctx.lineTo(w.trail[i].x, w.trail[i].y);
@@ -136,7 +142,7 @@ function drawWalker(ctx: CanvasRenderingContext2D, w: Walker) {
 
   for (let i = 0; i < w.dots.length; i++) {
     const t = (i + 1) / w.dots.length;
-    const dotAlpha = t * w.alpha * 0.7;
+    const dotAlpha = t * w.alpha * 0.15;
     const radius = i === w.dots.length - 1 ? 3.5 : 2.2;
     ctx.beginPath();
     ctx.arc(w.dots[i].x, w.dots[i].y, radius, 0, Math.PI * 2);
