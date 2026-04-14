@@ -1,167 +1,145 @@
+import { useState } from "react";
 import { SettingsMockup } from "@/components/SettingsMockup";
 
-interface PhoneFrameProps {
+const ACCENT = {
+  orange: { border: "#ff5500", glow: "rgba(255,85,0,0.32)" },
+  green:  { border: "#00e87a", glow: "rgba(0,232,122,0.24)" },
+  blue:   { border: "#0070f3", glow: "rgba(0,112,243,0.24)" },
+};
+
+interface PhoneEntry {
   src?: string;
   alt?: string;
-  children?: React.ReactNode;
+  isComponent?: boolean;
   label: string;
   sublabel: string;
-  accent?: "orange" | "green" | "blue";
-  featured?: boolean;
+  accent: "orange" | "green" | "blue";
 }
 
-function PhoneFrame({ src, alt, children, label, sublabel, accent = "orange", featured = false }: PhoneFrameProps) {
-  const glowColor = {
-    orange: "rgba(255,85,0,0.28)",
-    green: "rgba(0,232,122,0.22)",
-    blue: "rgba(0,112,243,0.22)",
-  }[accent];
+const PHONES: PhoneEntry[] = [
+  { src: "screenshots/capture-manual.png", alt: "Capture screen — manual mode, GPS locked", label: "Capture", sublabel: "Manual · GPS locked", accent: "green" },
+  { src: "screenshots/map-wide.jpg",        alt: "GPS route map — live multi-session track",  label: "Route Map",   sublabel: "Live GPS · multi-session",  accent: "blue"   },
+  { src: "screenshots/map-zoomed.jpg",      alt: "Frame Log — 4 sessions mapped",             label: "Frame Log",   sublabel: "58 frames · 4 sessions",    accent: "blue"   },
+  { src: "screenshots/photo-school.jpg",    alt: "Field photo — school zone GPS stamped",     label: "Field Shot",  sublabel: "School zone · GPS stamped", accent: "orange" },
+  { src: "screenshots/photo-yield.jpg",     alt: "Photo detail — GPS overlay and metadata",   label: "Photo Detail",sublabel: "GPS overlay · metadata",    accent: "orange" },
+  { isComponent: true,                                                                          label: "Settings",    sublabel: "FPS · mode · cloud sync",   accent: "orange" },
+];
 
-  const borderColor = {
-    orange: "#ff5500",
-    green: "#00e87a",
-    blue: "#0070f3",
-  }[accent];
+interface CardProps extends PhoneEntry {
+  resolvedSrc?: string;
+  hovered: boolean;
+  onEnter: () => void;
+  onLeave: () => void;
+}
 
+function PhoneCard({ resolvedSrc, alt, isComponent, label, sublabel, accent, hovered, onEnter, onLeave }: CardProps) {
+  const { border, glow } = ACCENT[accent];
   return (
-    <div className={`flex flex-col items-center gap-4 group ${featured ? "scale-105" : ""}`}>
+    <div
+      className="flex flex-col items-center gap-3 shrink-0"
+      style={{
+        width: 160,
+        transform: hovered ? "scale(1.5)" : "scale(1)",
+        transition: "transform 0.35s cubic-bezier(0.34,1.56,0.64,1)",
+        zIndex: hovered ? 20 : 1,
+        position: "relative",
+      }}
+      onMouseEnter={onEnter}
+      onMouseLeave={onLeave}
+    >
       <div
-        className="relative w-full transition-transform duration-300 group-hover:-translate-y-2"
-        style={{ filter: `drop-shadow(0 0 28px ${glowColor})` }}
+        className="w-full rounded-[2.5rem] overflow-hidden"
+        style={{
+          background: "#0e0e0e",
+          border: "2px solid #2a2a2a",
+          boxShadow: hovered
+            ? `0 0 48px ${glow}, 0 20px 60px rgba(0,0,0,0.7), inset 0 0 0 1px ${border}55`
+            : `0 0 0 1px ${border}22, inset 0 0 0 1px #1a1a1a`,
+          transition: "box-shadow 0.35s ease",
+        }}
       >
-        {/* Phone shell */}
-        <div
-          className="relative mx-auto rounded-[2.75rem] overflow-hidden"
-          style={{
-            background: "#0e0e0e",
-            border: `2px solid #2a2a2a`,
-            boxShadow: `0 0 0 1px ${borderColor}22, inset 0 0 0 1px #1a1a1a`,
-            maxWidth: "200px",
-          }}
-        >
-          {/* Dynamic island */}
-          <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 w-20 h-6 rounded-full bg-black" />
-
-          {/* Status bar spacer */}
-          <div className="h-12 bg-black/80" />
-
-          {/* Screen content */}
+        <div className="flex justify-center pt-2.5 pb-1 bg-black/80">
+          <div className="w-16 h-4 rounded-full bg-black" />
+        </div>
+        <div className="relative overflow-hidden" style={{ aspectRatio: "9/18", background: "#0a0a0a" }}>
+          {isComponent ? (
+            <div className="w-full h-full"><SettingsMockup /></div>
+          ) : resolvedSrc ? (
+            <img src={resolvedSrc} alt={alt} className="w-full h-full object-cover object-top" />
+          ) : null}
           <div
-            className="relative overflow-hidden"
-            style={{ aspectRatio: "9/18", background: "#0a0a0a" }}
-          >
-            {src ? (
-              <img
-                src={src}
-                alt={alt}
-                className="w-full h-full object-cover object-top"
-                style={{ display: "block" }}
-              />
-            ) : (
-              <div className="w-full h-full">{children}</div>
-            )}
-            {/* Subtle screen glare */}
-            <div
-              className="absolute inset-0 pointer-events-none"
-              style={{
-                background:
-                  "linear-gradient(135deg, rgba(255,255,255,0.05) 0%, transparent 50%)",
-              }}
-            />
-          </div>
-
-          {/* Home indicator */}
-          <div className="h-6 bg-[#0e0e0e] flex items-center justify-center">
-            <div className="w-16 h-1 rounded-full bg-[#2a2a2a]" />
-          </div>
-
-          {/* Side buttons */}
-          <div className="absolute left-[-3px] top-1/3 w-[3px] h-8 rounded-l bg-[#2a2a2a]" />
-          <div className="absolute left-[-3px] w-[3px] h-10 rounded-l bg-[#2a2a2a]" style={{ top: "calc(33% + 44px)" }} />
-          <div className="absolute left-[-3px] w-[3px] h-10 rounded-l bg-[#2a2a2a]" style={{ top: "calc(33% + 96px)" }} />
-          <div className="absolute right-[-3px] w-[3px] h-14 rounded-r bg-[#2a2a2a]" style={{ top: "calc(33% + 24px)" }} />
-
-          {/* Accent glow border overlay */}
-          <div
-            className="absolute inset-0 rounded-[2.75rem] pointer-events-none"
-            style={{ boxShadow: `inset 0 0 0 1px ${borderColor}33` }}
+            className="absolute inset-0 pointer-events-none"
+            style={{ background: "linear-gradient(135deg,rgba(255,255,255,0.05) 0%,transparent 50%)" }}
           />
         </div>
+        <div className="h-5 bg-[#0e0e0e] flex items-center justify-center">
+          <div className="w-12 h-0.5 rounded-full bg-[#2a2a2a]" />
+        </div>
       </div>
-
-      {/* Label */}
-      <div className="text-center">
-        <p className="font-mono text-xs font-bold tracking-wider uppercase" style={{ color: borderColor }}>
-          {label}
-        </p>
-        <p className="font-mono text-[11px] text-muted-foreground mt-0.5">{sublabel}</p>
+      <div className="text-center select-none">
+        <p className="font-mono text-[11px] font-bold tracking-wider uppercase" style={{ color: border }}>{label}</p>
+        <p className="font-mono text-[10px] text-muted-foreground/60 mt-0.5">{sublabel}</p>
       </div>
     </div>
   );
 }
 
 export function ScreenGallery() {
+  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   const base = import.meta.env.BASE_URL;
+  const doubled = [...PHONES, ...PHONES];
+
   return (
     <section id="screenshots" className="py-24 overflow-hidden">
-      <div className="container mx-auto px-4">
-        <div className="text-center max-w-2xl mx-auto mb-16">
-          <div className="inline-flex items-center gap-2 border border-border/40 bg-card/40 px-3 py-1 text-xs font-mono text-muted-foreground uppercase tracking-wider mb-6">
-            <span className="w-1.5 h-1.5 rounded-full bg-primary" />
-            Real screenshots · live app · no staging
-          </div>
-          <h2 className="font-display text-3xl md:text-4xl font-bold tracking-tight mb-4">
-            Built for the field.
-          </h2>
-          <p className="text-muted-foreground text-lg">
-            Every screen purpose-built around one idea — don't let the tool get in the way of the work.
-          </p>
-        </div>
+      <style>{`
+        @keyframes scroll-phones {
+          0%   { transform: translateX(0); }
+          100% { transform: translateX(-50%); }
+        }
+      `}</style>
 
-        {/* All 6 screens — 2 cols on mobile (3 rows), 3 cols on sm+ (2 rows) */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 md:gap-10 max-w-3xl mx-auto">
-          <PhoneFrame
-            src={`${base}screenshots/capture-manual.png`}
-            alt="Capture screen in manual mode showing GPS lock and shutter control"
-            label="Capture"
-            sublabel="Manual mode · GPS locked"
-            accent="green"
-          />
-          <PhoneFrame
-            src={`${base}screenshots/map-wide.jpg`}
-            alt="Wide GPS route map showing full session track with I-64 context"
-            label="Route Map"
-            sublabel="Live GPS track · multi-session"
-            accent="blue"
-          />
-          <PhoneFrame
-            src={`${base}screenshots/map-zoomed.jpg`}
-            alt="Frame Log zoomed map showing 4 color-coded capture sessions with legend"
-            label="Frame Log"
-            sublabel="58 frames · 4 sessions mapped"
-            accent="blue"
-          />
-          <PhoneFrame
-            src={`${base}screenshots/photo-school.jpg`}
-            alt="In-app photo viewer showing school zone scene with live GPS coordinate stamp"
-            label="Field Shot"
-            sublabel="School zone · GPS stamped"
-            accent="orange"
-          />
-          <PhoneFrame
-            src={`${base}screenshots/photo-yield.jpg`}
-            alt="In-app photo viewer showing yield sign intersection with GPS overlay and session metadata"
-            label="Photo Detail"
-            sublabel="GPS overlay · session metadata"
-            accent="orange"
-          />
-          <PhoneFrame
-            label="Settings"
-            sublabel="Interval · mode · cloud upload"
-            accent="orange"
-          >
-            <SettingsMockup />
-          </PhoneFrame>
+      <div className="container mx-auto px-4 mb-14 text-center">
+        <div className="inline-flex items-center gap-2 border border-border/40 bg-card/40 px-3 py-1 text-xs font-mono text-muted-foreground uppercase tracking-wider mb-6">
+          <span className="w-1.5 h-1.5 rounded-full bg-primary" />
+          Real screenshots · live app · no staging
+        </div>
+        <h2 className="font-display text-3xl md:text-4xl font-bold tracking-tight mb-3">
+          Built for the field.
+        </h2>
+        <p className="text-muted-foreground max-w-md mx-auto">
+          Every screen built around one idea — the tool stays out of the way.
+        </p>
+      </div>
+
+      <div
+        style={{
+          maskImage: "linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%)",
+          WebkitMaskImage: "linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%)",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            gap: 36,
+            padding: "56px 36px",
+            width: "max-content",
+            animation: "scroll-phones 38s linear infinite",
+            animationPlayState: hoveredIdx !== null ? "paused" : "running",
+          }}
+        >
+          {doubled.map((phone, i) => {
+            const realIdx = i % PHONES.length;
+            return (
+              <PhoneCard
+                key={i}
+                {...phone}
+                resolvedSrc={phone.src ? `${base}${phone.src}` : undefined}
+                hovered={hoveredIdx === realIdx}
+                onEnter={() => setHoveredIdx(realIdx)}
+                onLeave={() => setHoveredIdx(null)}
+              />
+            );
+          })}
         </div>
       </div>
     </section>
