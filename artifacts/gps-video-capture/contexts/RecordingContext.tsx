@@ -20,6 +20,7 @@ export interface GpsPoint {
   longitude: number;
   accuracy: number | null;
   speed: number | null;
+  altitude: number | null;
 }
 
 export interface LogEntry {
@@ -253,6 +254,7 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
             longitude: loc.coords.longitude,
             accuracy: loc.coords.accuracy,
             speed: loc.coords.speed,
+            altitude: loc.coords.altitude,
           };
           // Always push to flat ref (used for frame-time GPS matching).
           gpsPointsRef.current.push(point);

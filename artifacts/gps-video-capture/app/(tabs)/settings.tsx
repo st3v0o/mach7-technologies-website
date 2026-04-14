@@ -7,6 +7,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -17,6 +18,7 @@ import {
   DYNAMIC_FEET_MIN,
   FIXED_FPS_OPTIONS,
   MPH_PER_MPS,
+  MountType,
   feetToMeters,
   metersToFeet,
   useSettings,
@@ -99,11 +101,19 @@ const PROVIDER_COLORS: Record<string, string> = {
   webhook: Colors.blue,
 };
 
+const MOUNT_OPTIONS: { value: MountType; label: string; icon: string }[] = [
+  { value: 'vehicle', label: 'Vehicle', icon: 'car-outline' },
+  { value: 'drone', label: 'Drone', icon: 'airplane-outline' },
+  { value: 'handheld', label: 'Handheld', icon: 'hand-left-outline' },
+  { value: 'bike', label: 'Bike', icon: 'bicycle-outline' },
+];
+
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const { settings, updateSettings } = useSettings();
   const { providerType, providerLabel, isCloudConfigured, clearConfig } = useStorageConfig();
   const [wizardVisible, setWizardVisible] = useState(false);
+  const [jobNameDraft, setJobNameDraft] = useState(settings.jobName);
 
   const currentFeet = Math.round(metersToFeet(settings.dynamicMeters));
 
@@ -138,6 +148,57 @@ export default function SettingsScreen() {
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Settings</Text>
           <Text style={styles.headerSubtitle}>Frame extraction configuration</Text>
+        </View>
+
+        {/* ── Job / Project ─────────────────────────────────────────────── */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>ACTIVE JOB</Text>
+          <View style={styles.card}>
+            <Text style={styles.inputLabel}>Job Name</Text>
+            <TextInput
+              style={styles.settingsInput}
+              value={jobNameDraft}
+              onChangeText={setJobNameDraft}
+              onEndEditing={() => updateSettings({ jobName: jobNameDraft.trim() })}
+              onSubmitEditing={() => updateSettings({ jobName: jobNameDraft.trim() })}
+              placeholder="e.g. Highway – Surface Condition Survey"
+              placeholderTextColor={Colors.textTertiary}
+              autoCapitalize="words"
+              returnKeyType="done"
+            />
+            <Text style={styles.inputHint}>
+              Sessions captured while this name is active are grouped under the same project. Visible in the camera HUD.
+            </Text>
+
+            <View style={styles.divider} />
+
+            <Text style={[styles.inputLabel, { marginTop: 4 }]}>Mount Type</Text>
+            <View style={styles.mountRow}>
+              {MOUNT_OPTIONS.map((opt) => (
+                <Pressable
+                  key={opt.value}
+                  onPress={() => updateSettings({ mountType: opt.value })}
+                  style={({ pressed }) => [
+                    styles.mountPill,
+                    settings.mountType === opt.value && styles.mountPillSelected,
+                    pressed && { opacity: 0.7 },
+                  ]}
+                >
+                  <Ionicons
+                    name={opt.icon as never}
+                    size={14}
+                    color={settings.mountType === opt.value ? '#000' : Colors.textSecondary}
+                  />
+                  <Text style={[
+                    styles.mountPillText,
+                    settings.mountType === opt.value && styles.mountPillTextSelected,
+                  ]}>
+                    {opt.label}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
         </View>
 
         <View style={styles.section}>
@@ -467,6 +528,69 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
     overflow: 'hidden',
+  },
+  // ── Job / Active Job styles ─────────────────────────────────────────────────
+  inputLabel: {
+    color: Colors.textSecondary,
+    fontFamily: 'Inter_500Medium',
+    fontSize: 12,
+    letterSpacing: 0.4,
+    paddingHorizontal: 14,
+    paddingTop: 14,
+    marginBottom: 6,
+  },
+  settingsInput: {
+    marginHorizontal: 14,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    color: Colors.text,
+    fontFamily: 'Inter_400Regular',
+    fontSize: 14,
+  },
+  inputHint: {
+    color: Colors.textTertiary,
+    fontFamily: 'Inter_400Regular',
+    fontSize: 11,
+    lineHeight: 16,
+    paddingHorizontal: 14,
+    paddingBottom: 14,
+    marginTop: 6,
+  },
+  mountRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingBottom: 14,
+    marginTop: 6,
+  },
+  mountPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 8,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  mountPillSelected: {
+    backgroundColor: Colors.gpsGreen,
+    borderColor: Colors.gpsGreen,
+  },
+  mountPillText: {
+    color: Colors.textSecondary,
+    fontFamily: 'Inter_500Medium',
+    fontSize: 12,
+  },
+  mountPillTextSelected: {
+    color: '#000',
+    fontFamily: 'Inter_600SemiBold',
   },
   pillRow: {
     flexDirection: 'row',

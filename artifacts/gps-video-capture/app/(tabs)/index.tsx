@@ -2,14 +2,18 @@ import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { CameraView, useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
 import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Animated,
   Easing,
+  KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -107,11 +111,29 @@ export default function CaptureScreen() {
   } = useRecording();
 
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [showJobNameModal, setShowJobNameModal] = useState(false);
+  const [jobNameDraft, setJobNameDraft] = useState('');
   const prevIsRecording = useRef(false);
 
-  const { settings } = useSettings();
+  const { settings, updateSettings } = useSettings();
   const settingsRef = useRef(settings);
   useEffect(() => { settingsRef.current = settings; }, [settings]);
+
+  // ── HUD derived values ─────────────────────────────────────────────────────
+  const shortSessionId = sessionId
+    ? sessionId.replace(/-/g, '').slice(-8).toUpperCase()
+    : '—';
+
+  const mountLabel: Record<string, string> = {
+    vehicle: 'VEHICLE',
+    drone: 'DRONE',
+    handheld: 'HANDHELD',
+    bike: 'BIKE',
+  };
+
+  const captureModeLabel =
+    settings.captureMode === 'manual' ? 'MANUAL' :
+    settings.captureMode === 'photo' ? 'PHOTO' : 'AUTO';
 
   const cameraRef = useRef<CameraView>(null);
 
@@ -609,41 +631,52 @@ export default function CaptureScreen() {
         </View>
       )}
 
-      <View style={[styles.topOverlay, { paddingTop: insets.top + 4 }]}>
-        <BlurView intensity={60} tint="dark" style={styles.blurCard}>
-          <View style={styles.gpsRow}>
-            <GpsStatusDot status={gpsStatus} />
-            <Text style={styles.gpsLabel}>
-              {gpsStatus === 'locked' ? 'GPS LOCK' :
-               gpsStatus === 'searching' ? 'ACQUIRING' :
-               gpsStatus === 'denied' ? 'GPS DENIED' : 'GPS OFF'}
-            </Text>
-            {gpsStatus === 'searching' && (
-              <Text style={styles.gpsHint}>Recording runs — GPS matches when locked</Text>
-            )}
-            {currentGps?.accuracy != null && gpsStatus === 'locked' && (
-              <Text style={styles.gpsAccuracy}>±{Math.round(currentGps.accuracy * FEET_PER_METER)}ft</Text>
+      {/* ── Top HUD: flat cinematic overlay ─────────────────────────────── */}
+      <View style={[styles.topOverlay, { paddingTop: insets.top + 8 }]}>
+        <View style={styles.topRow}>
+          {/* Left: GPS status + coords */}
+          <View style={styles.topLeft}>
+            <View style={styles.gpsRow}>
+              <GpsStatusDot status={gpsStatus} />
+              <Text style={[
+                styles.gpsLabel,
+                { color: gpsStatus === 'locked' ? Colors.gpsGreen : Colors.amber },
+              ]}>
+                {gpsStatus === 'locked' ? 'GPS LOCK' :
+                 gpsStatus === 'searching' ? 'ACQUIRING' :
+                 gpsStatus === 'denied' ? 'GPS DENIED' : 'GPS OFF'}
+              </Text>
+            </View>
+            {currentGps ? (
+              <Text style={styles.coordLine}>
+                {formatCoord(currentGps.latitude, true)}{'  '}
+                {formatCoord(currentGps.longitude, false)}
+                {currentGps.speed != null && currentGps.speed * MPH_PER_MPS > 1
+                  ? `  ${(currentGps.speed * MPH_PER_MPS).toFixed(0)} mph`
+                  : ''}
+              </Text>
+            ) : (
+              <Text style={styles.noGpsLine}>
+                {gpsStatus === 'searching' ? 'Searching…' : 'Waiting for signal'}
+              </Text>
             )}
           </View>
-          {currentGps ? (
-            <View style={styles.coordRow}>
-              <Text style={styles.coord}>{formatCoord(currentGps.latitude, true)}</Text>
-              <Text style={styles.coordDivider}>  </Text>
-              <Text style={styles.coord}>{formatCoord(currentGps.longitude, false)}</Text>
-              {currentGps.speed != null && currentGps.speed > 0 && (
-                <Text style={styles.speed}>
-                  {'  '}{(currentGps.speed * MPH_PER_MPS).toFixed(1)} mph
-                </Text>
-              )}
+
+          {/* Right: altitude + mount badge */}
+          <View style={styles.topRight}>
+            {currentGps?.altitude != null && (
+              <Text style={styles.altText}>
+                {Math.round(currentGps.altitude * FEET_PER_METER)}ft
+              </Text>
+            )}
+            <View style={styles.mountBadge}>
+              <View style={styles.mountDot} />
+              <Text style={styles.mountBadgeText}>
+                {mountLabel[settings.mountType] ?? 'VEHICLE'}
+              </Text>
             </View>
-          ) : (
-            <Text style={styles.noGps}>
-              {gpsStatus === 'searching'
-                ? 'Searching… works best outdoors'
-                : 'Waiting for GPS signal...'}
-            </Text>
-          )}
-        </BlurView>
+          </View>
+        </View>
       </View>
 
       {processingStatus === 'processing' && (
@@ -657,100 +690,76 @@ export default function CaptureScreen() {
         </View>
       )}
 
-      <View style={[styles.bottomOverlay, { paddingBottom: tabBarHeight + 12 }]}>
-        <BlurView intensity={60} tint="dark" style={styles.bottomBlur}>
-          {settings.captureMode === 'manual' && (
-            <View style={styles.segmentInfoRow}>
-              <View style={styles.segInfoItem}>
-                <Text style={styles.segLabel}>MODE</Text>
-                <Text style={styles.segValue}>MANUAL</Text>
+      {/* ── Bottom HUD: cinematic gradient overlay ──────────────────────── */}
+      <View style={[styles.bottomOverlay, { paddingBottom: tabBarHeight }]}>
+        <LinearGradient
+          colors={['transparent', 'rgba(0,0,0,0.72)', 'rgba(0,0,0,0.97)']}
+          locations={[0, 0.35, 1]}
+          style={styles.bottomGradient}
+        >
+          {/* ── Job info section ────────────────────────────────────────── */}
+          <View style={styles.jobInfoSection}>
+            {/* Large green coordinates */}
+            {currentGps ? (
+              <Text style={styles.bigCoords}>
+                {formatCoord(currentGps.latitude, true)}{'  /  '}{formatCoord(currentGps.longitude, false)}
+              </Text>
+            ) : (
+              <Text style={styles.bigCoordsSearching}>Acquiring GPS…</Text>
+            )}
+
+            {/* Job name — tappable to edit */}
+            <Pressable
+              onPress={() => { setJobNameDraft(settings.jobName); setShowJobNameModal(true); }}
+              style={styles.jobNameRow}
+            >
+              <Text
+                style={[styles.jobName, !settings.jobName && styles.jobNamePlaceholder]}
+                numberOfLines={1}
+              >
+                {settings.jobName
+                  ? settings.jobName.toUpperCase()
+                  : 'TAP TO NAME THIS JOB  ✎'}
+              </Text>
+            </Pressable>
+
+            {/* Rate / speed info line */}
+            <Text style={styles.infoLine}>
+              {rateLabel(settings.frameMode, settings.fixedFps, settings.dynamicMeters, currentGps?.speed)}
+              {currentGps?.speed != null && currentGps.speed * MPH_PER_MPS > 1
+                ? `  ·  ${(currentGps.speed * MPH_PER_MPS).toFixed(0)} mph`
+                : ''}
+            </Text>
+
+            {/* SESSION | MODE | PHOTO stats */}
+            <View style={styles.statsRow}>
+              <View style={styles.statsCol}>
+                <Text style={styles.statsLabel}>SESSION</Text>
+                <Text style={styles.statsValue}>{shortSessionId}</Text>
               </View>
-              <View style={styles.segInfoDivider} />
-              <View style={styles.segInfoItem}>
-                <Text style={styles.segLabel}>GPS</Text>
-                <Text style={[styles.segValue, { color: gpsStatus === 'locked' ? Colors.gpsGreen : Colors.amber }]}>
-                  {gpsStatus === 'locked' ? 'LOCKED' : gpsStatus === 'searching' ? 'SEARCHING' : 'WAITING'}
+              <View style={styles.statsDivider} />
+              <View style={styles.statsCol}>
+                <Text style={styles.statsLabel}>MODE</Text>
+                <Text style={styles.statsValue}>{captureModeLabel}</Text>
+              </View>
+              <View style={styles.statsDivider} />
+              <View style={styles.statsCol}>
+                <Text style={styles.statsLabel}>
+                  {settings.captureMode === 'video' ? 'FRAMES' : 'PHOTOS'}
+                </Text>
+                <Text style={styles.statsValue}>
+                  {'#'}
+                  {settings.captureMode === 'video'
+                    ? totalFrames
+                    : settings.captureMode === 'manual'
+                    ? manualPhotoCount
+                    : photoCount}
                 </Text>
               </View>
-              <View style={styles.segInfoDivider} />
-              <View style={styles.segInfoItem}>
-                <Text style={styles.segLabel}>PHOTOS</Text>
-                <Text style={styles.segValue}>{manualPhotoCount}</Text>
-              </View>
-              {isGpxTracking && (
-                <>
-                  <View style={styles.segInfoDivider} />
-                  <View style={styles.segInfoItem}>
-                    <Text style={styles.segLabel}>GPX PTS</Text>
-                    <Text style={[styles.segValue, { color: Colors.gpsGreen }]}>{gpxPointCount}</Text>
-                  </View>
-                  <View style={styles.segInfoDivider} />
-                  <View style={styles.segInfoItem}>
-                    <Text style={styles.segLabel}>GPX TIME</Text>
-                    <Text style={[styles.segValue, { color: Colors.gpsGreen }]}>{formatTime(gpxElapsed)}</Text>
-                  </View>
-                </>
-              )}
             </View>
-          )}
+          </View>
 
-          {isRecording && settings.captureMode === 'photo' && (
-            <View style={styles.segmentInfoRow}>
-              <View style={styles.segInfoItem}>
-                <Text style={styles.segLabel}>MODE</Text>
-                <Text style={styles.segValue}>PHOTO</Text>
-              </View>
-              <View style={styles.segInfoDivider} />
-              <View style={styles.segInfoItem}>
-                <Text style={styles.segLabel}>ELAPSED</Text>
-                <Text style={styles.segValue}>{formatTime(elapsedSeconds)}</Text>
-              </View>
-              <View style={styles.segInfoDivider} />
-              <View style={styles.segInfoItem}>
-                <Text style={styles.segLabel}>RATE</Text>
-                <Text style={styles.segValue}>
-                  {rateLabel(settings.frameMode, settings.fixedFps, settings.dynamicMeters, currentGps?.speed)}
-                </Text>
-              </View>
-              <View style={styles.segInfoDivider} />
-              <View style={styles.segInfoItem}>
-                <Text style={styles.segLabel}>PHOTOS</Text>
-                <Text style={styles.segValue}>{photoCount}</Text>
-              </View>
-            </View>
-          )}
-
-          {isRecording && settings.captureMode === 'video' && (
-            <View style={styles.segmentInfoRow}>
-              <View style={styles.segInfoItem}>
-                <Text style={styles.segLabel}>SEGMENT</Text>
-                <Text style={styles.segValue}>{String(currentSegNumRef.current).padStart(3, '0')}</Text>
-              </View>
-              <View style={styles.segInfoDivider} />
-              <View style={styles.segInfoItem}>
-                <Text style={styles.segLabel}>ELAPSED</Text>
-                <Text style={styles.segValue}>{formatTime(elapsedSeconds)}</Text>
-              </View>
-              <View style={styles.segInfoDivider} />
-              <View style={styles.segInfoItem}>
-                <Text style={styles.segLabel}>EST. SIZE</Text>
-                <Text style={styles.segValue}>{estimatedMB} MB</Text>
-              </View>
-              <View style={styles.segInfoDivider} />
-              <View style={styles.segInfoItem}>
-                <Text style={styles.segLabel}>RATE</Text>
-                <Text style={styles.segValue}>
-                  {rateLabel(settings.frameMode, settings.fixedFps, settings.dynamicMeters, currentGps?.speed)}
-                </Text>
-              </View>
-              <View style={styles.segInfoDivider} />
-              <View style={styles.segInfoItem}>
-                <Text style={styles.segLabel}>FRAMES</Text>
-                <Text style={styles.segValue}>{totalFrames}</Text>
-              </View>
-            </View>
-          )}
-
+          {/* ── Segment / progress info (video only while recording) ─── */}
           {isRecording && settings.captureMode === 'video' && (
             <View style={styles.progressBarContainer}>
               <View
@@ -887,19 +896,64 @@ export default function CaptureScreen() {
             </View>
           </View>
 
-          <View style={styles.hintRow}>
-            <Text style={styles.hintText}>
-              {settings.captureMode === 'manual'
-                ? isGpxTracking
-                  ? `Recording GPX route · ${gpxPointCount} pts · tap STOP GPX to export`
-                  : 'Tap the shutter to capture · tap START GPX to record a route'
-                : settings.captureMode === 'photo'
-                ? 'Photos saved directly · GPS tagged'
-                : 'Auto-saves every ~250 MB · frames tagged with GPS'}
-            </Text>
-          </View>
-        </BlurView>
+        </LinearGradient>
       </View>
+
+      {/* ── Job name edit modal ──────────────────────────────────────────── */}
+      <Modal
+        visible={showJobNameModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowJobNameModal(false)}
+      >
+        <Pressable
+          style={styles.modalBackdrop}
+          onPress={() => setShowJobNameModal(false)}
+        >
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.modalCard}
+          >
+            <Pressable onPress={() => {}}>
+              <Text style={styles.modalTitle}>JOB NAME</Text>
+              <Text style={styles.modalSubtitle}>
+                Sessions captured while this name is active will be grouped under the same project.
+              </Text>
+              <TextInput
+                style={styles.jobNameInput}
+                value={jobNameDraft}
+                onChangeText={setJobNameDraft}
+                placeholder="e.g. Highway – Surface Condition Survey"
+                placeholderTextColor="rgba(255,255,255,0.25)"
+                autoFocus
+                autoCapitalize="words"
+                returnKeyType="done"
+                onSubmitEditing={() => {
+                  updateSettings({ jobName: jobNameDraft.trim() });
+                  setShowJobNameModal(false);
+                }}
+              />
+              <View style={styles.modalButtons}>
+                <Pressable
+                  style={styles.modalBtnSecondary}
+                  onPress={() => setShowJobNameModal(false)}
+                >
+                  <Text style={styles.modalBtnSecondaryText}>Cancel</Text>
+                </Pressable>
+                <Pressable
+                  style={styles.modalBtnPrimary}
+                  onPress={() => {
+                    updateSettings({ jobName: jobNameDraft.trim() });
+                    setShowJobNameModal(false);
+                  }}
+                >
+                  <Text style={styles.modalBtnPrimaryText}>Save</Text>
+                </Pressable>
+              </View>
+            </Pressable>
+          </KeyboardAvoidingView>
+        </Pressable>
+      </Modal>
 
       {/* Zoom level pill */}
       <Animated.View
@@ -983,6 +1037,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_600SemiBold',
     fontSize: 16,
   },
+  // ── Top HUD ────────────────────────────────────────────────────────────────
   topOverlay: {
     position: 'absolute',
     top: 0,
@@ -990,67 +1045,83 @@ const styles = StyleSheet.create({
     right: 0,
     paddingHorizontal: 16,
   },
-  blurCard: {
-    borderRadius: 14,
-    overflow: 'hidden',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+  topRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  topLeft: {
+    flex: 1,
+    gap: 3,
+  },
+  topRight: {
+    alignItems: 'flex-end',
+    gap: 5,
+    paddingLeft: 12,
   },
   gpsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 4,
-    flexWrap: 'wrap',
+    gap: 6,
   },
   statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
   },
   gpsLabel: {
-    color: Colors.text,
-    fontFamily: 'Inter_600SemiBold',
-    fontSize: 11,
-    letterSpacing: 1.2,
-  },
-  gpsHint: {
-    color: Colors.textTertiary,
-    fontFamily: 'Inter_400Regular',
+    fontFamily: 'Inter_700Bold',
     fontSize: 10,
-    flex: 1,
+    letterSpacing: 1.5,
+    textShadowColor: 'rgba(0,0,0,0.8)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
   },
-  gpsAccuracy: {
-    color: Colors.textSecondary,
-    fontFamily: 'Inter_400Regular',
-    fontSize: 11,
-    marginLeft: 'auto',
-  },
-  coordRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  coord: {
-    color: Colors.text,
-    fontFamily: 'Inter_500Medium',
-    fontSize: 13,
-  },
-  coordDivider: {
-    color: Colors.textTertiary,
-    fontSize: 13,
-  },
-  speed: {
-    color: Colors.textSecondary,
+  coordLine: {
+    color: 'rgba(255,255,255,0.92)',
     fontFamily: 'Inter_400Regular',
     fontSize: 12,
+    letterSpacing: 0.3,
+    textShadowColor: 'rgba(0,0,0,0.9)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 5,
   },
-  noGps: {
-    color: Colors.textSecondary,
+  noGpsLine: {
+    color: 'rgba(255,255,255,0.45)',
     fontFamily: 'Inter_400Regular',
     fontSize: 12,
     fontStyle: 'italic',
+  },
+  altText: {
+    color: 'rgba(255,255,255,0.6)',
+    fontFamily: 'Inter_400Regular',
+    fontSize: 11,
+    textShadowColor: 'rgba(0,0,0,0.8)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
+  },
+  mountBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)',
+    borderRadius: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+  },
+  mountDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.6)',
+  },
+  mountBadgeText: {
+    color: 'rgba(255,255,255,0.75)',
+    fontFamily: 'Inter_500Medium',
+    fontSize: 9,
+    letterSpacing: 1,
   },
   processingBanner: {
     position: 'absolute',
@@ -1074,47 +1145,155 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_500Medium',
     fontSize: 12,
   },
+  // ── Bottom HUD ─────────────────────────────────────────────────────────────
   bottomOverlay: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    paddingHorizontal: 16,
   },
-  bottomBlur: {
-    borderRadius: 20,
-    overflow: 'hidden',
-    paddingTop: 16,
+  bottomGradient: {
+    paddingHorizontal: 18,
+    paddingTop: 60,
     paddingBottom: 12,
-    paddingHorizontal: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
   },
-  segmentInfoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 10,
+  jobInfoSection: {
+    gap: 4,
+    marginBottom: 14,
   },
-  segInfoItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  segInfoDivider: {
-    width: 1,
-    backgroundColor: Colors.border,
-    marginVertical: 2,
-  },
-  segLabel: {
-    color: Colors.textSecondary,
+  bigCoords: {
+    color: Colors.gpsGreen,
     fontFamily: 'Inter_500Medium',
-    fontSize: 9,
-    letterSpacing: 1,
-    marginBottom: 2,
+    fontSize: 13,
+    letterSpacing: 0.4,
   },
-  segValue: {
-    color: Colors.text,
+  bigCoordsSearching: {
+    color: 'rgba(255,255,255,0.35)',
+    fontFamily: 'Inter_400Regular',
+    fontSize: 13,
+    fontStyle: 'italic',
+  },
+  jobNameRow: {
+    marginTop: 2,
+  },
+  jobName: {
+    color: '#ffffff',
+    fontFamily: 'Inter_700Bold',
+    fontSize: 17,
+    letterSpacing: 1.2,
+    lineHeight: 22,
+  },
+  jobNamePlaceholder: {
+    color: 'rgba(255,255,255,0.28)',
+    fontFamily: 'Inter_400Regular',
+    fontSize: 14,
+    letterSpacing: 0.5,
+  },
+  infoLine: {
+    color: 'rgba(255,255,255,0.45)',
+    fontFamily: 'Inter_400Regular',
+    fontSize: 11,
+    letterSpacing: 0.5,
+    marginTop: 2,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  statsCol: {
+    flex: 1,
+    gap: 2,
+  },
+  statsDivider: {
+    width: 1,
+    height: 24,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    marginHorizontal: 12,
+  },
+  statsLabel: {
+    color: 'rgba(255,255,255,0.35)',
+    fontFamily: 'Inter_500Medium',
+    fontSize: 8,
+    letterSpacing: 1.5,
+  },
+  statsValue: {
+    color: 'rgba(255,255,255,0.85)',
+    fontFamily: 'Inter_700Bold',
+    fontSize: 12,
+    letterSpacing: 0.5,
+  },
+  // ── Job name modal ──────────────────────────────────────────────────────────
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.65)',
+    justifyContent: 'flex-end',
+  },
+  modalCard: {
+    backgroundColor: '#1a1a1a',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 40,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  modalTitle: {
+    color: '#fff',
     fontFamily: 'Inter_700Bold',
     fontSize: 13,
+    letterSpacing: 2,
+    marginBottom: 8,
+  },
+  modalSubtitle: {
+    color: 'rgba(255,255,255,0.45)',
+    fontFamily: 'Inter_400Regular',
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 20,
+  },
+  jobNameInput: {
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    color: '#fff',
+    fontFamily: 'Inter_400Regular',
+    fontSize: 15,
+    marginBottom: 20,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  modalBtnSecondary: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+  },
+  modalBtnSecondaryText: {
+    color: 'rgba(255,255,255,0.6)',
+    fontFamily: 'Inter_500Medium',
+    fontSize: 15,
+  },
+  modalBtnPrimary: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+    backgroundColor: Colors.gpsGreen,
+  },
+  modalBtnPrimaryText: {
+    color: '#000',
+    fontFamily: 'Inter_700Bold',
+    fontSize: 15,
   },
   progressBarContainer: {
     height: 2,

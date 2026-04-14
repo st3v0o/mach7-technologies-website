@@ -7,6 +7,8 @@ import React, {
   useState,
 } from 'react';
 
+export type MountType = 'vehicle' | 'drone' | 'handheld' | 'bike';
+
 export interface FrameSettings {
   captureMode: 'video' | 'photo' | 'manual';
   frameMode: 'fixed' | 'dynamic';
@@ -14,6 +16,8 @@ export interface FrameSettings {
   dynamicMeters: number;
   lockFocusAtInfinity: boolean;
   savePhotosToLibrary: boolean;
+  jobName: string;
+  mountType: MountType;
 }
 
 interface SettingsContextType {
@@ -43,6 +47,8 @@ export const DEFAULT_SETTINGS: FrameSettings = {
   dynamicMeters: feetToMeters(50),
   lockFocusAtInfinity: false,
   savePhotosToLibrary: true,
+  jobName: '',
+  mountType: 'vehicle',
 };
 
 export const FIXED_FPS_OPTIONS = [0.25, 0.5, 1, 2, 4];

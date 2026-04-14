@@ -323,7 +323,6 @@ export default function LogScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { logEntries, shareGpx, clearLog, processingStatus, totalFrames, segmentCount } = useRecording();
-  const [isSharing, setIsSharing] = useState(false); // kept for potential future use
   const [selectedEntry, setSelectedEntry] = useState<LogEntry | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'map' | 'table'>('list');
   const [isDemoMode, setIsDemoMode] = useState(false);
@@ -341,14 +340,6 @@ export default function LogScreen() {
     parent.setOptions({ tabBarStyle: mapSheetOpen ? { display: 'none' } : undefined });
     return () => { parent.setOptions({ tabBarStyle: undefined }); };
   }, [mapSheetOpen, navigation]);
-
-  const handleShare = async () => {
-    if (Platform.OS === 'web') return;
-    setIsSharing(true);
-    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    await shareLog();
-    setIsSharing(false);
-  };
 
   const handleClear = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
