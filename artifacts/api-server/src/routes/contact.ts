@@ -85,13 +85,19 @@ router.post("/contact", async (req: Request, res: Response) => {
   `;
 
   try {
-    await resend.emails.send({
+    const { error: sendError } = await resend.emails.send({
       from: "MACH 7 Contact Form <onboarding@resend.dev>",
       to: [CONTACT_EMAIL],
       subject,
       html,
       replyTo: undefined,
     });
+
+    if (sendError) {
+      console.error("Resend error:", sendError);
+      res.status(500).json(ContactErrorResponseSchema.parse({ error: "Failed to send email. Please try again." }));
+      return;
+    }
 
     res.json(ContactSuccessResponseSchema.parse({ success: true }));
   } catch (err) {
