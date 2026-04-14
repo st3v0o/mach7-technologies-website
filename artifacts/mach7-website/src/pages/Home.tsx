@@ -2,7 +2,6 @@ import { useState, FormEvent } from "react";
 import { ArrowRight, MapPin, Zap, Users, HardDrive, Database } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PhoneMockup } from "@/components/PhoneMockup";
-import { MapMockup } from "@/components/MapMockup";
 import { ScreenGallery } from "@/components/ScreenGallery";
 import { UseCaseTicker } from "@/components/UseCaseTicker";
 
@@ -103,7 +102,11 @@ export default function Home() {
         <div className="container mx-auto px-4">
           <div className="grid lg:grid-cols-2 gap-16 items-center">
             <div className="order-2 lg:order-1 aspect-square md:aspect-video lg:aspect-square w-full overflow-hidden rounded-xl border border-border/40">
-              <MapMockup />
+              <img
+                src={`${import.meta.env.BASE_URL}screenshots/map-wide.jpg`}
+                alt="Geospector — real GPS route map with collected data points"
+                className="w-full h-full object-cover object-top"
+              />
             </div>
             <div className="order-1 lg:order-2 flex flex-col gap-12">
               <div>
