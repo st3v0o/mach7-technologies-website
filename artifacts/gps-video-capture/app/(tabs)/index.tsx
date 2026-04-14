@@ -719,11 +719,11 @@ export default function CaptureScreen() {
       )}
 
       {/* ── Bottom HUD: cinematic gradient overlay ──────────────────────── */}
-      <View style={[styles.bottomOverlay, { paddingBottom: tabBarHeight }]}>
+      <View style={styles.bottomOverlay}>
         <LinearGradient
           colors={['transparent', 'rgba(0,0,0,0.55)', 'rgba(0,0,0,0.88)']}
           locations={[0, 0.3, 1]}
-          style={styles.bottomGradient}
+          style={[styles.bottomGradient, { paddingBottom: tabBarHeight + 12 }]}
         >
           {/* ── Job info section ────────────────────────────────────────── */}
           <View style={styles.jobInfoSection}>
