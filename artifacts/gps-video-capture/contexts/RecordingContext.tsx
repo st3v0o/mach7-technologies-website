@@ -256,22 +256,26 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
             speed: loc.coords.speed,
             altitude: loc.coords.altitude,
           };
-          // Always update the display so the HUD stays live.
+          // Always update the HUD display.
           setCurrentGps(point);
-          // Only record/match points with good accuracy (≤20 m).
-          // Poor accuracy readings are skipped from data storage so frame
-          // GPS matching stays clean, but display always updates above.
+
+          // Always push to the flat ref used for frame-time GPS matching.
+          // We never filter this array by accuracy — even a 50 m cold-start
+          // fix is far better than tagging a frame with 0,0. Losing all
+          // data on the first session (GPS not yet warm) is the bug we're
+          // guarding against here.
+          gpsPointsRef.current.push(point);
+
+          // GPX track segments (used for export) only get high-quality
+          // readings so the exported route stays clean.
           const goodAccuracy =
-            loc.coords.accuracy === null || loc.coords.accuracy <= 20;
-          if (goodAccuracy) {
-            gpsPointsRef.current.push(point);
-            if (!isPausedRef.current) {
-              currentSegmentRef.current.push(point);
-            }
-            setGpsStatus('locked');
-          } else {
-            setGpsStatus('searching');
+            loc.coords.accuracy === null || loc.coords.accuracy <= 30;
+          if (!isPausedRef.current && goodAccuracy) {
+            currentSegmentRef.current.push(point);
           }
+
+          // Status indicator: 'locked' once accuracy is acceptable.
+          setGpsStatus(goodAccuracy ? 'locked' : 'searching');
         }
       );
     } catch {
