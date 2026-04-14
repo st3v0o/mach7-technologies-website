@@ -103,18 +103,7 @@ const PHONES: PhoneEntry[] = [
       ),
     },
   },
-  // 5. App UI: capture screen
-  {
-    label: "Capture UI",
-    sublabel: "Manual mode · GPS locked",
-    accent: "green",
-    content: {
-      kind: "image",
-      src: "screenshots/capture-manual.png",
-      alt: "Geospector — GPS capture UI",
-    },
-  },
-  // 6. Weathered park bench — poor condition
+  // 5. Weathered park bench — poor condition
   {
     label: "Park Bench",
     sublabel: "Handheld · poor condition",
@@ -237,18 +226,7 @@ const PHONES: PhoneEntry[] = [
       ),
     },
   },
-  // 12. Route map
-  {
-    label: "Route Map",
-    sublabel: "Live GPS · session track",
-    accent: "teal",
-    content: {
-      kind: "image",
-      src: "screenshots/map-wide.jpg",
-      alt: "Geospector — GPS route map with session data",
-    },
-  },
-  // 13. Settings
+  // 12. Settings
   {
     label: "Settings",
     sublabel: "FPS · mode · cloud sync",
