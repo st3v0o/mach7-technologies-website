@@ -6,7 +6,6 @@ export function Footer() {
       <div className="container mx-auto px-4 flex flex-col md:flex-row justify-between items-start gap-8">
         <div className="flex flex-col gap-4 max-w-sm">
           <Link href="/" className="flex items-center gap-2">
-            {/* SWAP: replace with your business logo */}
             <div className="w-8 h-8 bg-primary rounded flex items-center justify-center text-primary-foreground font-display font-bold text-xs tracking-tighter">
               M7
             </div>
@@ -29,7 +28,6 @@ export function Footer() {
 
         <div className="flex flex-col gap-3">
           <h4 className="font-display font-semibold text-sm">Contact</h4>
-          {/* SWAP: replace with your business email */}
           <a href="mailto:info@mach7technologies.com" className="text-sm text-muted-foreground hover:text-primary transition-colors">
             info@mach7technologies.com
           </a>
@@ -38,7 +36,7 @@ export function Footer() {
       
       <div className="container mx-auto px-4 mt-12 pt-8 border-t border-border/50 flex flex-col md:flex-row justify-between items-center gap-4">
         <p className="text-xs text-muted-foreground">
-          &copy; 2025 MACH 7 Technologies LLC. All rights reserved.
+          &copy; 2026 MACH 7 Technologies LLC. All rights reserved.
         </p>
         <p className="text-xs text-muted-foreground">
           Currently in development. Coming soon to iOS.

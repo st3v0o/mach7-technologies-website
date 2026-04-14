@@ -6,7 +6,6 @@ import { MapMockup } from "@/components/MapMockup";
 import { ScreenGallery } from "@/components/ScreenGallery";
 import { UseCaseTicker } from "@/components/UseCaseTicker";
 
-// SWAP: replace with your business email
 const CONTACT_EMAIL = "info@mach7technologies.com";
 
 export default function Home() {
@@ -43,7 +42,6 @@ export default function Home() {
             <p className="text-lg md:text-xl text-muted-foreground leading-relaxed">
               A precision instrument for field teams, infrastructure managers, and mapping operations. Every piece of visual data tied automatically to place and time.
             </p>
-            {/* SWAP: update copy for final launch */}
             <div className="flex flex-col sm:flex-row gap-4 pt-4">
               <Button asChild size="lg" className="font-display font-medium rounded-none group h-12 px-8">
                 <a href="#contact">
@@ -197,7 +195,6 @@ export default function Home() {
               <p className="font-display font-semibold text-lg mb-2">Your email client should have opened.</p>
               <p className="text-sm text-muted-foreground">
                 If it didn't, send us a message directly at{" "}
-                {/* SWAP: replace with your business email */}
                 <a href={`mailto:${CONTACT_EMAIL}`} className="text-primary hover:underline">{CONTACT_EMAIL}</a>.
               </p>
             </div>
@@ -245,7 +242,6 @@ export default function Home() {
                   Send Request
                 </Button>
                 <p className="text-xs text-muted-foreground font-mono">
-                  {/* SWAP: replace with your business email */}
                   Opens your mail client — or email us directly at {CONTACT_EMAIL}
                 </p>
               </div>
