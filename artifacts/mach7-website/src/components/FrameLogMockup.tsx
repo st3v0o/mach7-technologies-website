@@ -1,32 +1,47 @@
 const FONT = "-apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif";
 
+function quadBezierY(
+  x: number,
+  p0: [number, number],
+  p1: [number, number],
+  p2: [number, number],
+): number {
+  const a = p0[0] - 2 * p1[0] + p2[0];
+  const b = -2 * p0[0] + 2 * p1[0];
+  const c = p0[0] - x;
+  const disc = b * b - 4 * a * c;
+  const t = (-b + Math.sqrt(disc)) / (2 * a);
+  return (1 - t) * (1 - t) * p0[1] + 2 * t * (1 - t) * p1[1] + t * t * p2[1];
+}
+
 export function FrameLogMockup() {
-  const blueH = Array.from({ length: 30 }, (_, i) => ({
-    cx: 47 + i * 8.62,
-    cy: 278 - i * 0.86,
+  const blueH = Array.from({ length: 33 }, (_, i) => ({
+    cx: 47 + (i * 255) / 32,
+    cy: 265,
   }));
-  const blueV = Array.from({ length: 16 }, (_, i) => ({
+  const blueV = Array.from({ length: 13 }, (_, i) => ({
     cx: 302,
-    cy: 252 - i * 4.67,
+    cy: 265 - ((i + 1) * 97) / 13,
   }));
   const blueDots = [...blueH, ...blueV];
 
   const greenDots = Array.from({ length: 6 }, (_, i) => ({
-    cx: 311 + i * 10,
-    cy: 181,
+    cx: 315 + i * 15,
+    cy: 168,
   }));
 
-  const yellowDots = [
-    { cx: 374, cy: 181 },
-    { cx: 386, cy: 181 },
-  ];
+  const yellowDots = Array.from({ length: 2 }, (_, i) => ({
+    cx: 315 + (6 + i) * 15,
+    cy: 168,
+  }));
 
-  const redDots = [
-    { cx: 470, cy: 170 },
-    { cx: 479, cy: 165 },
-    { cx: 488, cy: 170 },
-    { cx: 497, cy: 164 },
-  ];
+  const i64p0: [number, number] = [205, 118];
+  const i64p1: [number, number] = [355, 154];
+  const i64p2: [number, number] = [615, 192];
+  const redDots = [460, 477, 493, 510].map((x) => ({
+    cx: x,
+    cy: quadBezierY(x, i64p0, i64p1, i64p2),
+  }));
 
   const sessions = [
     { color: "#4a8dff", isVideo: true,  label: "Apr 7  ·  5:23 PM  ·  46 frames" },
