@@ -29,7 +29,7 @@ export function FrameLogMockup() {
   ];
 
   const sessions = [
-    { color: "#4a8dff", isVideo: false, label: "Apr 7  ·  5:23 PM  ·  46 frames" },
+    { color: "#4a8dff", isVideo: true,  label: "Apr 7  ·  5:23 PM  ·  46 frames" },
     { color: "#3dc87e", isVideo: false, label: "Apr 7  ·  5:22 PM  ·  6 frames" },
     { color: "#f0b03a", isVideo: false, label: "Apr 7  ·  5:22 PM  ·  2 frames" },
     { color: "#ff4444", isVideo: true,  label: "Apr 7  ·  5:21 PM  ·  4 frames" },
@@ -43,13 +43,14 @@ export function FrameLogMockup() {
       xmlns="http://www.w3.org/2000/svg"
     >
       {/* ── MAP BASE ─────────────────────────────── */}
-      <rect width="600" height="475" fill="#0d1e2b" />
+      {/* Base teal-dark background matching app map style */}
+      <rect width="600" height="475" fill="#0e1a18" />
 
       {/* Park / vegetation fills */}
-      <polygon points="0,0 200,0 240,68 178,122 52,112 0,62"         fill="#0e2218" />
-      <polygon points="308,0 600,0 600,158 515,132 388,82 302,40"    fill="#0e2218" />
-      <polygon points="435,158 600,143 600,318 538,346 428,302 415,232" fill="#102518" />
-      <polygon points="0,425 90,410 110,450 60,475 0,475"             fill="#0e2218" />
+      <polygon points="0,0 200,0 240,68 178,122 52,112 0,62"           fill="#0a1a10" />
+      <polygon points="308,0 600,0 600,158 515,132 388,82 302,40"      fill="#0a1a10" />
+      <polygon points="435,158 600,143 600,318 538,346 428,302 415,232" fill="#0c1c12" />
+      <polygon points="0,425 90,410 110,450 60,475 0,475"               fill="#0a1a10" />
 
       {/* Water bodies */}
       <ellipse cx="416" cy="378" rx="52" ry="30" fill="#0e2a50" />
@@ -67,50 +68,50 @@ export function FrameLogMockup() {
         [240, 132, 38, 34], [240, 174, 38, 34],
         [286, 132, 38, 34], [286, 174, 38, 34],
       ].map(([x, y, w, h], i) => (
-        <rect key={i} x={x} y={y} width={w} height={h} fill="#122030" />
+        <rect key={i} x={x} y={y} width={w} height={h} fill="#1f2e2b" />
       ))}
 
       {/* ── ROAD NETWORK ─────────────────────────── */}
 
       {/* Residential NS streets — casing */}
       {[65, 120, 178, 238, 338, 398, 463, 532].map((x) => (
-        <line key={`nsc${x}`} x1={x} y1="0" x2={x} y2="475" stroke="#0a1825" strokeWidth="5" />
+        <line key={`nsc${x}`} x1={x} y1="0" x2={x} y2="475" stroke="#0c1614" strokeWidth="5" />
       ))}
       {/* Residential NS streets — fill */}
       {[65, 120, 178, 238, 338, 398, 463, 532].map((x) => (
-        <line key={`nsf${x}`} x1={x} y1="0" x2={x} y2="475" stroke="#1c3248" strokeWidth="3" />
+        <line key={`nsf${x}`} x1={x} y1="0" x2={x} y2="475" stroke="#2a3f3a" strokeWidth="3" />
       ))}
 
       {/* Residential EW streets — casing */}
       {[168, 213, 293, 328, 366, 408, 443].map((y) => (
-        <line key={`ewc${y}`} x1="0" y1={y} x2="600" y2={y} stroke="#0a1825" strokeWidth="5" />
+        <line key={`ewc${y}`} x1="0" y1={y} x2="600" y2={y} stroke="#0c1614" strokeWidth="5" />
       ))}
       {/* Residential EW streets — fill */}
       {[168, 213, 293, 328, 366, 408, 443].map((y) => (
-        <line key={`ewf${y}`} x1="0" y1={y} x2="600" y2={y} stroke="#1c3248" strokeWidth="3" />
+        <line key={`ewf${y}`} x1="0" y1={y} x2="600" y2={y} stroke="#2a3f3a" strokeWidth="3" />
       ))}
 
       {/* Arterial EW (route road y≈265) — casing */}
-      <line x1="0" y1="265" x2="600" y2="265" stroke="#0b1e30" strokeWidth="9" />
+      <line x1="0" y1="265" x2="600" y2="265" stroke="#0d1816" strokeWidth="9" />
       {/* Arterial EW — fill */}
-      <line x1="0" y1="265" x2="600" y2="265" stroke="#253e58" strokeWidth="5.5" />
+      <line x1="0" y1="265" x2="600" y2="265" stroke="#3d5750" strokeWidth="5.5" />
 
       {/* Arterial NS (x≈302) — casing */}
-      <line x1="302" y1="0" x2="302" y2="270" stroke="#0b1e30" strokeWidth="9" />
+      <line x1="302" y1="0" x2="302" y2="270" stroke="#0d1816" strokeWidth="9" />
       {/* Arterial NS — fill */}
-      <line x1="302" y1="0" x2="302" y2="270" stroke="#253e58" strokeWidth="5.5" />
+      <line x1="302" y1="0" x2="302" y2="270" stroke="#3d5750" strokeWidth="5.5" />
 
       {/* US-60 (y≈305, slightly curved) — casing */}
-      <path d="M 0 310 Q 210 304 432 308 Q 522 310 600 305" stroke="#0d2035" strokeWidth="10" fill="none" />
+      <path d="M 0 310 Q 210 304 432 308 Q 522 310 600 305" stroke="#0e1a18" strokeWidth="10" fill="none" />
       {/* US-60 — fill */}
-      <path d="M 0 310 Q 210 304 432 308 Q 522 310 600 305" stroke="#2e4f6a" strokeWidth="6.5" fill="none" />
+      <path d="M 0 310 Q 210 304 432 308 Q 522 310 600 305" stroke="#4a6860" strokeWidth="6.5" fill="none" />
 
       {/* I-64 diagonal highway — outer casing */}
-      <path d="M -15 68 Q 105 93 205 118 Q 355 154 615 192" stroke="#0a1622" strokeWidth="22" fill="none" strokeLinecap="round" />
+      <path d="M -15 68 Q 105 93 205 118 Q 355 154 615 192" stroke="#0a1210" strokeWidth="22" fill="none" strokeLinecap="round" />
       {/* I-64 — road fill */}
-      <path d="M -15 68 Q 105 93 205 118 Q 355 154 615 192" stroke="#3a607e" strokeWidth="14" fill="none" strokeLinecap="round" />
+      <path d="M -15 68 Q 105 93 205 118 Q 355 154 615 192" stroke="#5a7870" strokeWidth="14" fill="none" strokeLinecap="round" />
       {/* I-64 — center divider */}
-      <path d="M -15 68 Q 105 93 205 118 Q 355 154 615 192" stroke="#0a1a28" strokeWidth="1.5" strokeDasharray="14,9" fill="none" />
+      <path d="M -15 68 Q 105 93 205 118 Q 355 154 615 192" stroke="#0e1a18" strokeWidth="1.5" strokeDasharray="14,9" fill="none" />
 
       {/* ── HIGHWAY SHIELDS ──────────────────────── */}
 
