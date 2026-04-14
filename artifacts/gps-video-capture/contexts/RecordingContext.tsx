@@ -256,14 +256,22 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
             speed: loc.coords.speed,
             altitude: loc.coords.altitude,
           };
-          // Always push to flat ref (used for frame-time GPS matching).
-          gpsPointsRef.current.push(point);
-          // Only add to the active segment when not paused.
-          if (!isPausedRef.current) {
-            currentSegmentRef.current.push(point);
-          }
+          // Always update the display so the HUD stays live.
           setCurrentGps(point);
-          setGpsStatus('locked');
+          // Only record/match points with good accuracy (≤20 m).
+          // Poor accuracy readings are skipped from data storage so frame
+          // GPS matching stays clean, but display always updates above.
+          const goodAccuracy =
+            loc.coords.accuracy === null || loc.coords.accuracy <= 20;
+          if (goodAccuracy) {
+            gpsPointsRef.current.push(point);
+            if (!isPausedRef.current) {
+              currentSegmentRef.current.push(point);
+            }
+            setGpsStatus('locked');
+          } else {
+            setGpsStatus('searching');
+          }
         }
       );
     } catch {

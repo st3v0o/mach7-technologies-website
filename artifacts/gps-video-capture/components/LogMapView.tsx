@@ -77,6 +77,18 @@ function formatTimestamp(ms: number): string {
   );
 }
 
+type MapTypeOption = {
+  key: 'standard' | 'satellite' | 'hybrid' | 'mutedStandard';
+  label: string;
+};
+
+const MAP_TYPES: MapTypeOption[] = [
+  { key: 'standard',      label: 'Standard' },
+  { key: 'mutedStandard', label: 'Muted'    },
+  { key: 'satellite',     label: 'Satellite' },
+  { key: 'hybrid',        label: 'Hybrid'   },
+];
+
 export default function LogMapView({
   sections,
   demoMode,
@@ -84,6 +96,7 @@ export default function LogMapView({
   onDemoPress,
 }: Props) {
   const [selected, setSelected] = useState<LogEntry | null>(null);
+  const [mapType, setMapType] = useState<MapTypeOption['key']>('standard');
 
   const region = useMemo(() => calcRegion(sections), [sections]);
   const totalFrames = sections.reduce((acc, s) => acc + s.data.length, 0);
@@ -139,7 +152,7 @@ export default function LogMapView({
       <MapView
         style={StyleSheet.absoluteFill}
         initialRegion={defaultRegion}
-        mapType="standard"
+        mapType={mapType}
         showsUserLocation
         showsMyLocationButton
       >
@@ -194,6 +207,24 @@ export default function LogMapView({
           {totalFrames} frames · {sections.length} session
           {sections.length !== 1 ? 's' : ''}
         </Text>
+      </View>
+
+      {/* ── Map type picker ── */}
+      <View style={styles.mapTypePicker}>
+        {MAP_TYPES.map((opt) => {
+          const active = mapType === opt.key;
+          return (
+            <Pressable
+              key={opt.key}
+              onPress={() => setMapType(opt.key)}
+              style={[styles.mapTypeBtn, active && styles.mapTypeBtnActive]}
+            >
+              <Text style={[styles.mapTypeBtnText, active && styles.mapTypeBtnTextActive]}>
+                {opt.label}
+              </Text>
+            </Pressable>
+          );
+        })}
       </View>
 
       {selected && !demoMode && (
@@ -339,5 +370,35 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 12,
     right: 12,
+  },
+  mapTypePicker: {
+    position: 'absolute',
+    bottom: 100,
+    left: 12,
+    flexDirection: 'row',
+    gap: 6,
+    backgroundColor: 'rgba(10, 10, 12, 0.82)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: 4,
+  },
+  mapTypeBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  mapTypeBtnActive: {
+    backgroundColor: 'rgba(255, 184, 0, 0.20)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 184, 0, 0.45)',
+  },
+  mapTypeBtnText: {
+    color: Colors.textTertiary,
+    fontFamily: 'Inter_500Medium',
+    fontSize: 12,
+  },
+  mapTypeBtnTextActive: {
+    color: Colors.amber,
   },
 });

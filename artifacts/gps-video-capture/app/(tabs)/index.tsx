@@ -331,6 +331,10 @@ export default function CaptureScreen() {
   const [isRecording, setIsRecording] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [currentSegmentMs, setCurrentSegmentMs] = useState(DEFAULT_SEGMENT_MS);
+  // Monotonically-increasing frame count shown in the HUD while recording.
+  // Dynamic-mode speed fluctuates, causing naive estimates to go backward;
+  // this state only ever increases so the counter never visibly drops.
+  const [displayedFrameCount, setDisplayedFrameCount] = useState(0);
 
   // Show upload modal when recording stops
   useEffect(() => {
@@ -339,6 +343,25 @@ export default function CaptureScreen() {
     }
     prevIsRecording.current = isRecording;
   }, [isRecording]);
+
+  // Keep displayed frame count monotonically increasing so speed fluctuations
+  // in dynamic mode never cause the counter to visibly go backward.
+  useEffect(() => {
+    if (!isRecording || settings.captureMode !== 'video') {
+      setDisplayedFrameCount(0);
+      return;
+    }
+    const speed = Math.max(currentGps?.speed ?? 0, 0);
+    const segEst = Math.round(
+      elapsedSeconds *
+        (settings.frameMode === 'fixed'
+          ? settings.fixedFps
+          : speed / Math.max(settings.dynamicMeters, 0.1))
+    );
+    const newTotal = totalFrames + Math.max(segEst, 0);
+    setDisplayedFrameCount((prev) => Math.max(prev, newTotal));
+  }, [elapsedSeconds, currentGps?.speed, isRecording, totalFrames,
+      settings.captureMode, settings.frameMode, settings.fixedFps, settings.dynamicMeters]);
 
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const pulseLoop = useRef<Animated.CompositeAnimation | null>(null);
@@ -758,11 +781,7 @@ export default function CaptureScreen() {
                 <Text style={styles.statsValue}>
                   {'#'}
                   {settings.captureMode === 'video'
-                    ? (isRecording
-                        ? Math.round(elapsedSeconds * (settings.frameMode === 'fixed'
-                            ? settings.fixedFps
-                            : (currentGps?.speed ?? 0) / settings.dynamicMeters))
-                        : totalFrames)
+                    ? (isRecording ? displayedFrameCount : totalFrames)
                     : settings.captureMode === 'manual'
                     ? manualPhotoCount
                     : photoCount}
