@@ -181,7 +181,7 @@ export default function Home() {
             <Database className="w-12 h-12 mx-auto text-primary mb-6" />
             <h2 className="font-display text-4xl md:text-5xl font-bold tracking-tight mb-4">Equip your team.</h2>
             <p className="text-lg text-muted-foreground">
-              MACH 7 is in active development. If your organization needs frame-accurate spatial documentation, we want to hear from you.
+              Geospector is in active development. If your organization needs frame-accurate spatial documentation, we want to hear from you.
             </p>
           </div>
 

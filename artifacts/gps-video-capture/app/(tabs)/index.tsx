@@ -575,7 +575,7 @@ export default function CaptureScreen() {
         <Ionicons name="videocam-off" size={48} color={Colors.textSecondary} style={{ marginBottom: 16 }} />
         <Text style={styles.permTitle}>Camera Access Required</Text>
         <Text style={styles.permSubtitle}>
-          GPS Video Capture needs camera access to record video for GPS frame tagging.
+          Geospector needs camera access to record GPS-tagged video and photos.
         </Text>
         <Pressable
           style={({ pressed }) => [styles.permButton, pressed && { opacity: 0.8 }]}

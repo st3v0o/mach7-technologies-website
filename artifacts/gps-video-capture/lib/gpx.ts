@@ -105,7 +105,7 @@ export function buildGpxXml(
   return (
     `<?xml version="1.0" encoding="UTF-8"?>\n` +
     `<gpx version="1.1"\n` +
-    `     creator="GPS Video Capture"\n` +
+    `     creator="Geospector"\n` +
     `     xmlns="http://www.topografix.com/GPX/1/1"\n` +
     `     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"\n` +
     `     xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd">\n` +
