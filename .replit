@@ -17,6 +17,23 @@ env = { "CI" = "true" }
 [workflows]
 runButton = "Project"
 
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "artifacts/mach7-website: web"
+
+[[workflows.workflow]]
+name = "artifacts/mach7-website: web"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/mach7-website run dev"
+
 [agent]
 stack = "PNPM_WORKSPACE"
 expertMode = true

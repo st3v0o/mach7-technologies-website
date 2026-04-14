@@ -1,10 +1,5 @@
 uploads = []
-
-[[generated]]
-id = "2Ko1SfRFavhsyDUHW2w92"
-uri = "file://artifacts/gps-video-capture/assets/images/icon.png"
-type = "image"
-title = "gps-video-capture-app-icon"
+generated = []
 
 [[outputs]]
 id = "iWe9wYbRhEA43vSGK-PAC"
