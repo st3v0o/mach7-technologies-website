@@ -65,10 +65,6 @@
     "expo-modules-core": "^55.0.20",
     "expo-sharing": "^14.0.8",
     "expo-video-thumbnails": "^10.0.8",
-    "react-native-ble-plx": "^3.5.1",
-    "react-native-maps": "1.20.1",
-    "react-native-wifi-reborn": "^4.13.6",
-    "uvc-capture": "file:./modules/uvc-capture",
-    "insta360-camera": "file:./modules/insta360-camera"
+    "react-native-maps": "1.20.1"
   }
 }

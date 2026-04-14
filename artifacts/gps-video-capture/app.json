@@ -18,16 +18,11 @@
       "bundleIdentifier": "com.mach7technologies.geospector",
       "buildNumber": "1",
       "deploymentTarget": "17.0",
-      "entitlements": {
-        "com.apple.developer.networking.HotspotConfiguration": true
-      },
       "infoPlist": {
         "NSCameraUsageDescription": "Geospector uses the camera to record GPS-tagged video and capture photos.",
         "NSMicrophoneUsageDescription": "Geospector uses the microphone to record audio with your GPS-tagged video.",
         "NSLocationWhenInUseUsageDescription": "Geospector uses your location to tag each video frame and photo with precise GPS coordinates.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "Geospector uses your location to continuously tag video frames with GPS coordinates, even when the screen is locked.",
-        "NSBluetoothAlwaysUsageDescription": "Geospector uses Bluetooth to discover and connect to GoPro and other external cameras.",
-        "NSLocalNetworkUsageDescription": "Geospector uses the local network to control connected cameras over Wi-Fi.",
         "UIBackgroundModes": ["location"]
       }
     },
@@ -38,13 +33,7 @@
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
         "WRITE_EXTERNAL_STORAGE",
-        "READ_EXTERNAL_STORAGE",
-        "BLUETOOTH",
-        "BLUETOOTH_ADMIN",
-        "BLUETOOTH_CONNECT",
-        "BLUETOOTH_SCAN",
-        "ACCESS_WIFI_STATE",
-        "CHANGE_WIFI_STATE"
+        "READ_EXTERNAL_STORAGE"
       ]
     },
     "web": {
@@ -55,24 +44,7 @@
       "expo-font",
       "expo-web-browser",
       "expo-camera",
-      "expo-location",
-      [
-        "react-native-ble-plx",
-        {
-          "isBackgroundEnabled": false,
-          "modes": ["peripheral", "central"],
-          "bluetoothAlwaysPermission": "Allow $(PRODUCT_NAME) to connect to Bluetooth cameras."
-        }
-      ],
-      [
-        "react-native-wifi-reborn",
-        {
-          "addHotspotEntitlement": true,
-          "locationWhenInUsePermission": "Allow $(PRODUCT_NAME) to use your location to join camera Wi-Fi networks."
-        }
-      ],
-      "./modules/uvc-capture/plugin/index.js",
-      "./modules/insta360-camera/plugin/index.js"
+      "expo-location"
     ],
     "experiments": {
       "typedRoutes": true,
