@@ -22,10 +22,10 @@ interface PhoneEntry {
 }
 
 const PHONES: PhoneEntry[] = [
-  // --- Drone aerial overview ---
+  // 1. Top-down parking lot — drone — pavement marking audit
   {
-    label: "Aerial Survey",
-    sublabel: "Drone · site overview",
+    label: "Parking Lot Survey",
+    sublabel: "Drone · top-down · marking audit",
     accent: "blue",
     content: {
       kind: "component",
@@ -33,39 +33,39 @@ const PHONES: PhoneEntry[] = [
         <FieldCaptureMockup
           photoFile="field-aerial.jpg"
           lat="40.7128" lon="74.0060"
-          accuracy="22" speed="12"
-          label="INTERSECTION — SITE OVERVIEW"
-          sublabel="drone altitude: 120ft"
-          session="7_091544" mode="AUTO" photos={31}
+          accuracy="18" speed="0"
+          label="PARKING LOT — PAVEMENT MARKING AUDIT"
+          sublabel="drone altitude: 80ft  ·  0 mph"
+          session="7_091544" mode="AUTO" photos={41}
           perspective="DRONE"
         />
       ),
     },
   },
-  // --- Car-mounted road survey ---
+  // 2. Highway from car — road condition survey
   {
     label: "Road Survey",
-    sublabel: "Car-mounted · driving",
+    sublabel: "Car-mounted · highway patrol",
     accent: "orange",
     content: {
       kind: "component",
       el: (
         <FieldCaptureMockup
           photoFile="field-road.jpg"
-          lat="38.9072" lon="77.0369"
-          accuracy="11" speed="28"
-          label="ROAD CONDITION — PAVEMENT SURVEY"
-          sublabel="dynamic fps · 28 mph"
-          session="2_141033" mode="AUTO" photos={847}
+          lat="38.7273" lon="109.5925"
+          accuracy="11" speed="35"
+          label="HIGHWAY — SURFACE CONDITION SURVEY"
+          sublabel="dynamic fps · 35 mph"
+          session="2_141033" mode="AUTO" photos={1204}
           perspective="CAR-MOUNTED"
         />
       ),
     },
   },
-  // --- Cracked pavement poor condition ---
+  // 3. Cracked sidewalk — ADA compliance / handheld
   {
-    label: "Pavement Distress",
-    sublabel: "Poor condition · car survey",
+    label: "Sidewalk Crack",
+    sublabel: "Handheld · poor condition",
     accent: "amber",
     content: {
       kind: "component",
@@ -73,20 +73,20 @@ const PHONES: PhoneEntry[] = [
         <FieldCaptureMockup
           photoFile="field-pavement.jpg"
           lat="41.8781" lon="87.6298"
-          accuracy="9" speed="5"
-          label="PAVEMENT — ALLIGATOR CRACKING"
-          sublabel="PCI survey · block 4 of 12"
-          session="1_083017" mode="AUTO" photos={22}
-          perspective="CAR-MOUNTED"
+          accuracy="9"
+          label="SIDEWALK — LONGITUDINAL CRACK"
+          sublabel="ADA compliance survey · segment 7"
+          session="1_083017" mode="MANUAL" photos={14}
+          perspective="HANDHELD"
           condition="poor"
         />
       ),
     },
   },
-  // --- Street tree handheld good condition ---
+  // 4. Street tree canopy — urban forestry inventory
   {
-    label: "Tree Inventory",
-    sublabel: "Handheld · street tree",
+    label: "Street Tree",
+    sublabel: "Handheld · canopy inventory",
     accent: "green",
     content: {
       kind: "component",
@@ -96,28 +96,28 @@ const PHONES: PhoneEntry[] = [
           lat="34.0522" lon="118.2437"
           accuracy="14"
           label="STREET TREE — CANOPY CONDITION"
-          sublabel="urban forestry survey"
-          session="3_101200" mode="MANUAL" photos={6}
+          sublabel="urban forestry inventory  ·  block 12"
+          session="3_101200" mode="MANUAL" photos={3}
           perspective="HANDHELD"
         />
       ),
     },
   },
-  // --- App UI: capture screen ---
+  // 5. App UI: capture screen
   {
-    label: "Capture",
-    sublabel: "Manual · GPS locked",
+    label: "Capture UI",
+    sublabel: "Manual mode · GPS locked",
     accent: "green",
     content: {
       kind: "image",
       src: "screenshots/capture-manual.png",
-      alt: "Geospector — manual GPS capture mode",
+      alt: "Geospector — GPS capture UI",
     },
   },
-  // --- Deteriorated park bench ---
+  // 6. Weathered park bench — poor condition
   {
-    label: "Bench Condition",
-    sublabel: "Poor condition · handheld",
+    label: "Park Bench",
+    sublabel: "Handheld · poor condition",
     accent: "amber",
     content: {
       kind: "component",
@@ -126,39 +126,19 @@ const PHONES: PhoneEntry[] = [
           photoFile="field-bench.jpg"
           lat="40.7831" lon="73.9712"
           accuracy="10"
-          label="PARK BENCH — PAINT FAILURE / DECAY"
-          sublabel="parks asset condition audit"
-          session="5_152244" mode="MANUAL" photos={3}
+          label="PARK BENCH — WOOD ROT / NEGLECT"
+          sublabel="parks asset audit  ·  deteriorated"
+          session="5_152244" mode="MANUAL" photos={2}
           perspective="HANDHELD"
           condition="poor"
         />
       ),
     },
   },
-  // --- Bike-mounted trail survey ---
+  // 7. Kingfisher / wildlife observation
   {
-    label: "Trail Survey",
-    sublabel: "Bike-mounted · path audit",
-    accent: "teal",
-    content: {
-      kind: "component",
-      el: (
-        <FieldCaptureMockup
-          photoFile="field-bike.jpg"
-          lat="47.6062" lon="122.3321"
-          accuracy="12" speed="11"
-          label="BIKE TRAIL — SURFACE CONDITION"
-          sublabel="dynamic interval · 11 mph"
-          session="4_073318" mode="AUTO" photos={54}
-          perspective="BIKE-MOUNTED"
-        />
-      ),
-    },
-  },
-  // --- Birds clearly in frame ---
-  {
-    label: "Bird Count",
-    sublabel: "Handheld · wildlife transect",
+    label: "Wildlife Obs.",
+    sublabel: "Handheld · species sighting",
     accent: "teal",
     content: {
       kind: "component",
@@ -167,38 +147,59 @@ const PHONES: PhoneEntry[] = [
           photoFile="field-birds.jpg"
           lat="25.7617" lon="80.1918"
           accuracy="16"
-          label="BIRD COUNT — FLOCK OBSERVATION"
-          sublabel="wildlife transect · migratory"
-          session="6_064910" mode="MANUAL" photos={14}
+          label="KINGFISHER — SPECIES SIGHTING"
+          sublabel="riparian habitat survey"
+          session="6_064910" mode="MANUAL" photos={7}
           perspective="HANDHELD"
         />
       ),
     },
   },
-  // --- Coastal / water GPS ---
+  // 8. Paved trail through trees — trail condition audit
   {
-    label: "Coastal Survey",
-    sublabel: "Handheld · shoreline GPS",
+    label: "Trail Condition",
+    sublabel: "Handheld · surface audit",
+    accent: "teal",
+    content: {
+      kind: "component",
+      el: (
+        <FieldCaptureMockup
+          photoFile="field-trail.jpg"
+          lat="47.6062" lon="122.3321"
+          accuracy="12"
+          label="MULTI-USE TRAIL — SURFACE AUDIT"
+          sublabel="parks trail survey  ·  segment 4"
+          session="4_073318" mode="MANUAL" photos={11}
+          perspective="HANDHELD"
+        />
+      ),
+    },
+  },
+  // 9. Stormwater outfall — drainage infrastructure / poor condition
+  {
+    label: "Stormwater Outfall",
+    sublabel: "Handheld · drainage inspection",
     accent: "blue",
     content: {
       kind: "component",
       el: (
         <FieldCaptureMockup
-          photoFile="field-coast.jpg"
+          photoFile="field-drain.jpg"
           lat="36.7783" lon="119.4179"
-          accuracy="18"
-          label="COASTAL ACCESS — PIER CONDITION"
-          sublabel="shoreline erosion monitoring"
-          session="8_093020" mode="MANUAL" photos={9}
+          accuracy="20"
+          label="STORMWATER OUTFALL — FLOODING"
+          sublabel="MS4 drainage inspection"
+          session="8_093020" mode="MANUAL" photos={5}
           perspective="HANDHELD"
+          condition="poor"
         />
       ),
     },
   },
-  // --- Road warning sign ---
+  // 10. Vandalized sign box — poor condition
   {
-    label: "Sign Inventory",
-    sublabel: "Handheld · sign condition",
+    label: "Sign Vandalism",
+    sublabel: "Handheld · vandalism report",
     accent: "orange",
     content: {
       kind: "component",
@@ -207,26 +208,47 @@ const PHONES: PhoneEntry[] = [
           photoFile="field-sign.jpg"
           lat="33.4484" lon="112.0740"
           accuracy="13"
-          label="ROAD SIGN — RETROREFLECTIVITY CHECK"
-          sublabel="sign inventory · district 3"
-          session="9_111502" mode="MANUAL" photos={17}
+          label="SIGN BOX — GRAFFITI / VANDALISM"
+          sublabel="asset condition report  ·  zone 3"
+          session="9_111502" mode="MANUAL" photos={1}
           perspective="HANDHELD"
+          condition="poor"
         />
       ),
     },
   },
-  // --- Route map UI ---
+  // 11. Coastal aerial — shoreline erosion drone survey
+  {
+    label: "Coastal Survey",
+    sublabel: "Drone · shoreline erosion",
+    accent: "blue",
+    content: {
+      kind: "component",
+      el: (
+        <FieldCaptureMockup
+          photoFile="field-coast.jpg"
+          lat="43.2951" lon="5.3842"
+          accuracy="25" speed="8"
+          label="SHORELINE — EROSION MONITORING"
+          sublabel="drone altitude: 150ft  ·  coastal patrol"
+          session="11_084412" mode="AUTO" photos={88}
+          perspective="DRONE"
+        />
+      ),
+    },
+  },
+  // 12. Route map
   {
     label: "Route Map",
     sublabel: "Live GPS · session track",
-    accent: "blue",
+    accent: "teal",
     content: {
       kind: "image",
       src: "screenshots/map-wide.jpg",
       alt: "Geospector — GPS route map with session data",
     },
   },
-  // --- Settings ---
+  // 13. Settings
   {
     label: "Settings",
     sublabel: "FPS · mode · cloud sync",
@@ -268,7 +290,7 @@ function PhoneCard({ label, sublabel, accent, content, hovered, onEnter, onLeave
           transition: "box-shadow 0.35s ease",
         }}
       >
-        {/* Status bar — dynamic island lives here, nothing hidden below */}
+        {/* Status bar / dynamic island */}
         <div className="flex justify-center bg-black" style={{ paddingTop: 8, paddingBottom: 6 }}>
           <div className="w-14 h-3.5 rounded-full bg-[#111]" />
         </div>
@@ -316,20 +338,20 @@ export function ScreenGallery() {
           0%   { transform: translateX(0); }
           100% { transform: translateX(-50%); }
         }
-        .phones-running { animation: scroll-phones 60s linear infinite; }
-        .phones-paused  { animation: scroll-phones 60s linear infinite; animation-play-state: paused; }
+        .phones-running { animation: scroll-phones 70s linear infinite; }
+        .phones-paused  { animation: scroll-phones 70s linear infinite; animation-play-state: paused; }
       `}</style>
 
       <div className="container mx-auto px-4 mb-14 text-center">
         <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/20 px-4 py-1.5 text-sm font-medium text-primary/90 rounded-full mb-6">
           <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-          Drone · car · bike · handheld — GPS on every capture
+          Every subject · every mount · every condition — GPS tagged
         </div>
         <h2 className="font-display text-3xl md:text-4xl font-bold tracking-tight mb-3">
           Built for the field.
         </h2>
         <p className="text-muted-foreground text-lg max-w-md mx-auto">
-          Any mount, any subject, any condition — every frame tagged.
+          Roads, trees, benches, signs, trails, drains, wildlife — if it has a location, document it.
         </p>
       </div>
 
