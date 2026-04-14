@@ -5,11 +5,11 @@ export function Navbar() {
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-md">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2">
+        <Link href="/" className="flex items-center gap-2.5">
           <div className="w-8 h-8 bg-primary rounded flex items-center justify-center text-primary-foreground font-display font-bold text-xs tracking-tighter">
-            M7
+            GS
           </div>
-          <span className="font-display font-bold tracking-tight text-lg">MACH 7</span>
+          <span className="font-display font-bold tracking-tight text-lg">GEOSPECTOR</span>
         </Link>
 
         <nav className="hidden md:flex gap-6">
