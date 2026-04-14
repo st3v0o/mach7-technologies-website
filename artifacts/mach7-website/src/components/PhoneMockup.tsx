@@ -10,11 +10,6 @@ type Slide =
 
 const SLIDES: Slide[] = [
   {
-    kind: "image",
-    src: `${BASE}screenshots/capture-manual.png`,
-    alt: "Geospector — manual GPS capture mode",
-  },
-  {
     kind: "component",
     alt: "Drone aerial site overview",
     el: (
@@ -43,6 +38,11 @@ const SLIDES: Slide[] = [
         perspective="CAR-MOUNTED"
       />
     ),
+  },
+  {
+    kind: "image",
+    src: `${BASE}screenshots/capture-manual.png`,
+    alt: "Geospector — GPS capture UI",
   },
   {
     kind: "component",
