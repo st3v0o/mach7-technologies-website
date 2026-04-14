@@ -403,7 +403,7 @@ function TickerColumn({
           return (
             <div key={i} className="py-[5px] text-center leading-tight select-none">
               <span
-                className="font-mono text-[12px] uppercase tracking-[0.16em]"
+                className="text-[13px] tracking-wide"
                 style={{
                   color: isAccent
                     ? "hsl(var(--primary))"
@@ -445,7 +445,7 @@ export function UseCaseTicker() {
 
       <div className="container mx-auto px-4">
         <div className="text-center mb-10">
-          <div className="inline-flex items-center gap-2 border border-border/40 bg-card/40 px-3 py-1 text-xs font-mono text-muted-foreground uppercase tracking-wider mb-4">
+          <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/20 px-4 py-1.5 text-sm font-medium text-primary/90 rounded-full mb-5">
             <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
             Endless use cases
           </div>

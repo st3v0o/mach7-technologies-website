@@ -21,7 +21,7 @@ export function Navbar() {
         </nav>
 
         <div className="flex items-center gap-4">
-          <Button asChild variant="default" size="sm" className="font-display font-medium rounded-none">
+          <Button asChild variant="default" size="sm" className="font-display font-medium">
             <a href="#contact">Request Access</a>
           </Button>
         </div>
