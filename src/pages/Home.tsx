@@ -22,13 +22,12 @@ export default function Home() {
 
   const handleContact = useCallback(async (e: FormEvent) => {
     e.preventDefault();
-    if (!executeRecaptcha) return;
 
     setSubmitting(true);
     setError(null);
 
     try {
-      const token = await executeRecaptcha("contact_form");
+      const token = executeRecaptcha ? await executeRecaptcha("contact_form") : undefined;
 
       const apiUrl = `${window.location.origin}${API_BASE}/api/contact`.replace(/([^:])\/\/+/, "$1/");
 
@@ -279,7 +278,7 @@ export default function Home() {
                 <Button
                   type="submit"
                   size="lg"
-                  disabled={submitting || !executeRecaptcha}
+                  disabled={submitting}
                   className="font-display font-semibold h-13 px-8 text-base w-full sm:w-auto"
                 >
                   {submitting ? "Sending…" : "Send Request"}
