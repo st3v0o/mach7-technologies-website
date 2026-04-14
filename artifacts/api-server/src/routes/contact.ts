@@ -8,7 +8,7 @@ const ContactRequestSchema = z.object({
   name: z.string().min(1, "Name is required"),
   org: z.string().optional().default(""),
   message: z.string().min(1, "Message is required"),
-  recaptchaToken: z.string().min(1, "CAPTCHA token is required"),
+  recaptchaToken: z.string().optional(),
 });
 
 const CONTACT_EMAIL = "info@mach7technologies.com";
@@ -29,7 +29,7 @@ const ContactErrorResponseSchema = z.object({ error: z.string() });
 async function verifyRecaptcha(token: string, expectedAction: string): Promise<{ success: boolean; score: number }> {
   const secret = process.env.RECAPTCHA_SECRET_KEY;
   if (!secret) {
-    throw new Error("RECAPTCHA_SECRET_KEY is not configured");
+    return { success: true, score: 1 };
   }
 
   const params = new URLSearchParams({ secret, response: token });
@@ -53,17 +53,19 @@ router.post("/contact", async (req: Request, res: Response) => {
 
   const { name, org, message, recaptchaToken } = parsed.data;
 
-  let captchaResult: { success: boolean; score: number };
-  try {
-    captchaResult = await verifyRecaptcha(recaptchaToken, "contact_form");
-  } catch (err) {
-    res.status(500).json(ContactErrorResponseSchema.parse({ error: "CAPTCHA verification failed" }));
-    return;
-  }
+  if (recaptchaToken) {
+    let captchaResult: { success: boolean; score: number };
+    try {
+      captchaResult = await verifyRecaptcha(recaptchaToken, "contact_form");
+    } catch (err) {
+      res.status(500).json(ContactErrorResponseSchema.parse({ error: "CAPTCHA verification failed" }));
+      return;
+    }
 
-  if (!captchaResult.success || captchaResult.score < SCORE_THRESHOLD) {
-    res.status(400).json(ContactErrorResponseSchema.parse({ error: "CAPTCHA verification failed — possible bot activity" }));
-    return;
+    if (!captchaResult.success || captchaResult.score < SCORE_THRESHOLD) {
+      res.status(400).json(ContactErrorResponseSchema.parse({ error: "CAPTCHA verification failed — possible bot activity" }));
+      return;
+    }
   }
 
   const resendKey = process.env.RESEND_API_KEY;
@@ -80,8 +82,6 @@ router.post("/contact", async (req: Request, res: Response) => {
     ${org ? `<p><strong>Organization:</strong> ${org}</p>` : ""}
     <p><strong>Message:</strong></p>
     <p style="white-space: pre-wrap;">${message}</p>
-    <hr/>
-    <p style="color: #888; font-size: 12px;">reCAPTCHA score: ${captchaResult.score.toFixed(2)}</p>
   `;
 
   try {
