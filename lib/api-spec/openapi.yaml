@@ -10,7 +10,40 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: contact
+    description: Contact form operations
 paths:
+  /contact:
+    post:
+      operationId: submitContact
+      tags: [contact]
+      summary: Submit contact form
+      description: Verifies reCAPTCHA token and sends an email to the site owner
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ContactRequest"
+      responses:
+        "200":
+          description: Email sent successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContactResponse"
+        "400":
+          description: Invalid request or CAPTCHA failure
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /healthz:
     get:
       operationId: healthCheck
@@ -33,4 +66,33 @@ components:
           type: string
       required:
         - status
+    ContactRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        org:
+          type: string
+        message:
+          type: string
+        recaptchaToken:
+          type: string
+      required:
+        - name
+        - message
+        - recaptchaToken
+    ContactResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+      required:
+        - success
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
 

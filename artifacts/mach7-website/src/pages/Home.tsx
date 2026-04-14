@@ -1,11 +1,13 @@
-import { useState, FormEvent } from "react";
+import { useState, FormEvent, useCallback } from "react";
 import { ArrowRight, MapPin, Zap, Users, HardDrive, Database } from "lucide-react";
+import { useGoogleReCaptcha } from "react-google-recaptcha-v3";
 import { Button } from "@/components/ui/button";
 import { PhoneMockup } from "@/components/PhoneMockup";
 import { ScreenGallery } from "@/components/ScreenGallery";
 import { UseCaseTicker } from "@/components/UseCaseTicker";
 import { FrameLogMockup } from "@/components/FrameLogMockup";
 
+const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 const CONTACT_EMAIL = "info@mach7technologies.com";
 
 export default function Home() {
@@ -13,14 +15,41 @@ export default function Home() {
   const [org, setOrg] = useState("");
   const [message, setMessage] = useState("");
   const [sent, setSent] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  function handleContact(e: FormEvent) {
+  const { executeRecaptcha } = useGoogleReCaptcha();
+
+  const handleContact = useCallback(async (e: FormEvent) => {
     e.preventDefault();
-    const subject = encodeURIComponent(`Access Request from ${name}${org ? ` — ${org}` : ""}`);
-    const body = encodeURIComponent(`Name: ${name}\nOrganization: ${org}\n\n${message}`);
-    window.location.href = `mailto:${CONTACT_EMAIL}?subject=${subject}&body=${body}`;
-    setSent(true);
-  }
+    if (!executeRecaptcha) return;
+
+    setSubmitting(true);
+    setError(null);
+
+    try {
+      const token = await executeRecaptcha("contact_form");
+
+      const apiUrl = `${window.location.origin}${API_BASE}/api/contact`.replace(/([^:])\/\/+/, "$1/");
+
+      const res = await fetch(apiUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, org, message, recaptchaToken: token }),
+      });
+
+      if (res.ok) {
+        setSent(true);
+      } else {
+        const data = await res.json().catch(() => ({})) as { error?: string };
+        setError(data.error ?? "Something went wrong. Please try again.");
+      }
+    } catch {
+      setError("Network error. Please check your connection and try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  }, [executeRecaptcha, name, org, message]);
 
   return (
     <div className="flex flex-col">
@@ -199,10 +228,9 @@ export default function Home() {
 
           {sent ? (
             <div className="border border-primary/30 bg-primary/8 p-8 text-center rounded-lg">
-              <p className="font-display font-semibold text-xl mb-2">Your email client should have opened.</p>
+              <p className="font-display font-semibold text-xl mb-2">Message sent!</p>
               <p className="text-lg text-muted-foreground">
-                If it didn't, email us directly at{" "}
-                <a href={`mailto:${CONTACT_EMAIL}`} className="text-primary hover:underline">{CONTACT_EMAIL}</a>.
+                We'll be in touch at {CONTACT_EMAIL}.
               </p>
             </div>
           ) : (
@@ -244,12 +272,20 @@ export default function Home() {
                   className="bg-card border border-border rounded-lg px-4 py-3 text-base text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary transition-colors resize-none"
                 />
               </div>
+              {error && (
+                <p className="text-sm text-red-500">{error}</p>
+              )}
               <div className="flex flex-col sm:flex-row items-center gap-4 pt-1">
-                <Button type="submit" size="lg" className="font-display font-semibold h-13 px-8 text-base w-full sm:w-auto">
-                  Send Request
+                <Button
+                  type="submit"
+                  size="lg"
+                  disabled={submitting || !executeRecaptcha}
+                  className="font-display font-semibold h-13 px-8 text-base w-full sm:w-auto"
+                >
+                  {submitting ? "Sending…" : "Send Request"}
                 </Button>
                 <p className="text-sm text-muted-foreground">
-                  Opens your mail client — or email {CONTACT_EMAIL}
+                  Protected by reCAPTCHA
                 </p>
               </div>
             </form>
