@@ -1,0 +1,49 @@
+2026-04-14T03:00:28.165243Z	Cloning repository...
+2026-04-14T03:00:29.077383Z	From https://github.com/st3v0o/mach7-technologies-website
+2026-04-14T03:00:29.077764Z	 * branch            2c3b7f83b6bf7dd992f458cc6de1f570ae07fcaf -> FETCH_HEAD
+2026-04-14T03:00:29.077832Z	
+2026-04-14T03:00:29.192854Z	HEAD is now at 2c3b7f8 Update the website's main promotional image
+2026-04-14T03:00:29.193225Z	
+2026-04-14T03:00:29.250137Z	
+2026-04-14T03:00:29.250536Z	Using v2 root directory strategy
+2026-04-14T03:00:29.265014Z	Success: Finished cloning repository files
+2026-04-14T03:00:30.90677Z	Checking for configuration in a Wrangler configuration file (BETA)
+2026-04-14T03:00:30.907177Z	
+2026-04-14T03:00:32.054138Z	No Wrangler configuration file found. Continuing.
+2026-04-14T03:00:32.3198Z	Detected the following tools from environment: npm@10.9.2, nodejs@22.16.0
+2026-04-14T03:00:32.320171Z	Installing project dependencies: npm clean-install --progress=false
+2026-04-14T03:00:40.278066Z	
+2026-04-14T03:00:40.278515Z	added 247 packages, and audited 248 packages in 7s
+2026-04-14T03:00:40.278597Z	
+2026-04-14T03:00:40.278643Z	23 packages are looking for funding
+2026-04-14T03:00:40.278675Z	  run `npm fund` for details
+2026-04-14T03:00:40.278985Z	
+2026-04-14T03:00:40.279136Z	found 0 vulnerabilities
+2026-04-14T03:00:40.345406Z	Executing user command: npm run build
+2026-04-14T03:00:40.606614Z	
+2026-04-14T03:00:40.60691Z	> @workspace/mach7-website@0.0.0 build
+2026-04-14T03:00:40.606974Z	> vite build --config vite.config.ts
+2026-04-14T03:00:40.607028Z	
+2026-04-14T03:00:40.949298Z	▲ [WARNING] Cannot find base config file "../../tsconfig.base.json" [tsconfig.json]
+2026-04-14T03:00:40.949551Z	
+2026-04-14T03:00:40.949618Z	    tsconfig.json:2:13:
+2026-04-14T03:00:40.949679Z	      2 │   "extends": "../../tsconfig.base.json",
+2026-04-14T03:00:40.949732Z	        ╵              ~~~~~~~~~~~~~~~~~~~~~~~~~~
+2026-04-14T03:00:40.949785Z	
+2026-04-14T03:00:41.160267Z	[36mvite v7.3.2 [32mbuilding client environment for production...[36m[39m
+2026-04-14T03:00:41.232697Z	[32m✓[39m 0 modules transformed.
+2026-04-14T03:00:41.237724Z	[31m✗[39m Build failed in 34ms
+2026-04-14T03:00:41.238079Z	[31merror during build:
+2026-04-14T03:00:41.238141Z	[31m[vite:build-html] failed to resolve "extends":"../../tsconfig.base.json" in /opt/buildhome/repo/tsconfig.json[31m
+2026-04-14T03:00:41.238183Z	file: [36m/opt/buildhome/repo/index.html[31m
+2026-04-14T03:00:41.238215Z	    at resolveExtends (file:///opt/buildhome/repo/node_modules/vite/dist/node/chunks/config.js:5809:8)
+2026-04-14T03:00:41.238268Z	    at parseExtends (file:///opt/buildhome/repo/node_modules/vite/dist/node/chunks/config.js:5775:71)
+2026-04-14T03:00:41.238316Z	    at parse$13 (file:///opt/buildhome/repo/node_modules/vite/dist/node/chunks/config.js:5677:23)
+2026-04-14T03:00:41.238351Z	    at async loadTsconfigJsonForFile (file:///opt/buildhome/repo/node_modules/vite/dist/node/chunks/config.js:6286:37)
+2026-04-14T03:00:41.238426Z	    at async transformWithEsbuild (file:///opt/buildhome/repo/node_modules/vite/dist/node/chunks/config.js:6086:55)
+2026-04-14T03:00:41.238515Z	    at async Object.transform (file:///opt/buildhome/repo/node_modules/vite/dist/node/chunks/config.js:6172:20)
+2026-04-14T03:00:41.238588Z	    at async transform (file:///opt/buildhome/repo/node_modules/rollup/dist/es/shared/node-entry.js:21657:16)
+2026-04-14T03:00:41.238651Z	    at async ModuleLoader.addModuleSource (file:///opt/buildhome/repo/node_modules/rollup/dist/es/shared/node-entry.js:21885:36)[39m
+2026-04-14T03:00:41.274095Z	Failed: Error while executing user command. Exited with error code: 1
+2026-04-14T03:00:41.279657Z	Failed: build command exited with code: 1
+2026-04-14T03:00:42.07643Z	Failed: error occurred while running build command
