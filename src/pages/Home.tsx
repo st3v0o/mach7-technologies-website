@@ -68,9 +68,9 @@ export default function Home() {
       <section id="features" className="py-24 bg-card border-y border-border">
         <div className="container mx-auto px-4">
           <div className="max-w-3xl mb-16">
-            <h2 className="font-display text-3xl md:text-4xl font-bold tracking-tight mb-4">What most apps can't do.</h2>
+            <h2 className="font-display text-3xl md:text-4xl font-bold tracking-tight mb-4">Precision at every level.</h2>
             <p className="text-muted-foreground text-lg">
-              Most field capture tools stamp a general location on a file. We go further — binding precise GPS to every individual frame, adapting intelligently to how you work, and proving your team covered the right ground.
+              GPS bound to every individual frame. Capture rates that adapt to how fast you're moving. Coverage accountability built into the expert workflow. Each capability purpose-built for the demands of serious field documentation.
             </p>
           </div>
           
@@ -79,7 +79,7 @@ export default function Home() {
               <Crosshair className="w-8 h-8 text-primary" />
               <h3 className="font-display font-semibold text-xl">Frame-Level GPS Binding</h3>
               <p className="text-muted-foreground leading-relaxed text-sm">
-                Every individual frame carries its own GPS coordinate — not a session marker, not an approximation. When you review footage, each second of video has a precise, queryable location on Earth. This level of spatial fidelity simply isn't available in mainstream capture apps.
+                Every individual frame carries its own GPS coordinate — not a session marker, not an approximation. When you review footage, each second of video has a precise, queryable location on Earth. The spatial fidelity your audits, assessments, and legal documentation actually require.
               </p>
             </div>
             <div className="p-6 border border-border/50 bg-background flex flex-col gap-4">
