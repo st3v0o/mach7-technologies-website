@@ -24,7 +24,7 @@ export default function Home() {
 
   return (
     <div className="flex flex-col">
-      {/* HERO SECTION */}
+      {/* HERO */}
       <section className="relative pt-24 pb-16 md:pt-28 md:pb-20 overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/10 via-background to-background -z-10" />
         <div className="container mx-auto px-4 grid lg:grid-cols-2 gap-12 lg:gap-8 items-start">
@@ -40,7 +40,7 @@ export default function Home() {
               </span>
             </h1>
             <p className="text-lg md:text-xl text-muted-foreground leading-relaxed">
-              Frame-by-frame GPS tagging, speed-adaptive capture rates, and expert manual mode with coverage accountability — all in an app simple enough for anyone on your team to operate.
+              Frame-by-frame GPS tagging, speed-adaptive capture, and expert manual mode with coverage accountability — simple enough for anyone on your team.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 pt-4">
               <Button asChild size="lg" className="font-display font-medium rounded-none group h-12 px-8">
@@ -54,7 +54,6 @@ export default function Home() {
               </Button>
             </div>
           </div>
-          
           <div className="mx-auto w-full lg:pt-6" style={{ maxWidth: "340px" }}>
             <PhoneMockup />
           </div>
@@ -70,30 +69,29 @@ export default function Home() {
           <div className="max-w-3xl mb-16">
             <h2 className="font-display text-3xl md:text-4xl font-bold tracking-tight mb-4">Precision at every level.</h2>
             <p className="text-muted-foreground text-lg">
-              GPS bound to every individual frame. Capture rates that adapt to how fast you're moving. Coverage accountability built into the expert workflow. Each capability purpose-built for the demands of serious field documentation.
+              GPS bound to every frame. Adaptive capture rates. Expert accountability. Built for what serious field documentation demands.
             </p>
           </div>
-          
           <div className="grid md:grid-cols-3 gap-8">
             <div className="p-6 border border-border/50 bg-background flex flex-col gap-4">
               <Crosshair className="w-8 h-8 text-primary" />
               <h3 className="font-display font-semibold text-xl">Frame-Level GPS Binding</h3>
               <p className="text-muted-foreground leading-relaxed text-sm">
-                Every individual frame carries its own GPS coordinate — not a session marker, not an approximation. When you review footage, each second of video has a precise, queryable location on Earth. The spatial fidelity your audits, assessments, and legal documentation actually require.
+                Every frame carries its own GPS coordinate. Not a session stamp — the frame. A precise, queryable location for every second of footage.
               </p>
             </div>
             <div className="p-6 border border-border/50 bg-background flex flex-col gap-4">
               <Gauge className="w-8 h-8 text-primary" />
               <h3 className="font-display font-semibold text-xl">Speed-Adaptive Capture</h3>
               <p className="text-muted-foreground leading-relaxed text-sm">
-                A fixed frame rate wastes storage when you're crawling through a work zone and misses data when you accelerate. Dynamic FPS detects your vehicle speed in real-time and adjusts automatically — maintaining consistent spatial coverage density regardless of pace. Prefer manual control? Dial in a fixed interval instead.
+                Dynamic FPS reads your vehicle speed and adjusts in real-time. Consistent spatial coverage at any pace. Manual interval control when you need it.
               </p>
             </div>
             <div className="p-6 border border-border/50 bg-background flex flex-col gap-4">
               <UserCheck className="w-8 h-8 text-primary" />
               <h3 className="font-display font-semibold text-xl">Expert Mode + Coverage Proof</h3>
               <p className="text-muted-foreground leading-relaxed text-sm">
-                Your trained inspector knows what to photograph. Manual photo mode lets them work deliberately, capturing the conditions they're qualified to identify. Meanwhile, the app logs their exact GPS route — building verifiable proof that the right areas were surveyed. Expert judgment with automatic accountability.
+                Your inspector captures what they're trained to see. The app logs their GPS route. Expert judgment with verifiable coverage accountability.
               </p>
             </div>
           </div>
@@ -107,35 +105,33 @@ export default function Home() {
             <div className="order-2 lg:order-1 aspect-square md:aspect-video lg:aspect-square w-full overflow-hidden rounded-sm border border-border/30">
               <MapMockup />
             </div>
-            
             <div className="order-1 lg:order-2 flex flex-col gap-12">
               <div>
                 <h2 className="font-display text-3xl md:text-4xl font-bold tracking-tight mb-4">Two modes. One tool.</h2>
                 <p className="text-muted-foreground text-lg">
-                  Whether you're running a systematic coverage sweep or sending a trained expert to document specific conditions, the same app handles both — without compromise.
+                  Systematic coverage sweep or expert-guided documentation — the same app, without compromise.
                 </p>
               </div>
-              
               <div className="flex flex-col gap-8">
                 <div className="flex gap-4">
                   <div className="w-8 h-8 shrink-0 border border-primary text-primary flex items-center justify-center font-mono text-sm font-bold">01</div>
                   <div>
-                    <h4 className="font-display font-semibold text-lg mb-2">Choose how you work</h4>
-                    <p className="text-muted-foreground text-sm">Auto mode for continuous, unattended coverage drives — set it and go. Expert mode for trained inspectors who need to make deliberate, knowledge-driven captures. Both modes run with GPS active from the moment you start.</p>
+                    <h4 className="font-display font-semibold text-lg mb-1">Choose your mode</h4>
+                    <p className="text-muted-foreground text-sm">Auto for continuous coverage drives. Expert for trained inspectors making deliberate captures. GPS runs from the moment you start.</p>
                   </div>
                 </div>
                 <div className="flex gap-4">
                   <div className="w-8 h-8 shrink-0 border border-primary text-primary flex items-center justify-center font-mono text-sm font-bold">02</div>
                   <div>
-                    <h4 className="font-display font-semibold text-lg mb-2">Capture intelligently</h4>
-                    <p className="text-muted-foreground text-sm">In auto mode, dynamic FPS adapts to your speed — capturing more when you're moving fast, fewer frames when you slow. In expert mode, your technician photographs what matters while the app builds a continuous GPS trail behind them, segment by segment.</p>
+                    <h4 className="font-display font-semibold text-lg mb-1">Capture intelligently</h4>
+                    <p className="text-muted-foreground text-sm">Auto mode adjusts FPS to your speed. Expert mode logs your GPS route continuously as you photograph.</p>
                   </div>
                 </div>
                 <div className="flex gap-4">
                   <div className="w-8 h-8 shrink-0 border border-primary text-primary flex items-center justify-center font-mono text-sm font-bold">03</div>
                   <div>
-                    <h4 className="font-display font-semibold text-lg mb-2">Verify coverage. Export with confidence.</h4>
-                    <p className="text-muted-foreground text-sm">The integrated map view shows every frame's precise location and your team's exact route. Spot coverage gaps before you leave the site. Export GPX tracks, geotagged media, or sync directly to your organization's cloud database.</p>
+                    <h4 className="font-display font-semibold text-lg mb-1">Verify coverage. Export.</h4>
+                    <p className="text-muted-foreground text-sm">Every frame's location on the map. Spot gaps before you leave. Export GPX tracks or sync to your database.</p>
                   </div>
                 </div>
               </div>
@@ -144,32 +140,31 @@ export default function Home() {
         </div>
       </section>
 
-      {/* SPECS/DETAILS */}
+      {/* SPECS */}
       <section id="specs" className="py-24 bg-card border-y border-border">
         <div className="container mx-auto px-4">
           <div className="text-center max-w-2xl mx-auto mb-16">
             <h2 className="font-display text-3xl md:text-4xl font-bold tracking-tight mb-4">Built different. By design.</h2>
             <p className="text-muted-foreground text-lg">
-              Four capabilities that don't exist together anywhere else. Each one solves a real problem that generic capture apps ignore.
+              Four capabilities. One tool. Purpose-built for serious field documentation.
             </p>
           </div>
-          
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="border border-border/50 p-6 bg-background">
               <div className="font-mono text-primary text-sm font-bold mb-4">01 // FRAME TELEMETRY</div>
-              <p className="text-sm text-muted-foreground">GPS coordinates attached to every individual video frame and photo — not the session, not the file. Each pixel of your footage has an exact, retrievable position on Earth. The foundation everything else is built on.</p>
+              <p className="text-sm text-muted-foreground">GPS on every frame and photo — not the session. Every pixel of footage has an exact, retrievable position on Earth.</p>
             </div>
             <div className="border border-border/50 p-6 bg-background">
               <div className="font-mono text-primary text-sm font-bold mb-4">02 // ADAPTIVE FPS</div>
-              <p className="text-sm text-muted-foreground">Dynamic frame rate responds to your vehicle speed in real-time. No missed coverage at highway speed. No bloated storage at a crawl. Every frame earned. Override with a fixed interval setting when your workflow demands it.</p>
+              <p className="text-sm text-muted-foreground">Vehicle speed drives the frame rate in real-time. No missed coverage. No wasted storage. Fixed interval when you need it.</p>
             </div>
             <div className="border border-border/50 p-6 bg-background">
               <div className="font-mono text-primary text-sm font-bold mb-4">03 // DUAL MODE</div>
-              <p className="text-sm text-muted-foreground">Continuous automatic capture and deliberate expert photography in the same app. Switch between modes without losing your session or GPS record. The only tool that supports both workflows — with accountability built into each.</p>
+              <p className="text-sm text-muted-foreground">Continuous auto capture or deliberate expert photography — same app, same GPS record, full accountability.</p>
             </div>
             <div className="border border-border/50 p-6 bg-background">
               <div className="font-mono text-primary text-sm font-bold mb-4">04 // FLEXIBLE STORAGE</div>
-              <p className="text-sm text-muted-foreground">Local-first by design. No internet required in the field — capture works completely offline and auto-segments recordings to prevent data loss. When you're back in range, sync to your organization's cloud database or keep everything on-device.</p>
+              <p className="text-sm text-muted-foreground">Local-first. No internet required in the field. Auto-segmented recordings. Sync to your cloud database when ready.</p>
             </div>
           </div>
         </div>
@@ -186,7 +181,7 @@ export default function Home() {
             <Database className="w-12 h-12 mx-auto text-primary mb-6" />
             <h2 className="font-display text-4xl md:text-5xl font-bold tracking-tight mb-4">Equip your team.</h2>
             <p className="text-lg text-muted-foreground">
-              MACH 7 is in active development. If your organization needs frame-accurate spatial documentation — for infrastructure, compliance, environmental work, or field research — we want to hear from you.
+              MACH 7 is in active development. If your organization needs frame-accurate spatial documentation, we want to hear from you.
             </p>
           </div>
 
@@ -194,7 +189,7 @@ export default function Home() {
             <div className="border border-primary/40 bg-primary/5 p-8 text-center">
               <p className="font-display font-semibold text-lg mb-2">Your email client should have opened.</p>
               <p className="text-sm text-muted-foreground">
-                If it didn't, send us a message directly at{" "}
+                If it didn't, email us directly at{" "}
                 <a href={`mailto:${CONTACT_EMAIL}`} className="text-primary hover:underline">{CONTACT_EMAIL}</a>.
               </p>
             </div>
@@ -242,7 +237,7 @@ export default function Home() {
                   Send Request
                 </Button>
                 <p className="text-xs text-muted-foreground font-mono">
-                  Opens your mail client — or email us directly at {CONTACT_EMAIL}
+                  Opens your mail client — or email us at {CONTACT_EMAIL}
                 </p>
               </div>
             </form>
