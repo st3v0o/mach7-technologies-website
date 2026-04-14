@@ -39,7 +39,8 @@ export function FrameLogMockup() {
     <svg
       viewBox="0 0 600 600"
       className="w-full h-full"
-      aria-hidden="true"
+      role="img"
+      aria-label="Geospector Frame Log — GPS route map showing four capture sessions on Apr 7 with 58 total frames plotted"
       xmlns="http://www.w3.org/2000/svg"
     >
       {/* ── MAP BASE ─────────────────────────────── */}

@@ -102,7 +102,7 @@ export default function Home() {
       <section id="workflow" className="py-28">
         <div className="container mx-auto px-4">
           <div className="grid lg:grid-cols-2 gap-16 items-center">
-            <div className="order-2 lg:order-1 aspect-square md:aspect-video lg:aspect-square w-full overflow-hidden rounded-xl border border-border/40">
+            <div className="order-2 lg:order-1 aspect-square w-full overflow-hidden rounded-xl border border-border/40">
               <FrameLogMockup />
             </div>
             <div className="order-1 lg:order-2 flex flex-col gap-12">
