@@ -1,38 +1,139 @@
 import { useState } from "react";
 import { SettingsMockup } from "@/components/SettingsMockup";
+import { FieldCaptureMockup } from "@/components/FieldCaptureMockup";
 
 const ACCENT = {
   orange: { border: "#ff5500", glow: "rgba(255,85,0,0.32)" },
-  green:  { border: "#00e87a", glow: "rgba(0,232,122,0.24)" },
-  blue:   { border: "#0070f3", glow: "rgba(0,112,243,0.24)" },
+  green:  { border: "#00e87a", glow: "rgba(0,232,122,0.28)" },
+  blue:   { border: "#4a9eff", glow: "rgba(74,158,255,0.28)" },
+  teal:   { border: "#00c9b1", glow: "rgba(0,201,177,0.28)" },
 };
 
+type AccentKey = keyof typeof ACCENT;
+
 interface PhoneEntry {
-  src?: string;
-  alt?: string;
-  isComponent?: boolean;
   label: string;
   sublabel: string;
-  accent: "orange" | "green" | "blue";
+  accent: AccentKey;
+  content:
+    | { kind: "image"; src: string; alt: string }
+    | { kind: "component"; el: React.ReactElement };
 }
 
 const PHONES: PhoneEntry[] = [
-  { src: "screenshots/capture-manual.png", alt: "Capture screen — manual mode, GPS locked", label: "Capture", sublabel: "Manual · GPS locked", accent: "green" },
-  { src: "screenshots/map-wide.jpg",        alt: "GPS route map — live multi-session track",  label: "Route Map",   sublabel: "Live GPS · multi-session",  accent: "blue"   },
-  { src: "screenshots/map-zoomed.jpg",      alt: "Frame Log — 4 sessions mapped",             label: "Frame Log",   sublabel: "58 frames · 4 sessions",    accent: "blue"   },
-  { src: "screenshots/photo-school.jpg",    alt: "Field photo — school zone GPS stamped",     label: "Field Shot",  sublabel: "School zone · GPS stamped", accent: "orange" },
-  { src: "screenshots/photo-yield.jpg",     alt: "Photo detail — GPS overlay and metadata",   label: "Photo Detail",sublabel: "GPS overlay · metadata",    accent: "orange" },
-  { isComponent: true,                                                                          label: "Settings",    sublabel: "FPS · mode · cloud sync",   accent: "orange" },
+  {
+    label: "Capture",
+    sublabel: "Manual · GPS locked",
+    accent: "green",
+    content: { kind: "image", src: "screenshots/capture-manual.png", alt: "Capture screen — manual mode, GPS locked" },
+  },
+  {
+    label: "City Tree",
+    sublabel: "Street tree survey",
+    accent: "green",
+    content: {
+      kind: "component",
+      el: (
+        <FieldCaptureMockup
+          photoFile="field-tree.jpg"
+          lat="40.7128" lon="74.0060"
+          accuracy="12" speed="0"
+          label="STREET TREE — CONDITION SURVEY"
+          session="4_083122" mode="MANUAL" photos={7}
+        />
+      ),
+    },
+  },
+  {
+    label: "Park Bench",
+    sublabel: "Asset condition log",
+    accent: "orange",
+    content: {
+      kind: "component",
+      el: (
+        <FieldCaptureMockup
+          photoFile="field-bench.jpg"
+          lat="40.7831" lon="73.9712"
+          accuracy="9"
+          label="PARK BENCH — ASSET CONDITION"
+          session="2_141055" mode="MANUAL" photos={3}
+        />
+      ),
+    },
+  },
+  {
+    label: "Reef Survey",
+    sublabel: "Coastal monitoring",
+    accent: "teal",
+    content: {
+      kind: "component",
+      el: (
+        <FieldCaptureMockup
+          photoFile="field-reef.jpg"
+          lat="21.3069" lon="157.8583"
+          accuracy="18"
+          label="REEF CONDITION — MONITORING POINT"
+          session="1_094733" mode="AUTO" photos={24}
+        />
+      ),
+    },
+  },
+  {
+    label: "Bird Count",
+    sublabel: "Wildlife transect",
+    accent: "teal",
+    content: {
+      kind: "component",
+      el: (
+        <FieldCaptureMockup
+          photoFile="field-birds.jpg"
+          lat="38.9072" lon="77.0369"
+          accuracy="14"
+          label="BIRD COUNT — TRANSECT WALK"
+          session="3_071208" mode="MANUAL" photos={12}
+        />
+      ),
+    },
+  },
+  {
+    label: "Trail Access",
+    sublabel: "ADA accessibility audit",
+    accent: "orange",
+    content: {
+      kind: "component",
+      el: (
+        <FieldCaptureMockup
+          photoFile="field-ramp.jpg"
+          lat="47.6062" lon="122.3321"
+          accuracy="11" speed="2"
+          label="TRAIL — ADA ACCESSIBILITY AUDIT"
+          session="5_103047" mode="AUTO" photos={18}
+        />
+      ),
+    },
+  },
+  {
+    label: "Route Map",
+    sublabel: "Live GPS · multi-session",
+    accent: "blue",
+    content: { kind: "image", src: "screenshots/map-wide.jpg", alt: "GPS route map — live multi-session track" },
+  },
+  {
+    label: "Settings",
+    sublabel: "FPS · mode · cloud sync",
+    accent: "orange",
+    content: { kind: "component", el: <SettingsMockup /> },
+  },
 ];
 
 interface CardProps extends PhoneEntry {
-  resolvedSrc?: string;
   hovered: boolean;
   onEnter: () => void;
   onLeave: () => void;
+  base: string;
 }
 
-function PhoneCard({ resolvedSrc, alt, isComponent, label, sublabel, accent, hovered, onEnter, onLeave }: CardProps) {
+function PhoneCard({ label, sublabel, accent, content, hovered, onEnter, onLeave, base }: CardProps) {
   const { border, glow } = ACCENT[accent];
   return (
     <div
@@ -58,27 +159,37 @@ function PhoneCard({ resolvedSrc, alt, isComponent, label, sublabel, accent, hov
           transition: "box-shadow 0.35s ease",
         }}
       >
-        <div className="flex justify-center pt-2.5 pb-1 bg-black/80">
-          <div className="w-16 h-4 rounded-full bg-black" />
+        {/* Status bar area — dynamic island sits here */}
+        <div className="flex justify-center bg-black" style={{ paddingTop: 8, paddingBottom: 6 }}>
+          <div className="w-14 h-3.5 rounded-full bg-[#111]" />
         </div>
+
+        {/* Screen content — starts BELOW the dynamic island, nothing gets hidden */}
         <div className="relative overflow-hidden" style={{ aspectRatio: "9/18", background: "#0a0a0a" }}>
-          {isComponent ? (
-            <div className="w-full h-full"><SettingsMockup /></div>
-          ) : resolvedSrc ? (
-            <img src={resolvedSrc} alt={alt} className="w-full h-full object-cover object-top" />
-          ) : null}
+          {content.kind === "component" ? (
+            <div className="w-full h-full">{content.el}</div>
+          ) : (
+            <img
+              src={`${base}${content.src}`}
+              alt={content.alt}
+              className="w-full h-full object-cover object-top"
+            />
+          )}
           <div
             className="absolute inset-0 pointer-events-none"
-            style={{ background: "linear-gradient(135deg,rgba(255,255,255,0.05) 0%,transparent 50%)" }}
+            style={{ background: "linear-gradient(135deg,rgba(255,255,255,0.04) 0%,transparent 50%)" }}
           />
         </div>
+
+        {/* Home indicator */}
         <div className="h-5 bg-[#0e0e0e] flex items-center justify-center">
-          <div className="w-12 h-0.5 rounded-full bg-[#2a2a2a]" />
+          <div className="w-10 h-0.5 rounded-full bg-[#2a2a2a]" />
         </div>
       </div>
+
       <div className="text-center select-none">
-        <p className="font-mono text-[11px] font-bold tracking-wider uppercase" style={{ color: border }}>{label}</p>
-        <p className="font-mono text-[10px] text-muted-foreground/60 mt-0.5">{sublabel}</p>
+        <p className="text-[11px] font-semibold tracking-wide" style={{ color: border }}>{label}</p>
+        <p className="text-[10px] text-muted-foreground/60 mt-0.5">{sublabel}</p>
       </div>
     </div>
   );
@@ -99,14 +210,14 @@ export function ScreenGallery() {
       `}</style>
 
       <div className="container mx-auto px-4 mb-14 text-center">
-        <div className="inline-flex items-center gap-2 border border-border/40 bg-card/40 px-3 py-1 text-xs font-mono text-muted-foreground uppercase tracking-wider mb-6">
-          <span className="w-1.5 h-1.5 rounded-full bg-primary" />
-          Real screenshots · live app · no staging
+        <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/20 px-4 py-1.5 text-sm font-medium text-primary/90 rounded-full mb-6">
+          <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+          Real use cases · live GPS · every frame tagged
         </div>
         <h2 className="font-display text-3xl md:text-4xl font-bold tracking-tight mb-3">
           Built for the field.
         </h2>
-        <p className="text-muted-foreground max-w-md mx-auto">
+        <p className="text-muted-foreground text-lg max-w-md mx-auto">
           Every screen built around one idea — the tool stays out of the way.
         </p>
       </div>
@@ -123,7 +234,7 @@ export function ScreenGallery() {
             gap: 36,
             padding: "56px 36px",
             width: "max-content",
-            animation: "scroll-phones 38s linear infinite",
+            animation: "scroll-phones 46s linear infinite",
             animationPlayState: hoveredIdx !== null ? "paused" : "running",
           }}
         >
@@ -133,7 +244,7 @@ export function ScreenGallery() {
               <PhoneCard
                 key={i}
                 {...phone}
-                resolvedSrc={phone.src ? `${base}${phone.src}` : undefined}
+                base={base}
                 hovered={hoveredIdx === realIdx}
                 onEnter={() => setHoveredIdx(realIdx)}
                 onLeave={() => setHoveredIdx(null)}
