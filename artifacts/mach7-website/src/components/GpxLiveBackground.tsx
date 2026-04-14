@@ -142,7 +142,7 @@ function drawWalker(ctx: CanvasRenderingContext2D, w: Walker) {
 
   for (let i = 0; i < w.dots.length; i++) {
     const t = (i + 1) / w.dots.length;
-    const dotAlpha = t * w.alpha * 0.15;
+    const dotAlpha = t * w.alpha * 0.14;
     const radius = i === w.dots.length - 1 ? 3.5 : 2.2;
     ctx.beginPath();
     ctx.arc(w.dots[i].x, w.dots[i].y, radius, 0, Math.PI * 2);
