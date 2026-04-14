@@ -19,6 +19,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import Colors from '@/constants/colors';
 import { LogEntry, useRecording } from '@/contexts/RecordingContext';
+import ExportModal from '@/components/ExportModal';
 import LocalDatabaseSheet from '@/components/LocalDatabaseSheet';
 import LogMapView, { SessionSection } from '@/components/LogMapView';
 import { useUpload } from '@/contexts/UploadContext';
@@ -321,15 +322,17 @@ function SessionHeader({ section, onShareGpx }: { section: SessionSection; onSha
 export default function LogScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
-  const { logEntries, shareLog, shareGpx, clearLog, processingStatus, totalFrames, segmentCount } = useRecording();
-  const [isSharing, setIsSharing] = useState(false);
+  const { logEntries, shareGpx, clearLog, processingStatus, totalFrames, segmentCount } = useRecording();
+  const [isSharing, setIsSharing] = useState(false); // kept for potential future use
   const [selectedEntry, setSelectedEntry] = useState<LogEntry | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'map' | 'table'>('list');
   const [isDemoMode, setIsDemoMode] = useState(false);
   const [mapSheetOpen, setMapSheetOpen] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
 
   const sections = useMemo(() => groupEntriesBySessions(logEntries), [logEntries]);
   const mapSections = isDemoMode ? DEMO_SECTIONS : sections;
+  const sessionIds = useMemo(() => sections.map((s) => s.sessionId), [sections]);
 
   // Hide the tab bar while the frame preview sheet is open
   useEffect(() => {
@@ -403,22 +406,22 @@ export default function LogScreen() {
             </Pressable>
           )}
 
-          {/* Share + clear — only on list */}
+          {/* Export + clear — only on list */}
           {logEntries.length > 0 && viewMode === 'list' && (
             <Pressable
-              onPress={handleShare}
-              disabled={isSharing}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setShowExportModal(true);
+              }}
               style={({ pressed }) => [
                 styles.actionBtn,
                 styles.shareBtn,
                 pressed && { opacity: 0.7 },
               ]}
-              testID="share-button"
+              testID="export-button"
             >
               <Ionicons name="share-outline" size={16} color={Colors.blue} />
-              <Text style={[styles.actionBtnText, { color: Colors.blue }]}>
-                {isSharing ? 'Sharing...' : 'Export CSV'}
-              </Text>
+              <Text style={[styles.actionBtnText, { color: Colors.blue }]}>Export</Text>
             </Pressable>
           )}
           {logEntries.length > 0 && viewMode === 'list' && (
@@ -572,6 +575,13 @@ export default function LogScreen() {
           onClose={() => setSelectedEntry(null)}
         />
       )}
+
+      <ExportModal
+        visible={showExportModal}
+        onClose={() => setShowExportModal(false)}
+        logEntries={logEntries}
+        sessionIds={sessionIds}
+      />
     </View>
   );
 }
