@@ -118,8 +118,8 @@ export function ScreenGallery() {
           </p>
         </div>
 
-        {/* Row 1 — capture + both map views */}
-        <div className="grid grid-cols-3 gap-6 md:gap-10 max-w-3xl mx-auto mb-10">
+        {/* All 6 screens — 2 cols on mobile (3 rows), 3 cols on sm+ (2 rows) */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 md:gap-10 max-w-3xl mx-auto">
           <PhoneFrame
             src={`${base}screenshots/capture-manual.png`}
             alt="Capture screen in manual mode showing GPS lock and shutter control"
@@ -133,7 +133,6 @@ export function ScreenGallery() {
             label="Route Map"
             sublabel="Live GPS track · multi-session"
             accent="blue"
-            featured
           />
           <PhoneFrame
             src={`${base}screenshots/map-zoomed.jpg`}
@@ -142,10 +141,6 @@ export function ScreenGallery() {
             sublabel="58 frames · 4 sessions mapped"
             accent="blue"
           />
-        </div>
-
-        {/* Row 2 — real field photos + settings */}
-        <div className="grid grid-cols-3 gap-6 md:gap-10 max-w-3xl mx-auto">
           <PhoneFrame
             src={`${base}screenshots/photo-school.jpg`}
             alt="In-app photo viewer showing school zone scene with live GPS coordinate stamp"
@@ -159,7 +154,6 @@ export function ScreenGallery() {
             label="Photo Detail"
             sublabel="GPS overlay · session metadata"
             accent="orange"
-            featured
           />
           <PhoneFrame
             label="Settings"

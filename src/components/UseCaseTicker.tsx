@@ -458,13 +458,14 @@ export function UseCaseTicker() {
         {/* Three-column ticker — spans the full container */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {cols.map((items, ci) => (
-            <TickerColumn
-              key={ci}
-              items={items}
-              duration={COL_DURATIONS[ci]}
-              startOffset={ci * 38}
-              accentStart={ci * 3 + 2}
-            />
+            <div key={ci} className={ci === 0 ? "block" : "hidden sm:block"}>
+              <TickerColumn
+                items={items}
+                duration={COL_DURATIONS[ci]}
+                startOffset={ci * 38}
+                accentStart={ci * 3 + 2}
+              />
+            </div>
           ))}
         </div>
       </div>
