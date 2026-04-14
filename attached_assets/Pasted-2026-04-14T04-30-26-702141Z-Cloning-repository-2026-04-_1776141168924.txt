@@ -1,0 +1,47 @@
+2026-04-14T04:30:26.702141Z	Cloning repository...
+2026-04-14T04:30:28.143208Z	From https://github.com/st3v0o/mach7-technologies-website
+2026-04-14T04:30:28.143757Z	 * branch            4b7065f75a6c6b195b862862389bd122e6bc9e43 -> FETCH_HEAD
+2026-04-14T04:30:28.143873Z	
+2026-04-14T04:30:28.242242Z	HEAD is now at 4b7065f feat: road network illumination — GPX walkers reveal map as they pass
+2026-04-14T04:30:28.242623Z	
+2026-04-14T04:30:28.297817Z	
+2026-04-14T04:30:28.298271Z	Using v2 root directory strategy
+2026-04-14T04:30:28.314269Z	Success: Finished cloning repository files
+2026-04-14T04:30:29.95578Z	Checking for configuration in a Wrangler configuration file (BETA)
+2026-04-14T04:30:29.956273Z	
+2026-04-14T04:30:31.064829Z	No Wrangler configuration file found. Continuing.
+2026-04-14T04:30:31.231583Z	Detected the following tools from environment: npm@10.9.2, nodejs@22.16.0
+2026-04-14T04:30:31.232084Z	Installing project dependencies: npm clean-install --progress=false
+2026-04-14T04:30:33.138026Z	npm error code EUSAGE
+2026-04-14T04:30:33.138457Z	npm error
+2026-04-14T04:30:33.138598Z	npm error `npm ci` can only install packages when your package.json and package-lock.json or npm-shrinkwrap.json are in sync. Please update your lock file with `npm install` before continuing.
+2026-04-14T04:30:33.138655Z	npm error
+2026-04-14T04:30:33.138721Z	npm error Missing: react-google-recaptcha-v3@1.11.0 from lock file
+2026-04-14T04:30:33.138769Z	npm error Missing: hoist-non-react-statics@3.3.2 from lock file
+2026-04-14T04:30:33.138797Z	npm error Missing: react-is@16.13.1 from lock file
+2026-04-14T04:30:33.13886Z	npm error
+2026-04-14T04:30:33.138897Z	npm error Clean install a project
+2026-04-14T04:30:33.138926Z	npm error
+2026-04-14T04:30:33.138954Z	npm error Usage:
+2026-04-14T04:30:33.13901Z	npm error npm ci
+2026-04-14T04:30:33.139038Z	npm error
+2026-04-14T04:30:33.139066Z	npm error Options:
+2026-04-14T04:30:33.139096Z	npm error [--install-strategy <hoisted|nested|shallow|linked>] [--legacy-bundling]
+2026-04-14T04:30:33.139126Z	npm error [--global-style] [--omit <dev|optional|peer> [--omit <dev|optional|peer> ...]]
+2026-04-14T04:30:33.139159Z	npm error [--include <prod|dev|optional|peer> [--include <prod|dev|optional|peer> ...]]
+2026-04-14T04:30:33.139186Z	npm error [--strict-peer-deps] [--foreground-scripts] [--ignore-scripts] [--no-audit]
+2026-04-14T04:30:33.139206Z	npm error [--no-bin-links] [--no-fund] [--dry-run]
+2026-04-14T04:30:33.139228Z	npm error [-w|--workspace <workspace-name> [-w|--workspace <workspace-name> ...]]
+2026-04-14T04:30:33.139255Z	npm error [-ws|--workspaces] [--include-workspace-root] [--install-links]
+2026-04-14T04:30:33.139293Z	npm error
+2026-04-14T04:30:33.139365Z	npm error aliases: clean-install, ic, install-clean, isntall-clean
+2026-04-14T04:30:33.139413Z	npm error
+2026-04-14T04:30:33.139443Z	npm error Run "npm help ci" for more info
+2026-04-14T04:30:33.139835Z	npm error A complete log of this run can be found in: /opt/buildhome/.npm/_logs/2026-04-14T04_30_31_721Z-debug-0.log
+2026-04-14T04:30:33.201017Z	Error: Exit with error code: 1
+2026-04-14T04:30:33.201396Z	    at ChildProcess.<anonymous> (/snapshot/dist/run-build.js)
+2026-04-14T04:30:33.20148Z	    at Object.onceWrapper (node:events:652:26)
+2026-04-14T04:30:33.201563Z	    at ChildProcess.emit (node:events:537:28)
+2026-04-14T04:30:33.201589Z	    at ChildProcess._handle.onexit (node:internal/child_process:291:12)
+2026-04-14T04:30:33.209055Z	Failed: build command exited with code: 1
+2026-04-14T04:30:33.833148Z	Failed: error occurred while running build command
