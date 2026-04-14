@@ -16,27 +16,46 @@ const SLIDES: Slide[] = [
   },
   {
     kind: "component",
-    alt: "City tree condition survey",
+    alt: "Drone aerial site overview",
     el: (
       <FieldCaptureMockup
-        photoFile="field-tree.jpg"
+        photoFile="field-aerial.jpg"
         lat="40.7128" lon="74.0060"
-        accuracy="12" speed="0"
-        label="STREET TREE — CONDITION SURVEY"
-        session="4_083122" mode="MANUAL" photos={7}
+        accuracy="22" speed="12"
+        label="INTERSECTION — SITE OVERVIEW"
+        sublabel="drone altitude: 120ft"
+        session="7_091544" mode="AUTO" photos={31}
+        perspective="DRONE"
       />
     ),
   },
   {
     kind: "component",
-    alt: "Reef monitoring survey",
+    alt: "Car-mounted road condition survey",
     el: (
       <FieldCaptureMockup
-        photoFile="field-reef.jpg"
-        lat="21.3069" lon="157.8583"
-        accuracy="18"
-        label="REEF CONDITION — MONITORING POINT"
-        session="1_094733" mode="AUTO" photos={24}
+        photoFile="field-road.jpg"
+        lat="38.9072" lon="77.0369"
+        accuracy="11" speed="28"
+        label="ROAD CONDITION — PAVEMENT SURVEY"
+        sublabel="dynamic fps · 28 mph"
+        session="2_141033" mode="AUTO" photos={847}
+        perspective="CAR-MOUNTED"
+      />
+    ),
+  },
+  {
+    kind: "component",
+    alt: "Street tree canopy condition",
+    el: (
+      <FieldCaptureMockup
+        photoFile="field-tree.jpg"
+        lat="34.0522" lon="118.2437"
+        accuracy="14"
+        label="STREET TREE — CANOPY CONDITION"
+        sublabel="urban forestry survey"
+        session="3_101200" mode="MANUAL" photos={6}
+        perspective="HANDHELD"
       />
     ),
   },
@@ -44,19 +63,6 @@ const SLIDES: Slide[] = [
     kind: "image",
     src: `${BASE}screenshots/map-wide.jpg`,
     alt: "Geospector — GPS route map with session data",
-  },
-  {
-    kind: "component",
-    alt: "Bird count transect walk",
-    el: (
-      <FieldCaptureMockup
-        photoFile="field-birds.jpg"
-        lat="38.9072" lon="77.0369"
-        accuracy="14"
-        label="BIRD COUNT — TRANSECT WALK"
-        session="3_071208" mode="MANUAL" photos={12}
-      />
-    ),
   },
   {
     kind: "component",

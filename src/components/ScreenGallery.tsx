@@ -7,6 +7,7 @@ const ACCENT = {
   green:  { border: "#00e87a", glow: "rgba(0,232,122,0.28)" },
   blue:   { border: "#4a9eff", glow: "rgba(74,158,255,0.28)" },
   teal:   { border: "#00c9b1", glow: "rgba(0,201,177,0.28)" },
+  amber:  { border: "#ffb347", glow: "rgba(255,179,71,0.28)" },
 };
 
 type AccentKey = keyof typeof ACCENT;
@@ -21,103 +22,211 @@ interface PhoneEntry {
 }
 
 const PHONES: PhoneEntry[] = [
+  // --- Drone aerial overview ---
   {
-    label: "Capture",
-    sublabel: "Manual · GPS locked",
-    accent: "green",
-    content: { kind: "image", src: "screenshots/capture-manual.png", alt: "Capture screen — manual mode, GPS locked" },
+    label: "Aerial Survey",
+    sublabel: "Drone · site overview",
+    accent: "blue",
+    content: {
+      kind: "component",
+      el: (
+        <FieldCaptureMockup
+          photoFile="field-aerial.jpg"
+          lat="40.7128" lon="74.0060"
+          accuracy="22" speed="12"
+          label="INTERSECTION — SITE OVERVIEW"
+          sublabel="drone altitude: 120ft"
+          session="7_091544" mode="AUTO" photos={31}
+          perspective="DRONE"
+        />
+      ),
+    },
   },
+  // --- Car-mounted road survey ---
   {
-    label: "City Tree",
-    sublabel: "Street tree survey",
+    label: "Road Survey",
+    sublabel: "Car-mounted · driving",
+    accent: "orange",
+    content: {
+      kind: "component",
+      el: (
+        <FieldCaptureMockup
+          photoFile="field-road.jpg"
+          lat="38.9072" lon="77.0369"
+          accuracy="11" speed="28"
+          label="ROAD CONDITION — PAVEMENT SURVEY"
+          sublabel="dynamic fps · 28 mph"
+          session="2_141033" mode="AUTO" photos={847}
+          perspective="CAR-MOUNTED"
+        />
+      ),
+    },
+  },
+  // --- Cracked pavement poor condition ---
+  {
+    label: "Pavement Distress",
+    sublabel: "Poor condition · car survey",
+    accent: "amber",
+    content: {
+      kind: "component",
+      el: (
+        <FieldCaptureMockup
+          photoFile="field-pavement.jpg"
+          lat="41.8781" lon="87.6298"
+          accuracy="9" speed="5"
+          label="PAVEMENT — ALLIGATOR CRACKING"
+          sublabel="PCI survey · block 4 of 12"
+          session="1_083017" mode="AUTO" photos={22}
+          perspective="CAR-MOUNTED"
+          condition="poor"
+        />
+      ),
+    },
+  },
+  // --- Street tree handheld good condition ---
+  {
+    label: "Tree Inventory",
+    sublabel: "Handheld · street tree",
     accent: "green",
     content: {
       kind: "component",
       el: (
         <FieldCaptureMockup
           photoFile="field-tree.jpg"
-          lat="40.7128" lon="74.0060"
-          accuracy="12" speed="0"
-          label="STREET TREE — CONDITION SURVEY"
-          session="4_083122" mode="MANUAL" photos={7}
+          lat="34.0522" lon="118.2437"
+          accuracy="14"
+          label="STREET TREE — CANOPY CONDITION"
+          sublabel="urban forestry survey"
+          session="3_101200" mode="MANUAL" photos={6}
+          perspective="HANDHELD"
         />
       ),
     },
   },
+  // --- App UI: capture screen ---
   {
-    label: "Park Bench",
-    sublabel: "Asset condition log",
-    accent: "orange",
+    label: "Capture",
+    sublabel: "Manual · GPS locked",
+    accent: "green",
+    content: {
+      kind: "image",
+      src: "screenshots/capture-manual.png",
+      alt: "Geospector — manual GPS capture mode",
+    },
+  },
+  // --- Deteriorated park bench ---
+  {
+    label: "Bench Condition",
+    sublabel: "Poor condition · handheld",
+    accent: "amber",
     content: {
       kind: "component",
       el: (
         <FieldCaptureMockup
           photoFile="field-bench.jpg"
           lat="40.7831" lon="73.9712"
-          accuracy="9"
-          label="PARK BENCH — ASSET CONDITION"
-          session="2_141055" mode="MANUAL" photos={3}
+          accuracy="10"
+          label="PARK BENCH — PAINT FAILURE / DECAY"
+          sublabel="parks asset condition audit"
+          session="5_152244" mode="MANUAL" photos={3}
+          perspective="HANDHELD"
+          condition="poor"
         />
       ),
     },
   },
+  // --- Bike-mounted trail survey ---
   {
-    label: "Reef Survey",
-    sublabel: "Coastal monitoring",
+    label: "Trail Survey",
+    sublabel: "Bike-mounted · path audit",
     accent: "teal",
     content: {
       kind: "component",
       el: (
         <FieldCaptureMockup
-          photoFile="field-reef.jpg"
-          lat="21.3069" lon="157.8583"
-          accuracy="18"
-          label="REEF CONDITION — MONITORING POINT"
-          session="1_094733" mode="AUTO" photos={24}
+          photoFile="field-bike.jpg"
+          lat="47.6062" lon="122.3321"
+          accuracy="12" speed="11"
+          label="BIKE TRAIL — SURFACE CONDITION"
+          sublabel="dynamic interval · 11 mph"
+          session="4_073318" mode="AUTO" photos={54}
+          perspective="BIKE-MOUNTED"
         />
       ),
     },
   },
+  // --- Birds clearly in frame ---
   {
     label: "Bird Count",
-    sublabel: "Wildlife transect",
+    sublabel: "Handheld · wildlife transect",
     accent: "teal",
     content: {
       kind: "component",
       el: (
         <FieldCaptureMockup
           photoFile="field-birds.jpg"
-          lat="38.9072" lon="77.0369"
-          accuracy="14"
-          label="BIRD COUNT — TRANSECT WALK"
-          session="3_071208" mode="MANUAL" photos={12}
+          lat="25.7617" lon="80.1918"
+          accuracy="16"
+          label="BIRD COUNT — FLOCK OBSERVATION"
+          sublabel="wildlife transect · migratory"
+          session="6_064910" mode="MANUAL" photos={14}
+          perspective="HANDHELD"
         />
       ),
     },
   },
+  // --- Coastal / water GPS ---
   {
-    label: "Trail Access",
-    sublabel: "ADA accessibility audit",
+    label: "Coastal Survey",
+    sublabel: "Handheld · shoreline GPS",
+    accent: "blue",
+    content: {
+      kind: "component",
+      el: (
+        <FieldCaptureMockup
+          photoFile="field-coast.jpg"
+          lat="36.7783" lon="119.4179"
+          accuracy="18"
+          label="COASTAL ACCESS — PIER CONDITION"
+          sublabel="shoreline erosion monitoring"
+          session="8_093020" mode="MANUAL" photos={9}
+          perspective="HANDHELD"
+        />
+      ),
+    },
+  },
+  // --- Road warning sign ---
+  {
+    label: "Sign Inventory",
+    sublabel: "Handheld · sign condition",
     accent: "orange",
     content: {
       kind: "component",
       el: (
         <FieldCaptureMockup
-          photoFile="field-ramp.jpg"
-          lat="47.6062" lon="122.3321"
-          accuracy="11" speed="2"
-          label="TRAIL — ADA ACCESSIBILITY AUDIT"
-          session="5_103047" mode="AUTO" photos={18}
+          photoFile="field-sign.jpg"
+          lat="33.4484" lon="112.0740"
+          accuracy="13"
+          label="ROAD SIGN — RETROREFLECTIVITY CHECK"
+          sublabel="sign inventory · district 3"
+          session="9_111502" mode="MANUAL" photos={17}
+          perspective="HANDHELD"
         />
       ),
     },
   },
+  // --- Route map UI ---
   {
     label: "Route Map",
-    sublabel: "Live GPS · multi-session",
+    sublabel: "Live GPS · session track",
     accent: "blue",
-    content: { kind: "image", src: "screenshots/map-wide.jpg", alt: "GPS route map — live multi-session track" },
+    content: {
+      kind: "image",
+      src: "screenshots/map-wide.jpg",
+      alt: "Geospector — GPS route map with session data",
+    },
   },
+  // --- Settings ---
   {
     label: "Settings",
     sublabel: "FPS · mode · cloud sync",
@@ -159,12 +268,12 @@ function PhoneCard({ label, sublabel, accent, content, hovered, onEnter, onLeave
           transition: "box-shadow 0.35s ease",
         }}
       >
-        {/* Status bar area — dynamic island sits here */}
+        {/* Status bar — dynamic island lives here, nothing hidden below */}
         <div className="flex justify-center bg-black" style={{ paddingTop: 8, paddingBottom: 6 }}>
           <div className="w-14 h-3.5 rounded-full bg-[#111]" />
         </div>
 
-        {/* Screen content — starts BELOW the dynamic island, nothing gets hidden */}
+        {/* Screen content */}
         <div className="relative overflow-hidden" style={{ aspectRatio: "9/18", background: "#0a0a0a" }}>
           {content.kind === "component" ? (
             <div className="w-full h-full">{content.el}</div>
@@ -177,7 +286,7 @@ function PhoneCard({ label, sublabel, accent, content, hovered, onEnter, onLeave
           )}
           <div
             className="absolute inset-0 pointer-events-none"
-            style={{ background: "linear-gradient(135deg,rgba(255,255,255,0.04) 0%,transparent 50%)" }}
+            style={{ background: "linear-gradient(135deg,rgba(255,255,255,0.03) 0%,transparent 50%)" }}
           />
         </div>
 
@@ -207,35 +316,36 @@ export function ScreenGallery() {
           0%   { transform: translateX(0); }
           100% { transform: translateX(-50%); }
         }
+        .phones-running { animation: scroll-phones 60s linear infinite; }
+        .phones-paused  { animation: scroll-phones 60s linear infinite; animation-play-state: paused; }
       `}</style>
 
       <div className="container mx-auto px-4 mb-14 text-center">
         <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/20 px-4 py-1.5 text-sm font-medium text-primary/90 rounded-full mb-6">
           <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-          Real use cases · live GPS · every frame tagged
+          Drone · car · bike · handheld — GPS on every capture
         </div>
         <h2 className="font-display text-3xl md:text-4xl font-bold tracking-tight mb-3">
           Built for the field.
         </h2>
         <p className="text-muted-foreground text-lg max-w-md mx-auto">
-          Every screen built around one idea — the tool stays out of the way.
+          Any mount, any subject, any condition — every frame tagged.
         </p>
       </div>
 
       <div
         style={{
-          maskImage: "linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%)",
-          WebkitMaskImage: "linear-gradient(to right, transparent 0%, black 10%, black 90%, transparent 100%)",
+          maskImage: "linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%)",
+          WebkitMaskImage: "linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%)",
         }}
       >
         <div
+          className={hoveredIdx !== null ? "phones-paused" : "phones-running"}
           style={{
             display: "flex",
             gap: 36,
             padding: "56px 36px",
             width: "max-content",
-            animation: "scroll-phones 46s linear infinite",
-            animationPlayState: hoveredIdx !== null ? "paused" : "running",
           }}
         >
           {doubled.map((phone, i) => {
