@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <!-- Google Analytics -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-ZW4WK421MW"></script>
-    <script>
+    <!-- Google Analytics — data-cfasync="false" prevents Cloudflare Rocket Loader from stripping the inline init script -->
+    <script data-cfasync="false" async src="https://www.googletagmanager.com/gtag/js?id=G-ZW4WK421MW"></script>
+    <script data-cfasync="false">
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
       gtag('js', new Date());
