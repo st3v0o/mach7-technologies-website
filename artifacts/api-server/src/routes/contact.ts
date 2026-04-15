@@ -12,10 +12,7 @@ const ContactRequestSchema = z.object({
   recaptchaToken: z.string().optional(),
 });
 
-// Resend trial accounts can only deliver to the account-owner address.
-// Once mach7technologies.com is verified at resend.com/domains, update
-// DELIVER_TO to "info@mach7technologies.com" and FROM to a @mach7technologies.com sender.
-const DELIVER_TO = "steven@mach7technologies.com";
+const DELIVER_TO = "info@mach7technologies.com";
 const RECAPTCHA_VERIFY_URL = "https://www.google.com/recaptcha/api/siteverify";
 const SCORE_THRESHOLD = 0.5;
 
@@ -91,7 +88,7 @@ router.post("/contact", async (req: Request, res: Response) => {
 
   try {
     const { error: sendError } = await resend.emails.send({
-      from: "MACH 7 Contact Form <onboarding@resend.dev>",
+      from: "MACH 7 Contact Form <noreply@mach7technologies.com>",
       to: [DELIVER_TO],
       replyTo: email,
       subject,
