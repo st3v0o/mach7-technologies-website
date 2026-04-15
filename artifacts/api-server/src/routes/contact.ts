@@ -68,7 +68,7 @@ router.post("/contact", async (req: Request, res: Response) => {
     }
   }
 
-  const resendKey = process.env.RESEND_API_KEY;
+  const resendKey = process.env.RESEND_EMAIL_KEY;
   if (!resendKey) {
     res.status(500).json(ContactErrorResponseSchema.parse({ error: "Email service is not configured" }));
     return;
