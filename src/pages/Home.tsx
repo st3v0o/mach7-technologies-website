@@ -7,7 +7,11 @@ import { ScreenGallery } from "@/components/ScreenGallery";
 import { UseCaseTicker } from "@/components/UseCaseTicker";
 import { FrameLogMockup } from "@/components/FrameLogMockup";
 
+// In dev: proxy through Vite (vite.config.ts forwards /mach7/api → :8080/api).
+// In production (Cloudflare Pages): set VITE_API_BASE_URL to the deployed API
+// server origin, e.g. https://api.mach7technologies.com
 const API_BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+const API_ORIGIN: string = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, "") ?? "";
 const CONTACT_EMAIL = "info@mach7technologies.com";
 
 export default function Home() {
@@ -29,7 +33,8 @@ export default function Home() {
     try {
       const token = executeRecaptcha ? await executeRecaptcha("contact_form") : undefined;
 
-      const apiUrl = `${window.location.origin}${API_BASE}/api/contact`.replace(/([^:])\/\/+/, "$1/");
+      const origin = API_ORIGIN || window.location.origin;
+      const apiUrl = `${origin}${API_BASE}/api/contact`.replace(/([^:])\/\/+/, "$1/");
 
       const res = await fetch(apiUrl, {
         method: "POST",
