@@ -58,6 +58,16 @@ export default defineConfig({
       strict: true,
       deny: ["**/.*"],
     },
+    // Proxy /mach7/api/* → http://localhost:8080/api/* so the contact form
+    // can reach the API server in the Replit dev environment.
+    proxy: {
+      [`${basePath}api`]: {
+        target: "http://localhost:8080",
+        changeOrigin: true,
+        // Strip the base-path prefix: /mach7/api/contact → /api/contact
+        rewrite: (p) => p.slice(basePath.length - 1),
+      },
+    },
   },
   preview: {
     port,
