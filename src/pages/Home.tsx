@@ -54,7 +54,7 @@ export default function Home() {
     } finally {
       setSubmitting(false);
     }
-  }, [executeRecaptcha, name, org, message]);
+  }, [executeRecaptcha, name, email, org, message]);
 
   return (
     <div className="flex flex-col">
