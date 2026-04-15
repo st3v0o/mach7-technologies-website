@@ -6,12 +6,16 @@ const router: IRouter = Router();
 
 const ContactRequestSchema = z.object({
   name: z.string().min(1, "Name is required"),
+  email: z.string().email("Valid email is required"),
   org: z.string().optional().default(""),
   message: z.string().min(1, "Message is required"),
   recaptchaToken: z.string().optional(),
 });
 
-const CONTACT_EMAIL = "info@mach7technologies.com";
+// Resend trial accounts can only deliver to the account-owner address.
+// Once mach7technologies.com is verified at resend.com/domains, update
+// DELIVER_TO to "info@mach7technologies.com" and FROM to a @mach7technologies.com sender.
+const DELIVER_TO = "steven@mach7technologies.com";
 const RECAPTCHA_VERIFY_URL = "https://www.google.com/recaptcha/api/siteverify";
 const SCORE_THRESHOLD = 0.5;
 
@@ -51,13 +55,13 @@ router.post("/contact", async (req: Request, res: Response) => {
     return;
   }
 
-  const { name, org, message, recaptchaToken } = parsed.data;
+  const { name, email, org, message, recaptchaToken } = parsed.data;
 
   if (recaptchaToken) {
     let captchaResult: { success: boolean; score: number };
     try {
       captchaResult = await verifyRecaptcha(recaptchaToken, "contact_form");
-    } catch (err) {
+    } catch {
       res.status(500).json(ContactErrorResponseSchema.parse({ error: "CAPTCHA verification failed" }));
       return;
     }
@@ -79,6 +83,7 @@ router.post("/contact", async (req: Request, res: Response) => {
   const subject = `Access Request from ${name}${org ? ` — ${org}` : ""}`;
   const html = `
     <p><strong>Name:</strong> ${name}</p>
+    <p><strong>Email:</strong> ${email}</p>
     ${org ? `<p><strong>Organization:</strong> ${org}</p>` : ""}
     <p><strong>Message:</strong></p>
     <p style="white-space: pre-wrap;">${message}</p>
@@ -87,10 +92,10 @@ router.post("/contact", async (req: Request, res: Response) => {
   try {
     const { error: sendError } = await resend.emails.send({
       from: "MACH 7 Contact Form <onboarding@resend.dev>",
-      to: [CONTACT_EMAIL],
+      to: [DELIVER_TO],
+      replyTo: email,
       subject,
       html,
-      replyTo: undefined,
     });
 
     if (sendError) {

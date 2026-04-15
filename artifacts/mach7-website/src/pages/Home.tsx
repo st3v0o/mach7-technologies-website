@@ -16,6 +16,7 @@ const CONTACT_EMAIL = "info@mach7technologies.com";
 
 export default function Home() {
   const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
   const [org, setOrg] = useState("");
   const [message, setMessage] = useState("");
   const [sent, setSent] = useState(false);
@@ -39,7 +40,7 @@ export default function Home() {
       const res = await fetch(apiUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, org, message, recaptchaToken: token }),
+        body: JSON.stringify({ name, email, org, message, recaptchaToken: token }),
       });
 
       if (res.ok) {
@@ -234,7 +235,7 @@ export default function Home() {
             <div className="border border-primary/30 bg-primary/8 p-8 text-center rounded-lg">
               <p className="font-display font-semibold text-xl mb-2">Message sent!</p>
               <p className="text-lg text-muted-foreground">
-                We'll be in touch at {CONTACT_EMAIL}.
+                We'll be in touch at {email || CONTACT_EMAIL}.
               </p>
             </div>
           ) : (
@@ -263,6 +264,18 @@ export default function Home() {
                     className="bg-card border border-border rounded-lg px-4 py-3 text-base text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary transition-colors"
                   />
                 </div>
+              </div>
+              <div className="flex flex-col gap-2">
+                <label htmlFor="contact-email" className="text-sm font-semibold text-foreground/80">Email *</label>
+                <input
+                  id="contact-email"
+                  type="email"
+                  required
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  className="bg-card border border-border rounded-lg px-4 py-3 text-base text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary transition-colors"
+                />
               </div>
               <div className="flex flex-col gap-2">
                 <label htmlFor="contact-message" className="text-sm font-semibold text-foreground/80">Message *</label>
