@@ -575,7 +575,9 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
             if (perm.granted) {
               await MediaLibrary.saveToLibraryAsync(destPath);
             }
-          } catch {}
+          } catch (e) {
+            console.error('[Geospector] savePhoto media-library error:', e);
+          }
         }
 
         const gpsLat = nearest?.latitude ?? 0;
