@@ -471,41 +471,45 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
             const absTimestamp = startTime + t;
             const nearest = findNearestGps(absTimestamp, snapshotPoints);
 
-            if (nearest) {
-              const filename = `${segmentName}_f${String(frameIndex).padStart(4, '0')}_${absTimestamp}.jpg`;
-              const destPath = framesDir + filename;
+            // Save every frame regardless of GPS availability.
+            // If GPS hasn't locked yet, use 0,0 — better than dropping the frame.
+            const gpsLat = nearest?.latitude ?? 0;
+            const gpsLon = nearest?.longitude ?? 0;
 
-              await FileSystem.copyAsync({ from: thumb.uri, to: destPath });
+            const filename = `${segmentName}_f${String(frameIndex).padStart(4, '0')}_${absTimestamp}.jpg`;
+            const destPath = framesDir + filename;
 
-              // Fire detection callback with the saved frame (non-blocking)
-              if (onFrameReady) {
-                onFrameReady(destPath, absTimestamp);
-              }
+            await FileSystem.copyAsync({ from: thumb.uri, to: destPath });
 
-              const entry: LogEntry = {
-                id: Date.now().toString() + Math.random().toString(36).substr(2, 6),
-                filename,
-                timestamp: absTimestamp,
-                latitude: nearest.latitude,
-                longitude: nearest.longitude,
-                videoSegment: segmentName,
-                localPath: destPath,
-                videoPath: videoDestPath,
-                sessionId: currentSession,
-              };
-              newEntries.push(entry);
-
-              const lat = nearest.latitude.toFixed(7);
-              const lon = nearest.longitude.toFixed(7);
-              const ts = new Date(absTimestamp).toISOString();
-              csvAppend += `${filename},${ts},${lat},${lon},${segmentName},${destPath},${videoDestPath},${currentSession},\n`;
-
-              frameIndex++;
-              setProcessingProgress(Math.min((t / durationMs) * 100, 99));
-              setTotalFrames((n) => n + 1);
+            // Fire detection callback with the saved frame (non-blocking)
+            if (onFrameReady) {
+              onFrameReady(destPath, absTimestamp);
             }
-          } catch {
+
+            const entry: LogEntry = {
+              id: Date.now().toString() + Math.random().toString(36).substr(2, 6),
+              filename,
+              timestamp: absTimestamp,
+              latitude: gpsLat,
+              longitude: gpsLon,
+              videoSegment: segmentName,
+              localPath: destPath,
+              videoPath: videoDestPath,
+              sessionId: currentSession,
+            };
+            newEntries.push(entry);
+
+            const lat = gpsLat.toFixed(7);
+            const lon = gpsLon.toFixed(7);
+            const ts = new Date(absTimestamp).toISOString();
+            csvAppend += `${filename},${ts},${lat},${lon},${segmentName},${destPath},${videoDestPath},${currentSession},\n`;
+
+            frameIndex++;
+            setProcessingProgress(Math.min((t / durationMs) * 100, 99));
+            setTotalFrames((n) => n + 1);
+          } catch (e) {
             // Frame at this timestamp unavailable — skip and continue
+            console.error('[Geospector] frame extract error at t=' + t + 'ms:', e);
             continue;
           }
         }
@@ -522,7 +526,8 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
             return updated;
           });
         }
-      } catch {
+      } catch (e) {
+        console.error('[Geospector] processSegment error:', e);
         setProcessingStatus('error');
         return;
       }
@@ -602,7 +607,9 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
           return updated;
         });
         setTotalFrames((n) => n + 1);
-      } catch {}
+      } catch (e) {
+        console.error('[Geospector] savePhoto error:', e);
+      }
     },
     []
   );
