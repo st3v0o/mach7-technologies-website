@@ -147,13 +147,10 @@ export default function StorageWizard({ visible, onClose, onSaved }: Props) {
     return { providerType: 'none' };
   };
 
-  const startTest = async (provider: ProviderType) => {
+  const runTest = async (config: StorageConfig) => {
     const token = ++testTokenRef.current;
-    setPendingProvider(provider);
+    setPendingProvider(config.providerType);
     setStep('testing');
-    const config: StorageConfig = provider === 'supabase'
-      ? { providerType: 'supabase', supabaseUrl, supabaseKey, supabaseBucket }
-      : { providerType: 'webhook', webhookUrl, webhookSecret };
 
     const result = await testCredentials(config);
     if (!isMounted.current || testTokenRef.current !== token) return;
@@ -167,6 +164,13 @@ export default function StorageWizard({ visible, onClose, onSaved }: Props) {
       setTestError(result.error ?? 'Connection failed');
       setStep('error');
     }
+  };
+
+  const startTest = (provider: ProviderType) => {
+    const config: StorageConfig = provider === 'supabase'
+      ? { providerType: 'supabase', supabaseUrl, supabaseKey, supabaseBucket }
+      : { providerType: 'webhook', webhookUrl, webhookSecret };
+    return runTest(config);
   };
 
   const saveAnyway = async () => {
@@ -203,35 +207,49 @@ export default function StorageWizard({ visible, onClose, onSaved }: Props) {
   const handleSelectProject = async (project: SupabaseProject) => {
     setSelectedProject(project);
     setFetchingKey(true);
+    let resolvedUrl = '';
+    let resolvedKey = '';
+
+    // Step 1: fetch the anon key — if this fails, stay on supabase-account
     try {
-      const key = await getAnonKey(pat.trim(), project.id);
+      resolvedKey = await getAnonKey(pat.trim(), project.id);
       if (!isMounted.current) return;
-      setSupabaseUrl(`https://${project.id}.supabase.co`);
-      setSupabaseKey(key);
-      // Now fetch buckets for this project
-      setStep('bucket-select');
-      setFetchingBuckets(true);
-      setBuckets([]);
-      setBucketsError('');
+      resolvedUrl = `https://${project.id}.supabase.co`;
+      setSupabaseUrl(resolvedUrl);
+      setSupabaseKey(resolvedKey);
+    } catch (err) {
+      if (!isMounted.current) return;
+      setProjectsError(err instanceof Error ? err.message : String(err));
+      setFetchingKey(false);
+      return;
+    }
+    setFetchingKey(false);
+
+    // Step 2: navigate to bucket-select, then fetch buckets.
+    // If listBuckets fails we remain on bucket-select and show the manual text input.
+    setStep('bucket-select');
+    setFetchingBuckets(true);
+    setBuckets([]);
+    setBucketsError('');
+    try {
       const bkts = await listBuckets(pat.trim(), project.id);
       if (!isMounted.current) return;
       setBuckets(bkts);
     } catch (err) {
       if (!isMounted.current) return;
-      setProjectsError(err instanceof Error ? err.message : String(err));
-      setStep('supabase-account');
+      setBucketsError(err instanceof Error ? err.message : String(err));
     } finally {
-      if (isMounted.current) {
-        setFetchingKey(false);
-        setFetchingBuckets(false);
-      }
+      if (isMounted.current) setFetchingBuckets(false);
     }
   };
 
   const handleSelectBucket = (bucketName: string) => {
+    // Update state for saveAnyway / buildConfig, then pass bucket explicitly to
+    // runTest to avoid an async state race (setState is batched, so supabaseBucket
+    // may not have updated by the time runTest reads it from state).
     setSupabaseBucket(bucketName);
     setBucketInput(bucketName);
-    startTest('supabase');
+    runTest({ providerType: 'supabase', supabaseUrl, supabaseKey, supabaseBucket: bucketName });
   };
 
   // ─────────────────────────────────────────────────────────────────
