@@ -100,6 +100,8 @@ export default function StorageWizard({ visible, onClose, onSaved }: Props) {
   const [bucketsError, setBucketsError] = useState('');
   const [bucketInput, setBucketInput] = useState('frames');
 
+  const [originStep, setOriginStep] = useState<WizardStep>('supabase');
+
   const isMounted = useRef(true);
   const testTokenRef = useRef(0);
 
@@ -136,6 +138,7 @@ export default function StorageWizard({ visible, onClose, onSaved }: Props) {
     setBuckets([]);
     setBucketsError('');
     setBucketInput('frames');
+    setOriginStep('supabase');
   };
 
   const handleClose = () => { reset(); onClose(); };
@@ -175,6 +178,8 @@ export default function StorageWizard({ visible, onClose, onSaved }: Props) {
   };
 
   const startTest = (provider: ProviderType) => {
+    const origin: WizardStep = provider === 'supabase' ? 'supabase' : 'webhook';
+    setOriginStep(origin);
     const config: StorageConfig = provider === 'supabase'
       ? { providerType: 'supabase', supabaseUrl, supabaseKey, supabaseBucket }
       : { providerType: 'webhook', webhookUrl, webhookSecret };
@@ -257,6 +262,7 @@ export default function StorageWizard({ visible, onClose, onSaved }: Props) {
     // may not have updated by the time runTest reads it from state).
     setSupabaseBucket(bucketName);
     setBucketInput(bucketName);
+    setOriginStep('bucket-select');
     runTest({ providerType: 'supabase', supabaseUrl, supabaseKey, supabaseBucket: bucketName });
   };
 
@@ -868,7 +874,7 @@ export default function StorageWizard({ visible, onClose, onSaved }: Props) {
               <View style={styles.errorActions}>
                 <Pressable
                   style={styles.retryBtn}
-                  onPress={() => setStep(pendingProvider === 'supabase' ? 'supabase' : 'webhook')}
+                  onPress={() => setStep(originStep)}
                 >
                   <Ionicons name="refresh-outline" size={16} color={Colors.text} />
                   <Text style={styles.retryBtnText}>Try Again</Text>
