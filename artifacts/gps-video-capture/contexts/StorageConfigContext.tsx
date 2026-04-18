@@ -20,19 +20,30 @@ interface UploadFrameParams {
   segmentName: string;
 }
 
+export interface TestResult {
+  success: boolean;
+  error?: string;
+  testedAt: number;
+}
+
 interface StorageConfigContextType {
   providerType: StorageProviderType;
   providerLabel: string;
   isCloudConfigured: boolean;
+  connectionVerified: boolean;
+  lastTestResult: TestResult | null;
   uploadFrame: (params: UploadFrameParams) => Promise<string>;
+  testConnection: () => Promise<{ success: boolean; error?: string }>;
+  reloadConfig: () => Promise<void>;
   clearConfig: () => void;
 }
 
 const StorageConfigContext = createContext<StorageConfigContextType | null>(null);
 
 const CONFIG_STORAGE_KEY = '@gps_storage_config';
+const TEST_RESULT_KEY = '@gps_storage_test_result';
 
-interface StorageConfig {
+export interface StorageConfig {
   providerType: StorageProviderType;
   supabaseUrl?: string;
   supabaseKey?: string;
@@ -41,16 +52,54 @@ interface StorageConfig {
   webhookSecret?: string;
 }
 
+export async function testCredentials(config: StorageConfig): Promise<{ success: boolean; error?: string }> {
+  try {
+    if (config.providerType === 'supabase') {
+      if (!config.supabaseUrl || !config.supabaseKey || !config.supabaseBucket) {
+        return { success: false, error: 'Missing Supabase credentials' };
+      }
+      const { createClient } = await import('@supabase/supabase-js');
+      const supabase = createClient(config.supabaseUrl, config.supabaseKey);
+      const { error } = await supabase.storage
+        .from(config.supabaseBucket)
+        .list('', { limit: 1 });
+      if (error) return { success: false, error: error.message };
+      return { success: true };
+    }
+
+    if (config.providerType === 'webhook') {
+      if (!config.webhookUrl) return { success: false, error: 'Missing webhook URL' };
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (config.webhookSecret) headers['x-webhook-secret'] = config.webhookSecret;
+      const res = await fetch(config.webhookUrl, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ test: true, timestamp: Date.now() }),
+      });
+      if (!res.ok) return { success: false, error: `Endpoint returned HTTP ${res.status}` };
+      return { success: true };
+    }
+
+    return { success: false, error: 'No provider configured' };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
 export function StorageConfigProvider({ children }: { children: React.ReactNode }) {
   const [config, setConfig] = useState<StorageConfig>({ providerType: 'none' });
+  const [lastTestResult, setLastTestResult] = useState<TestResult | null>(null);
 
   useEffect(() => {
     AsyncStorage.getItem(CONFIG_STORAGE_KEY)
       .then((raw) => {
-        if (raw) {
-          const parsed: StorageConfig = JSON.parse(raw);
-          setConfig(parsed);
-        }
+        if (raw) setConfig(JSON.parse(raw) as StorageConfig);
+      })
+      .catch(() => {});
+
+    AsyncStorage.getItem(TEST_RESULT_KEY)
+      .then((raw) => {
+        if (raw) setLastTestResult(JSON.parse(raw) as TestResult);
       })
       .catch(() => {});
   }, []);
@@ -61,6 +110,16 @@ export function StorageConfigProvider({ children }: { children: React.ReactNode 
       Boolean(config.supabaseKey) &&
       Boolean(config.supabaseBucket)) ||
     (config.providerType === 'webhook' && Boolean(config.webhookUrl));
+
+  const connectionVerified = lastTestResult?.success === true;
+
+  const testConnection = useCallback(async (): Promise<{ success: boolean; error?: string }> => {
+    const result = await testCredentials(config);
+    const testResult: TestResult = { ...result, testedAt: Date.now() };
+    setLastTestResult(testResult);
+    AsyncStorage.setItem(TEST_RESULT_KEY, JSON.stringify(testResult)).catch(() => {});
+    return result;
+  }, [config]);
 
   const uploadFrame = useCallback(
     async (params: UploadFrameParams): Promise<string> => {
@@ -101,10 +160,23 @@ export function StorageConfigProvider({ children }: { children: React.ReactNode 
     [config, isCloudConfigured]
   );
 
+  const reloadConfig = useCallback(async () => {
+    try {
+      const raw = await AsyncStorage.getItem(CONFIG_STORAGE_KEY);
+      if (raw) setConfig(JSON.parse(raw) as StorageConfig);
+    } catch {}
+    try {
+      const raw = await AsyncStorage.getItem(TEST_RESULT_KEY);
+      setLastTestResult(raw ? (JSON.parse(raw) as TestResult) : null);
+    } catch {}
+  }, []);
+
   const clearConfig = useCallback(() => {
     const cleared: StorageConfig = { providerType: 'none' };
     setConfig(cleared);
+    setLastTestResult(null);
     AsyncStorage.setItem(CONFIG_STORAGE_KEY, JSON.stringify(cleared)).catch(() => {});
+    AsyncStorage.removeItem(TEST_RESULT_KEY).catch(() => {});
   }, []);
 
   const providerLabel = PROVIDER_LABELS[config.providerType] ?? 'Unknown';
@@ -115,7 +187,11 @@ export function StorageConfigProvider({ children }: { children: React.ReactNode 
         providerType: config.providerType,
         providerLabel,
         isCloudConfigured,
+        connectionVerified,
+        lastTestResult,
         uploadFrame,
+        testConnection,
+        reloadConfig,
         clearConfig,
       }}
     >

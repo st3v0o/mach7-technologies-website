@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
 import React, { useState } from 'react';
 import {
+  ActivityIndicator,
   Platform,
   Pressable,
   ScrollView,
@@ -23,7 +24,7 @@ import {
   metersToFeet,
   useSettings,
 } from '@/contexts/SettingsContext';
-import { useStorageConfig, PROVIDER_LABELS } from '@/contexts/StorageConfigContext';
+import { useStorageConfig } from '@/contexts/StorageConfigContext';
 import StorageWizard from '@/components/StorageWizard';
 
 function fpsLabel(fps: number): string {
@@ -111,8 +112,9 @@ const MOUNT_OPTIONS: { value: MountType; label: string; icon: string }[] = [
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const { settings, updateSettings } = useSettings();
-  const { providerType, providerLabel, isCloudConfigured, clearConfig } = useStorageConfig();
+  const { providerType, providerLabel, isCloudConfigured, lastTestResult, testConnection, reloadConfig, clearConfig } = useStorageConfig();
   const [wizardVisible, setWizardVisible] = useState(false);
+  const [isTesting, setIsTesting] = useState(false);
   const [jobNameDraft, setJobNameDraft] = useState(settings.jobName);
 
   const currentFeet = Math.round(metersToFeet(settings.dynamicMeters));
@@ -134,6 +136,46 @@ export default function SettingsScreen() {
 
   const providerColor = PROVIDER_COLORS[providerType] ?? Colors.textSecondary;
   const providerIcon = PROVIDER_ICONS[providerType] ?? 'cloud-outline';
+
+  const handleTestNow = async () => {
+    setIsTesting(true);
+    await testConnection();
+    setIsTesting(false);
+  };
+
+  const formatTestTime = (ts: number) => {
+    const d = new Date(ts);
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) +
+      ' ' + d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+  };
+
+  type StorageStatusVariant = 'unconfigured' | 'untested' | 'verified' | 'failed';
+  const storageVariant: StorageStatusVariant =
+    providerType === 'none' ? 'unconfigured'
+    : !lastTestResult ? 'untested'
+    : lastTestResult.success ? 'verified'
+    : 'failed';
+
+  const STATUS_DOT_COLOR: Record<StorageStatusVariant, string> = {
+    unconfigured: Colors.textTertiary,
+    untested: Colors.amber,
+    verified: Colors.gpsGreen,
+    failed: Colors.accent,
+  };
+
+  const STATUS_LABEL: Record<StorageStatusVariant, string> = {
+    unconfigured: 'Not configured',
+    untested: 'Configured — not tested yet',
+    verified: `Verified \u2713 ${lastTestResult ? formatTestTime(lastTestResult.testedAt) : ''}`,
+    failed: 'Last test failed',
+  };
+
+  const STATUS_LABEL_COLOR: Record<StorageStatusVariant, string> = {
+    unconfigured: Colors.textTertiary,
+    untested: Colors.amber,
+    verified: Colors.gpsGreen,
+    failed: Colors.accent,
+  };
 
   return (
     <>
@@ -375,6 +417,7 @@ export default function SettingsScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>CLOUD STORAGE</Text>
           <View style={styles.card}>
+            {/* Provider row */}
             <View style={styles.storageStatusRow}>
               <View style={[styles.storageIconWrap, { backgroundColor: `${providerColor}18` }]}>
                 <Ionicons name={providerIcon as never} size={20} color={providerColor} />
@@ -389,11 +432,32 @@ export default function SettingsScreen() {
                     : 'Frames uploaded after each session'}
                 </Text>
               </View>
-              <View style={[styles.statusDot, { backgroundColor: isCloudConfigured ? Colors.gpsGreen : Colors.textTertiary }]} />
             </View>
+
+            {/* Connection status badge */}
+            <View style={styles.connectionStatusRow}>
+              {isTesting ? (
+                <ActivityIndicator size="small" color={Colors.blue} />
+              ) : (
+                <View style={[styles.statusDot, { backgroundColor: STATUS_DOT_COLOR[storageVariant] }]} />
+              )}
+              <Text style={[styles.connectionStatusText, { color: STATUS_LABEL_COLOR[storageVariant] }]}>
+                {isTesting ? 'Testing connection…' : STATUS_LABEL[storageVariant]}
+              </Text>
+            </View>
+
+            {/* Failed error snippet */}
+            {storageVariant === 'failed' && lastTestResult?.error && (
+              <View style={styles.errorSnippetBox}>
+                <Text style={styles.errorSnippetText} numberOfLines={2}>
+                  {lastTestResult.error}
+                </Text>
+              </View>
+            )}
 
             <View style={styles.divider} />
 
+            {/* Actions */}
             <View style={styles.storageActions}>
               <Pressable
                 style={({ pressed }) => [styles.storageBtn, pressed && { opacity: 0.75 }]}
@@ -404,6 +468,21 @@ export default function SettingsScreen() {
                   {isCloudConfigured ? 'Reconfigure' : 'Set Up Cloud Storage'}
                 </Text>
               </Pressable>
+
+              {isCloudConfigured && (
+                <Pressable
+                  style={({ pressed }) => [styles.storageBtn, pressed && { opacity: 0.75 }]}
+                  disabled={isTesting}
+                  onPress={handleTestNow}
+                >
+                  {isTesting
+                    ? <ActivityIndicator size="small" color={Colors.gpsGreen} />
+                    : <Ionicons name="wifi-outline" size={14} color={Colors.gpsGreen} />}
+                  <Text style={[styles.storageBtnText, { color: Colors.gpsGreen }]}>
+                    Test Now
+                  </Text>
+                </Pressable>
+              )}
 
               {isCloudConfigured && (
                 <Pressable
@@ -452,6 +531,7 @@ export default function SettingsScreen() {
       <StorageWizard
         visible={wizardVisible}
         onClose={() => setWizardVisible(false)}
+        onSaved={reloadConfig}
       />
     </>
   );
@@ -665,6 +745,34 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
+    flexShrink: 0,
+  },
+  connectionStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingBottom: 12,
+  },
+  connectionStatusText: {
+    fontFamily: 'Inter_500Medium',
+    fontSize: 12,
+    flex: 1,
+  },
+  errorSnippetBox: {
+    marginHorizontal: 14,
+    marginBottom: 10,
+    backgroundColor: 'rgba(255,59,48,0.1)',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255,59,48,0.25)',
+    padding: 10,
+  },
+  errorSnippetText: {
+    color: Colors.accent,
+    fontFamily: Platform.OS === 'ios' ? 'Courier New' : 'monospace',
+    fontSize: 11,
+    lineHeight: 16,
   },
   storageActions: {
     flexDirection: 'row',
