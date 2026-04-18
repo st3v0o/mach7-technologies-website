@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as WebBrowser from 'expo-web-browser';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -596,6 +597,20 @@ export default function StorageWizard({ visible, onClose, onSaved }: Props) {
                 The bucket must already exist in your Supabase project with public access or an anon-upload RLS policy.
               </Text>
 
+              {selectedProject && (
+                <Pressable
+                  style={styles.dashboardLink}
+                  onPress={() =>
+                    WebBrowser.openBrowserAsync(
+                      `https://supabase.com/dashboard/project/${selectedProject.id}/storage/buckets/new`
+                    )
+                  }
+                >
+                  <Ionicons name="open-outline" size={14} color={Colors.blue} />
+                  <Text style={styles.dashboardLinkText}>Create a new bucket in Supabase ↗</Text>
+                </Pressable>
+              )}
+
               <View style={styles.formActions}>
                 <Pressable
                   style={styles.backBtn}
@@ -1164,6 +1179,18 @@ const styles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 16,
     marginTop: 6,
+  },
+  dashboardLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    alignSelf: 'flex-start',
+    marginTop: 12,
+  },
+  dashboardLinkText: {
+    color: Colors.blue,
+    fontFamily: 'Inter_400Regular',
+    fontSize: 13,
   },
 
   // Centered steps (testing / success / error)
