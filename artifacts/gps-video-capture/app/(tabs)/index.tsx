@@ -24,6 +24,7 @@ import Colors from '@/constants/colors';
 import UploadProgressModal from '@/components/UploadProgressModal';
 import { useRecording } from '@/contexts/RecordingContext';
 import { FEET_PER_METER, MPH_PER_MPS, useSettings } from '@/contexts/SettingsContext';
+import { useStorageConfig } from '@/contexts/StorageConfigContext';
 import { useUpload } from '@/contexts/UploadContext';
 
 const TARGET_SEGMENT_BYTES = 250 * 1024 * 1024; // 250 MB
@@ -112,6 +113,8 @@ export default function CaptureScreen() {
   } = useRecording();
 
   const { pendingCount, failedCount, isCloudConfigured } = useUpload();
+  const { envTestError } = useStorageConfig();
+  const [dismissedEnvError, setDismissedEnvError] = useState(false);
 
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showJobNameModal, setShowJobNameModal] = useState(false);
@@ -780,6 +783,24 @@ export default function CaptureScreen() {
         </View>
       )}
 
+      {envTestError && !dismissedEnvError && (
+        <View style={styles.envErrorBanner}>
+          <BlurView intensity={90} tint="dark" style={styles.envErrorBlur}>
+            <Ionicons name="cloud-offline-outline" size={15} color={Colors.accent} style={styles.envErrorIcon} />
+            <Text style={styles.envErrorText} numberOfLines={2}>
+              Cloud storage unreachable: {envTestError}
+            </Text>
+            <Pressable
+              onPress={() => setDismissedEnvError(true)}
+              hitSlop={10}
+              style={({ pressed }) => [styles.envErrorDismiss, pressed && { opacity: 0.6 }]}
+            >
+              <Ionicons name="close" size={16} color={Colors.textSecondary} />
+            </Pressable>
+          </BlurView>
+        </View>
+      )}
+
       {/* ── Bottom HUD: cinematic gradient overlay ──────────────────────── */}
       <View style={styles.bottomOverlay}>
         <LinearGradient
@@ -1262,6 +1283,37 @@ const styles = StyleSheet.create({
     color: Colors.amber,
     fontFamily: 'Inter_500Medium',
     fontSize: 12,
+  },
+  envErrorBanner: {
+    position: 'absolute',
+    top: 160,
+    left: 16,
+    right: 16,
+  },
+  envErrorBlur: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderRadius: 10,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: Colors.accentDim,
+  },
+  envErrorIcon: {
+    marginRight: 6,
+    flexShrink: 0,
+  },
+  envErrorText: {
+    flex: 1,
+    color: Colors.accent,
+    fontFamily: 'Inter_500Medium',
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  envErrorDismiss: {
+    paddingLeft: 8,
+    flexShrink: 0,
   },
   // ── Bottom HUD ─────────────────────────────────────────────────────────────
   bottomOverlay: {

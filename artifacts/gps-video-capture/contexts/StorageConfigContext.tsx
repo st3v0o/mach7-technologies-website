@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 
 export type StorageProviderType = 'none' | 'supabase' | 'webhook';
 
@@ -33,6 +33,7 @@ interface StorageConfigContextType {
   connectionVerified: boolean;
   lastTestResult: TestResult | null;
   isEnvPreconfigured: boolean;
+  envTestError: string | null;
   uploadFrame: (params: UploadFrameParams) => Promise<string>;
   testConnection: () => Promise<{ success: boolean; error?: string }>;
   reloadConfig: () => Promise<void>;
@@ -105,26 +106,52 @@ export function StorageConfigProvider({ children }: { children: React.ReactNode 
   const [config, setConfig] = useState<StorageConfig>({ providerType: 'none' });
   const [configSource, setConfigSource] = useState<ConfigSource>('none');
   const [lastTestResult, setLastTestResult] = useState<TestResult | null>(null);
+  const [initialLoadDone, setInitialLoadDone] = useState(false);
+  const [envTestError, setEnvTestError] = useState<string | null>(null);
+  const envAutoTestedRef = useRef(false);
 
   useEffect(() => {
-    AsyncStorage.getItem(CONFIG_STORAGE_KEY)
-      .then((raw) => {
-        if (raw) {
-          setConfig(JSON.parse(raw) as StorageConfig);
-          setConfigSource('user');
-        } else if (HAS_ENV_CONFIG) {
-          setConfig(ENV_CONFIG);
-          setConfigSource('env');
+    Promise.all([
+      AsyncStorage.getItem(CONFIG_STORAGE_KEY).catch(() => null),
+      AsyncStorage.getItem(TEST_RESULT_KEY).catch(() => null),
+    ]).then(([configRaw, testRaw]) => {
+      let resolvedSource: ConfigSource = 'none';
+      if (configRaw) {
+        setConfig(JSON.parse(configRaw) as StorageConfig);
+        resolvedSource = 'user';
+        setConfigSource('user');
+      } else if (HAS_ENV_CONFIG) {
+        setConfig(ENV_CONFIG);
+        resolvedSource = 'env';
+        setConfigSource('env');
+      }
+      if (testRaw) {
+        const parsed = JSON.parse(testRaw) as TestResult;
+        setLastTestResult(parsed);
+        if (resolvedSource === 'env' && !parsed.success) {
+          setEnvTestError(parsed.error ?? 'Connection test failed');
         }
-      })
-      .catch(() => {});
-
-    AsyncStorage.getItem(TEST_RESULT_KEY)
-      .then((raw) => {
-        if (raw) setLastTestResult(JSON.parse(raw) as TestResult);
-      })
-      .catch(() => {});
+      }
+      setInitialLoadDone(true);
+    });
   }, []);
+
+  useEffect(() => {
+    if (!initialLoadDone) return;
+    if (configSource !== 'env') return;
+    if (lastTestResult !== null) return;
+    if (envAutoTestedRef.current) return;
+    envAutoTestedRef.current = true;
+    testCredentials(ENV_CONFIG).then((result) => {
+      const testResult: TestResult = { ...result, testedAt: Date.now() };
+      setLastTestResult(testResult);
+      if (result.success) {
+        AsyncStorage.setItem(TEST_RESULT_KEY, JSON.stringify(testResult)).catch(() => {});
+      } else {
+        setEnvTestError(result.error ?? 'Connection test failed');
+      }
+    });
+  }, [initialLoadDone, configSource, lastTestResult]);
 
   const isCloudConfigured =
     (config.providerType === 'supabase' &&
@@ -208,6 +235,8 @@ export function StorageConfigProvider({ children }: { children: React.ReactNode 
     AsyncStorage.removeItem(CONFIG_STORAGE_KEY).catch(() => {});
     AsyncStorage.removeItem(TEST_RESULT_KEY).catch(() => {});
     setLastTestResult(null);
+    setEnvTestError(null);
+    envAutoTestedRef.current = false;
     if (HAS_ENV_CONFIG) {
       setConfig(ENV_CONFIG);
       setConfigSource('env');
@@ -228,6 +257,7 @@ export function StorageConfigProvider({ children }: { children: React.ReactNode 
         connectionVerified,
         lastTestResult,
         isEnvPreconfigured,
+        envTestError,
         uploadFrame,
         testConnection,
         reloadConfig,
