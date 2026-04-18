@@ -139,8 +139,11 @@ export default function SettingsScreen() {
 
   const handleTestNow = async () => {
     setIsTesting(true);
-    await testConnection();
-    setIsTesting(false);
+    try {
+      await testConnection();
+    } finally {
+      setIsTesting(false);
+    }
   };
 
   const formatTestTime = (ts: number) => {
