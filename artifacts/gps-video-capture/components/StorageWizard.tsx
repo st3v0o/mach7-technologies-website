@@ -16,6 +16,13 @@ import {
 
 import Colors from '@/constants/colors';
 import { StorageConfig, testCredentials } from '@/contexts/StorageConfigContext';
+import {
+  SupabaseBucket,
+  SupabaseProject,
+  getAnonKey,
+  listBuckets,
+  listProjects,
+} from '@/lib/supabaseManagement';
 
 const CONFIG_STORAGE_KEY = '@gps_storage_config';
 const TEST_RESULT_KEY = '@gps_storage_test_result';
@@ -26,7 +33,16 @@ interface Props {
   onSaved?: () => void;
 }
 
-type WizardStep = 'choose' | 'supabase' | 'webhook' | 'testing' | 'success' | 'error';
+type WizardStep =
+  | 'choose'
+  | 'supabase-account'
+  | 'bucket-select'
+  | 'supabase'
+  | 'webhook'
+  | 'testing'
+  | 'success'
+  | 'error';
+
 type ProviderType = 'none' | 'supabase' | 'webhook';
 
 function InfoBox({ children }: { children: React.ReactNode }) {
@@ -61,15 +77,26 @@ export default function StorageWizard({ visible, onClose, onSaved }: Props) {
   const [step, setStep] = useState<WizardStep>('choose');
   const [pendingProvider, setPendingProvider] = useState<ProviderType>('none');
 
+  // Manual Supabase / webhook state (unchanged)
   const [supabaseUrl, setSupabaseUrl] = useState('');
   const [supabaseKey, setSupabaseKey] = useState('');
   const [supabaseBucket, setSupabaseBucket] = useState('frames');
-
   const [webhookUrl, setWebhookUrl] = useState('');
   const [webhookSecret, setWebhookSecret] = useState('');
-
   const [testError, setTestError] = useState('');
   const [instructionsOpen, setInstructionsOpen] = useState(false);
+
+  // PAT / account connect state (new)
+  const [pat, setPat] = useState('');
+  const [fetchingProjects, setFetchingProjects] = useState(false);
+  const [projects, setProjects] = useState<SupabaseProject[]>([]);
+  const [projectsError, setProjectsError] = useState('');
+  const [selectedProject, setSelectedProject] = useState<SupabaseProject | null>(null);
+  const [fetchingKey, setFetchingKey] = useState(false);
+  const [fetchingBuckets, setFetchingBuckets] = useState(false);
+  const [buckets, setBuckets] = useState<SupabaseBucket[]>([]);
+  const [bucketsError, setBucketsError] = useState('');
+  const [bucketInput, setBucketInput] = useState('frames');
 
   const isMounted = useRef(true);
   const testTokenRef = useRef(0);
@@ -80,7 +107,7 @@ export default function StorageWizard({ visible, onClose, onSaved }: Props) {
   }, []);
 
   const reset = () => {
-    testTokenRef.current++; // invalidate any in-flight test
+    testTokenRef.current++;
     setStep('choose');
     setPendingProvider('none');
     setSupabaseUrl('');
@@ -90,6 +117,17 @@ export default function StorageWizard({ visible, onClose, onSaved }: Props) {
     setWebhookSecret('');
     setTestError('');
     setInstructionsOpen(false);
+    // PAT flow
+    setPat('');
+    setFetchingProjects(false);
+    setProjects([]);
+    setProjectsError('');
+    setSelectedProject(null);
+    setFetchingKey(false);
+    setFetchingBuckets(false);
+    setBuckets([]);
+    setBucketsError('');
+    setBucketInput('frames');
   };
 
   const handleClose = () => { reset(); onClose(); };
@@ -118,18 +156,14 @@ export default function StorageWizard({ visible, onClose, onSaved }: Props) {
       : { providerType: 'webhook', webhookUrl, webhookSecret };
 
     const result = await testCredentials(config);
-    // Guard against stale callbacks: component unmounted or a newer test started
     if (!isMounted.current || testTokenRef.current !== token) return;
 
     if (result.success) {
-      // Only persist test result and save config when the test actually passed
       await persistTestResult(true);
       await AsyncStorage.setItem(CONFIG_STORAGE_KEY, JSON.stringify(config)).catch(() => {});
       onSaved?.();
       setStep('success');
     } else {
-      // Keep the failure local to wizard state only — don't touch the persisted
-      // test result so Settings continues to reflect the previously saved config
       setTestError(result.error ?? 'Connection failed');
       setStep('error');
     }
@@ -137,8 +171,6 @@ export default function StorageWizard({ visible, onClose, onSaved }: Props) {
 
   const saveAnyway = async () => {
     const config = buildConfig();
-    // New (untested) config is being saved — clear any existing test result so
-    // Settings correctly shows "Configured, not tested" rather than a stale result
     await AsyncStorage.removeItem(TEST_RESULT_KEY).catch(() => {});
     await AsyncStorage.setItem(CONFIG_STORAGE_KEY, JSON.stringify(config)).catch(() => {});
     onSaved?.();
@@ -151,8 +183,61 @@ export default function StorageWizard({ visible, onClose, onSaved }: Props) {
     setInstructionsOpen(false);
   };
 
+  // ── PAT flow handlers ──────────────────────────────────────────────
+  const handleFetchProjects = async () => {
+    setFetchingProjects(true);
+    setProjectsError('');
+    setProjects([]);
+    try {
+      const list = await listProjects(pat.trim());
+      if (!isMounted.current) return;
+      setProjects(list);
+    } catch (err) {
+      if (!isMounted.current) return;
+      setProjectsError(err instanceof Error ? err.message : String(err));
+    } finally {
+      if (isMounted.current) setFetchingProjects(false);
+    }
+  };
+
+  const handleSelectProject = async (project: SupabaseProject) => {
+    setSelectedProject(project);
+    setFetchingKey(true);
+    try {
+      const key = await getAnonKey(pat.trim(), project.id);
+      if (!isMounted.current) return;
+      setSupabaseUrl(`https://${project.id}.supabase.co`);
+      setSupabaseKey(key);
+      // Now fetch buckets for this project
+      setStep('bucket-select');
+      setFetchingBuckets(true);
+      setBuckets([]);
+      setBucketsError('');
+      const bkts = await listBuckets(pat.trim(), project.id);
+      if (!isMounted.current) return;
+      setBuckets(bkts);
+    } catch (err) {
+      if (!isMounted.current) return;
+      setProjectsError(err instanceof Error ? err.message : String(err));
+      setStep('supabase-account');
+    } finally {
+      if (isMounted.current) {
+        setFetchingKey(false);
+        setFetchingBuckets(false);
+      }
+    }
+  };
+
+  const handleSelectBucket = (bucketName: string) => {
+    setSupabaseBucket(bucketName);
+    setBucketInput(bucketName);
+    startTest('supabase');
+  };
+
+  // ─────────────────────────────────────────────────────────────────
   const supabaseReady = Boolean(supabaseUrl) && Boolean(supabaseKey) && Boolean(supabaseBucket);
   const webhookReady = Boolean(webhookUrl);
+  const patReady = pat.trim().length > 10;
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={handleClose}>
@@ -174,15 +259,34 @@ export default function StorageWizard({ visible, onClose, onSaved }: Props) {
             <View style={styles.choices}>
               <Text style={styles.subtitle}>Choose where to upload your captured frames.</Text>
 
-              <Pressable style={styles.choiceBtn} onPress={() => setStep('supabase')}>
-                <Ionicons name="server-outline" size={24} color={Colors.gpsGreen} />
+              {/* NEW: Connect with Supabase Account */}
+              <Pressable style={[styles.choiceBtn, styles.choiceBtnFeatured]} onPress={() => setStep('supabase-account')}>
+                <View style={styles.choiceFeaturedIcon}>
+                  <Ionicons name="person-circle-outline" size={22} color={Colors.gpsGreen} />
+                </View>
                 <View style={styles.choiceText}>
-                  <Text style={styles.choiceName}>Supabase</Text>
-                  <Text style={styles.choiceDesc}>Upload frames to a Supabase Storage bucket</Text>
+                  <View style={styles.choiceNameRow}>
+                    <Text style={styles.choiceName}>Connect with Supabase Account</Text>
+                    <View style={styles.choiceNewBadge}>
+                      <Text style={styles.choiceNewBadgeText}>EASY</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.choiceDesc}>Sign in to your account and pick a project — no credentials to copy</Text>
                 </View>
                 <Ionicons name="chevron-forward" size={18} color={Colors.textTertiary} />
               </Pressable>
 
+              {/* Existing: Manual Supabase */}
+              <Pressable style={styles.choiceBtn} onPress={() => setStep('supabase')}>
+                <Ionicons name="server-outline" size={24} color={Colors.gpsGreen} />
+                <View style={styles.choiceText}>
+                  <Text style={styles.choiceName}>Supabase</Text>
+                  <Text style={styles.choiceDesc}>Enter your Project URL, anon key, and bucket manually</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={Colors.textTertiary} />
+              </Pressable>
+
+              {/* Existing: Webhook */}
               <Pressable style={styles.choiceBtn} onPress={() => setStep('webhook')}>
                 <Ionicons name="link-outline" size={24} color={Colors.blue} />
                 <View style={styles.choiceText}>
@@ -192,6 +296,7 @@ export default function StorageWizard({ visible, onClose, onSaved }: Props) {
                 <Ionicons name="chevron-forward" size={18} color={Colors.textTertiary} />
               </Pressable>
 
+              {/* Existing: Local Only */}
               <Pressable
                 style={[styles.choiceBtn, styles.choiceBtnNone]}
                 onPress={async () => {
@@ -211,12 +316,205 @@ export default function StorageWizard({ visible, onClose, onSaved }: Props) {
             </View>
           )}
 
-          {/* ── SUPABASE CREDENTIALS ────────────────────────────── */}
+          {/* ── SUPABASE ACCOUNT (PAT) ───────────────────────────── */}
+          {step === 'supabase-account' && (
+            <View style={styles.form}>
+              <Text style={styles.subtitle}>
+                Enter your Supabase Personal Access Token to browse your projects.
+              </Text>
+
+              <InfoBox>
+                <Text style={styles.infoBoxText}>
+                  <Text style={{ fontFamily: 'Inter_600SemiBold', color: Colors.text }}>Your token is never stored.</Text>
+                  {' '}It is used only during setup to fetch your project credentials, then discarded immediately.{'\n\n'}
+                  Generate a token at{' '}
+                  <Text style={{ color: Colors.blue }}>supabase.com/dashboard/account/tokens</Text>
+                </Text>
+              </InfoBox>
+
+              <Text style={styles.fieldLabel}>Personal Access Token</Text>
+              <TextInput
+                style={styles.input}
+                value={pat}
+                onChangeText={(t) => {
+                  setPat(t);
+                  setProjects([]);
+                  setProjectsError('');
+                }}
+                placeholder="sbp_..."
+                placeholderTextColor={Colors.textTertiary}
+                autoCapitalize="none"
+                secureTextEntry
+              />
+
+              {/* Connect button */}
+              <Pressable
+                style={[styles.saveBtn, { marginTop: 16 }, !patReady && styles.saveBtnDisabled]}
+                disabled={!patReady || fetchingProjects}
+                onPress={handleFetchProjects}
+              >
+                {fetchingProjects
+                  ? <ActivityIndicator size="small" color="#fff" />
+                  : <Ionicons name="cloud-download-outline" size={15} color="#fff" />}
+                <Text style={styles.saveBtnText}>
+                  {fetchingProjects ? 'Fetching projects…' : 'Connect'}
+                </Text>
+              </Pressable>
+
+              {/* Project list */}
+              {projectsError !== '' && (
+                <View style={styles.patErrorBox}>
+                  <Ionicons name="alert-circle-outline" size={15} color={Colors.accent} />
+                  <Text style={styles.patErrorText}>{projectsError}</Text>
+                </View>
+              )}
+
+              {projects.length > 0 && (
+                <View style={styles.projectList}>
+                  <Text style={styles.fieldLabel}>Your Projects</Text>
+                  {projects.map((p) => (
+                    <Pressable
+                      key={p.id}
+                      style={({ pressed }) => [
+                        styles.projectCard,
+                        pressed && { opacity: 0.7 },
+                        fetchingKey && { opacity: 0.5 },
+                      ]}
+                      disabled={fetchingKey}
+                      onPress={() => handleSelectProject(p)}
+                    >
+                      <View style={styles.projectCardLeft}>
+                        <Text style={styles.projectCardName}>{p.name}</Text>
+                        <Text style={styles.projectCardId}>{p.id}.supabase.co</Text>
+                      </View>
+                      <View style={styles.regionBadge}>
+                        <Text style={styles.regionBadgeText}>{p.region}</Text>
+                      </View>
+                      {fetchingKey && selectedProject?.id === p.id
+                        ? <ActivityIndicator size="small" color={Colors.gpsGreen} />
+                        : <Ionicons name="chevron-forward" size={16} color={Colors.textTertiary} />}
+                    </Pressable>
+                  ))}
+                </View>
+              )}
+
+              {/* Manual fallback */}
+              <View style={styles.manualFallbackRow}>
+                <Pressable onPress={() => setStep('supabase')}>
+                  <Text style={styles.manualFallbackText}>Enter credentials manually instead</Text>
+                </Pressable>
+              </View>
+
+              <View style={styles.formActions}>
+                <Pressable style={[styles.backBtn, { flex: 1 }]} onPress={handleProviderBack}>
+                  <Text style={styles.backBtnText}>Back</Text>
+                </Pressable>
+              </View>
+            </View>
+          )}
+
+          {/* ── BUCKET SELECT ────────────────────────────────────── */}
+          {step === 'bucket-select' && (
+            <View style={styles.form}>
+              <Text style={styles.subtitle}>
+                {selectedProject
+                  ? `Choose a storage bucket in "${selectedProject.name}".`
+                  : 'Choose a storage bucket.'}
+              </Text>
+
+              {fetchingBuckets && (
+                <View style={styles.centeredRow}>
+                  <ActivityIndicator size="small" color={Colors.blue} />
+                  <Text style={styles.fetchingText}>Loading buckets…</Text>
+                </View>
+              )}
+
+              {!fetchingBuckets && buckets.length > 0 && (
+                <View style={styles.bucketList}>
+                  <Text style={styles.fieldLabel}>Available Buckets</Text>
+                  {buckets.map((b) => (
+                    <Pressable
+                      key={b.id}
+                      style={({ pressed }) => [styles.bucketCard, pressed && { opacity: 0.7 }]}
+                      onPress={() => handleSelectBucket(b.name)}
+                    >
+                      <Ionicons
+                        name={b.public ? 'globe-outline' : 'lock-closed-outline'}
+                        size={16}
+                        color={b.public ? Colors.gpsGreen : Colors.amber}
+                      />
+                      <Text style={styles.bucketCardName}>{b.name}</Text>
+                      <View style={[
+                        styles.bucketBadge,
+                        { backgroundColor: b.public ? Colors.gpsDim : Colors.amberDim },
+                      ]}>
+                        <Text style={[
+                          styles.bucketBadgeText,
+                          { color: b.public ? Colors.gpsGreen : Colors.amber },
+                        ]}>
+                          {b.public ? 'Public' : 'Private'}
+                        </Text>
+                      </View>
+                      <Ionicons name="chevron-forward" size={16} color={Colors.textTertiary} />
+                    </Pressable>
+                  ))}
+                </View>
+              )}
+
+              {!fetchingBuckets && bucketsError !== '' && (
+                <View style={styles.patErrorBox}>
+                  <Ionicons name="alert-circle-outline" size={15} color={Colors.amber} />
+                  <Text style={[styles.patErrorText, { color: Colors.amber }]}>
+                    Could not load buckets: {bucketsError}
+                  </Text>
+                </View>
+              )}
+
+              {/* Always show manual input as fallback / "create new" */}
+              <View style={[styles.dividerRow, { marginTop: buckets.length > 0 ? 16 : 0 }]}>
+                {buckets.length > 0 && (
+                  <Text style={styles.dividerLabel}>or enter a bucket name</Text>
+                )}
+              </View>
+              <Text style={[styles.fieldLabel, { marginTop: 8 }]}>
+                {buckets.length > 0 ? 'New / Custom Bucket Name' : 'Bucket Name'}
+              </Text>
+              <TextInput
+                style={styles.input}
+                value={bucketInput}
+                onChangeText={setBucketInput}
+                placeholder="frames"
+                placeholderTextColor={Colors.textTertiary}
+                autoCapitalize="none"
+              />
+              <Text style={styles.bucketHint}>
+                The bucket must already exist in your Supabase project with public access or an anon-upload RLS policy.
+              </Text>
+
+              <View style={styles.formActions}>
+                <Pressable
+                  style={styles.backBtn}
+                  onPress={() => setStep('supabase-account')}
+                >
+                  <Text style={styles.backBtnText}>Back</Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.saveBtn, !bucketInput.trim() && styles.saveBtnDisabled]}
+                  disabled={!bucketInput.trim()}
+                  onPress={() => handleSelectBucket(bucketInput.trim())}
+                >
+                  <Ionicons name="wifi-outline" size={15} color="#fff" />
+                  <Text style={styles.saveBtnText}>Test & Save</Text>
+                </Pressable>
+              </View>
+            </View>
+          )}
+
+          {/* ── SUPABASE CREDENTIALS (manual) ───────────────────── */}
           {step === 'supabase' && (
             <View style={styles.form}>
               <Text style={styles.subtitle}>Enter your Supabase project credentials.</Text>
 
-              {/* Instructions toggle */}
               <Pressable
                 style={styles.instructionsToggle}
                 onPress={() => setInstructionsOpen((v) => !v)}
@@ -517,10 +815,35 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
     padding: 16,
   },
+  choiceBtnFeatured: {
+    borderColor: 'rgba(0,255,136,0.35)',
+    backgroundColor: 'rgba(0,255,136,0.06)',
+  },
+  choiceFeaturedIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0,255,136,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   choiceBtnNone: { opacity: 0.7 },
   choiceText: { flex: 1 },
+  choiceNameRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   choiceName: { color: Colors.text, fontFamily: 'Inter_600SemiBold', fontSize: 15 },
   choiceDesc: { color: Colors.textSecondary, fontFamily: 'Inter_400Regular', fontSize: 12, marginTop: 2 },
+  choiceNewBadge: {
+    backgroundColor: 'rgba(0,255,136,0.2)',
+    borderRadius: 4,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+  },
+  choiceNewBadgeText: {
+    color: Colors.gpsGreen,
+    fontFamily: 'Inter_700Bold',
+    fontSize: 9,
+    letterSpacing: 0.5,
+  },
 
   // Form
   form: { gap: 4 },
@@ -623,6 +946,115 @@ const styles = StyleSheet.create({
     fontFamily: Platform.OS === 'ios' ? 'Courier New' : 'monospace',
     fontSize: 12,
     lineHeight: 18,
+  },
+
+  // PAT / account connect
+  patErrorBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    backgroundColor: Colors.accentDim,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255,59,48,0.3)',
+    padding: 12,
+    marginTop: 12,
+  },
+  patErrorText: {
+    color: Colors.accent,
+    fontFamily: 'Inter_400Regular',
+    fontSize: 13,
+    flex: 1,
+    lineHeight: 18,
+  },
+  projectList: { marginTop: 8, gap: 8 },
+  projectCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: Colors.card,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: 14,
+  },
+  projectCardLeft: { flex: 1, gap: 2 },
+  projectCardName: { color: Colors.text, fontFamily: 'Inter_600SemiBold', fontSize: 14 },
+  projectCardId: { color: Colors.textTertiary, fontFamily: 'Inter_400Regular', fontSize: 11 },
+  regionBadge: {
+    backgroundColor: Colors.surface,
+    borderRadius: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+  },
+  regionBadgeText: {
+    color: Colors.textSecondary,
+    fontFamily: 'Inter_500Medium',
+    fontSize: 10,
+    letterSpacing: 0.3,
+  },
+  manualFallbackRow: {
+    alignItems: 'center',
+    marginTop: 20,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+  },
+  manualFallbackText: {
+    color: Colors.blue,
+    fontFamily: 'Inter_400Regular',
+    fontSize: 13,
+    textDecorationLine: 'underline',
+  },
+
+  // Bucket select
+  centeredRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 12,
+  },
+  fetchingText: {
+    color: Colors.textSecondary,
+    fontFamily: 'Inter_400Regular',
+    fontSize: 13,
+  },
+  bucketList: { gap: 8, marginTop: 4 },
+  bucketCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: Colors.card,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: 14,
+  },
+  bucketCardName: { color: Colors.text, fontFamily: 'Inter_600SemiBold', fontSize: 14, flex: 1 },
+  bucketBadge: {
+    borderRadius: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+  },
+  bucketBadgeText: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 10,
+    letterSpacing: 0.3,
+  },
+  dividerRow: {
+    alignItems: 'center',
+  },
+  dividerLabel: {
+    color: Colors.textTertiary,
+    fontFamily: 'Inter_400Regular',
+    fontSize: 12,
+  },
+  bucketHint: {
+    color: Colors.textTertiary,
+    fontFamily: 'Inter_400Regular',
+    fontSize: 11,
+    lineHeight: 16,
+    marginTop: 6,
   },
 
   // Centered steps (testing / success / error)
