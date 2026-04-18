@@ -344,7 +344,7 @@ export default function StorageWizard({ visible, onClose, onSaved }: Props) {
               <InfoBox>
                 <Text style={styles.infoBoxText}>
                   <Text style={{ fontFamily: 'Inter_600SemiBold', color: Colors.text }}>Your token is never stored.</Text>
-                  {' '}It is used only during setup to fetch your project credentials, then discarded immediately.{'\n\n'}
+                  {' '}It is kept in memory only during setup to fetch your project credentials, and is cleared when you close this screen.{'\n\n'}
                   Generate a token at{' '}
                   <Text style={{ color: Colors.blue }}>supabase.com/dashboard/account/tokens</Text>
                 </Text>
@@ -488,15 +488,31 @@ export default function StorageWizard({ visible, onClose, onSaved }: Props) {
                 </View>
               )}
 
-              {/* Always show manual input as fallback / "create new" */}
-              <View style={[styles.dividerRow, { marginTop: buckets.length > 0 ? 16 : 0 }]}>
+              {/* Create new bucket option — always shown below existing list */}
+              {!fetchingBuckets && (
+                <View style={{ marginTop: buckets.length > 0 ? 8 : 0 }}>
+                  <Pressable
+                    style={({ pressed }) => [styles.bucketCard, styles.bucketCardNew, pressed && { opacity: 0.7 }]}
+                    onPress={() => setBucketInput('frames')}
+                  >
+                    <Ionicons name="add-circle-outline" size={16} color={Colors.blue} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.bucketCardName, { color: Colors.blue }]}>Create new bucket</Text>
+                      <Text style={{ color: Colors.textTertiary, fontFamily: 'Inter_400Regular', fontSize: 11, marginTop: 2 }}>
+                        Enter a name in the field below
+                      </Text>
+                    </View>
+                  </Pressable>
+                </View>
+              )}
+
+              {/* Manual bucket name input */}
+              <View style={[styles.dividerRow, { marginTop: 16 }]}>
                 {buckets.length > 0 && (
-                  <Text style={styles.dividerLabel}>or enter a bucket name</Text>
+                  <Text style={styles.dividerLabel}>or use an existing bucket name</Text>
                 )}
               </View>
-              <Text style={[styles.fieldLabel, { marginTop: 8 }]}>
-                {buckets.length > 0 ? 'New / Custom Bucket Name' : 'Bucket Name'}
-              </Text>
+              <Text style={[styles.fieldLabel, { marginTop: 8 }]}>Bucket Name</Text>
               <TextInput
                 style={styles.input}
                 value={bucketInput}
@@ -1047,6 +1063,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
     padding: 14,
+  },
+  bucketCardNew: {
+    borderColor: 'rgba(10,132,255,0.3)',
+    backgroundColor: 'rgba(10,132,255,0.06)',
   },
   bucketCardName: { color: Colors.text, fontFamily: 'Inter_600SemiBold', fontSize: 14, flex: 1 },
   bucketBadge: {
