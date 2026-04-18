@@ -112,7 +112,7 @@ const MOUNT_OPTIONS: { value: MountType; label: string; icon: string }[] = [
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const { settings, updateSettings } = useSettings();
-  const { providerType, providerLabel, isCloudConfigured, lastTestResult, testConnection, reloadConfig, clearConfig } = useStorageConfig();
+  const { providerType, providerLabel, isCloudConfigured, lastTestResult, testConnection, reloadConfig, clearConfig, isEnvPreconfigured } = useStorageConfig();
   const [wizardVisible, setWizardVisible] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [jobNameDraft, setJobNameDraft] = useState(settings.jobName);
@@ -418,7 +418,14 @@ export default function SettingsScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>CLOUD STORAGE</Text>
+          <View style={styles.sectionTitleRow}>
+            <Text style={[styles.sectionTitle, { marginBottom: 0, marginLeft: 0 }]}>CLOUD STORAGE</Text>
+            {isEnvPreconfigured && (
+              <View style={styles.managedBadge}>
+                <Text style={styles.managedBadgeText}>MANAGED</Text>
+              </View>
+            )}
+          </View>
           <View style={styles.card}>
             {/* Provider row */}
             <View style={styles.storageStatusRow}>
@@ -573,6 +580,25 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
     marginBottom: 10,
     marginLeft: 2,
+  },
+  sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 10,
+    marginLeft: 2,
+  },
+  managedBadge: {
+    backgroundColor: 'rgba(0,255,136,0.15)',
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  managedBadgeText: {
+    color: Colors.gpsGreen,
+    fontFamily: 'Inter_700Bold',
+    fontSize: 9,
+    letterSpacing: 0.5,
   },
   modeRow: {
     flexDirection: 'row',
