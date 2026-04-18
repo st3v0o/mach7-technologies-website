@@ -72,12 +72,15 @@ export default function StorageWizard({ visible, onClose, onSaved }: Props) {
   const [instructionsOpen, setInstructionsOpen] = useState(false);
 
   const isMounted = useRef(true);
+  const testTokenRef = useRef(0);
+
   useEffect(() => {
     isMounted.current = true;
     return () => { isMounted.current = false; };
   }, []);
 
   const reset = () => {
+    testTokenRef.current++; // invalidate any in-flight test
     setStep('choose');
     setPendingProvider('none');
     setSupabaseUrl('');
@@ -107,6 +110,7 @@ export default function StorageWizard({ visible, onClose, onSaved }: Props) {
   };
 
   const startTest = async (provider: ProviderType) => {
+    const token = ++testTokenRef.current;
     setPendingProvider(provider);
     setStep('testing');
     const config: StorageConfig = provider === 'supabase'
@@ -114,7 +118,8 @@ export default function StorageWizard({ visible, onClose, onSaved }: Props) {
       : { providerType: 'webhook', webhookUrl, webhookSecret };
 
     const result = await testCredentials(config);
-    if (!isMounted.current) return;
+    // Guard against stale callbacks: component unmounted or a newer test started
+    if (!isMounted.current || testTokenRef.current !== token) return;
 
     if (result.success) {
       // Only persist test result and save config when the test actually passed
