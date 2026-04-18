@@ -24,6 +24,7 @@ import Colors from '@/constants/colors';
 import UploadProgressModal from '@/components/UploadProgressModal';
 import { useRecording } from '@/contexts/RecordingContext';
 import { FEET_PER_METER, MPH_PER_MPS, useSettings } from '@/contexts/SettingsContext';
+import { useUpload } from '@/contexts/UploadContext';
 
 const TARGET_SEGMENT_BYTES = 250 * 1024 * 1024; // 250 MB
 const DEFAULT_SEGMENT_MS = 90_000;              // initial guess before bitrate is known
@@ -110,10 +111,28 @@ export default function CaptureScreen() {
     exportManualGpxTrack,
   } = useRecording();
 
+  const { pendingCount, failedCount, isCloudConfigured } = useUpload();
+
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showJobNameModal, setShowJobNameModal] = useState(false);
   const [jobNameDraft, setJobNameDraft] = useState('');
+  const [uploadJustDone, setUploadJustDone] = useState(false);
+  const prevPendingCountRef = useRef(0);
   const prevIsRecording = useRef(false);
+
+  useEffect(() => {
+    if (
+      prevPendingCountRef.current > 0 &&
+      pendingCount === 0 &&
+      failedCount === 0 &&
+      isCloudConfigured
+    ) {
+      setUploadJustDone(true);
+      const t = setTimeout(() => setUploadJustDone(false), 3000);
+      return () => clearTimeout(t);
+    }
+    prevPendingCountRef.current = pendingCount;
+  }, [pendingCount, failedCount, isCloudConfigured]);
 
   const { settings, updateSettings } = useSettings();
   const settingsRef = useRef(settings);
@@ -690,7 +709,7 @@ export default function CaptureScreen() {
             )}
           </View>
 
-          {/* Right: altitude + mount badge */}
+          {/* Right: altitude + mount badge + upload badge */}
           <View style={styles.topRight}>
             {currentGps?.altitude != null && (
               <Text style={styles.altText}>
@@ -703,6 +722,49 @@ export default function CaptureScreen() {
                 {mountLabel[settings.mountType] ?? 'VEHICLE'}
               </Text>
             </View>
+            {isCloudConfigured && (pendingCount > 0 || failedCount > 0 || uploadJustDone) && (
+              <Pressable
+                onPress={() => setShowUploadModal(true)}
+                hitSlop={10}
+                style={({ pressed }) => [
+                  styles.uploadBadge,
+                  failedCount > 0 && styles.uploadBadgeFailed,
+                  uploadJustDone && pendingCount === 0 && failedCount === 0 && styles.uploadBadgeDone,
+                  pressed && { opacity: 0.75 },
+                ]}
+              >
+                <Ionicons
+                  name={
+                    uploadJustDone && pendingCount === 0 && failedCount === 0
+                      ? 'checkmark-circle'
+                      : failedCount > 0 && pendingCount === 0
+                      ? 'close-circle'
+                      : 'cloud-upload-outline'
+                  }
+                  size={10}
+                  color={
+                    uploadJustDone && pendingCount === 0 && failedCount === 0
+                      ? Colors.gpsGreen
+                      : failedCount > 0 && pendingCount === 0
+                      ? Colors.accent
+                      : Colors.amber
+                  }
+                />
+                <Text style={[
+                  styles.uploadBadgeText,
+                  failedCount > 0 && pendingCount === 0 && { color: Colors.accent },
+                  uploadJustDone && pendingCount === 0 && failedCount === 0 && { color: Colors.gpsGreen },
+                ]}>
+                  {uploadJustDone && pendingCount === 0 && failedCount === 0
+                    ? 'All uploaded'
+                    : failedCount > 0 && pendingCount === 0
+                    ? `${failedCount} failed`
+                    : failedCount > 0
+                    ? `${pendingCount} · ${failedCount} failed`
+                    : `${pendingCount} uploading`}
+                </Text>
+              </Pressable>
+            )}
           </View>
         </View>
       </View>
@@ -1153,6 +1215,31 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_500Medium',
     fontSize: 9,
     letterSpacing: 1,
+  },
+  uploadBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderWidth: 1,
+    borderColor: Colors.amberDim,
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    backgroundColor: 'rgba(255,184,0,0.10)',
+  },
+  uploadBadgeFailed: {
+    borderColor: 'rgba(255,59,48,0.35)',
+    backgroundColor: 'rgba(255,59,48,0.10)',
+  },
+  uploadBadgeDone: {
+    borderColor: 'rgba(0,255,136,0.3)',
+    backgroundColor: 'rgba(0,255,136,0.08)',
+  },
+  uploadBadgeText: {
+    color: Colors.amber,
+    fontFamily: 'Inter_500Medium',
+    fontSize: 9,
+    letterSpacing: 0.3,
   },
   processingBanner: {
     position: 'absolute',
