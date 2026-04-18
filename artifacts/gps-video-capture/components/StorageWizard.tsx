@@ -116,13 +116,15 @@ export default function StorageWizard({ visible, onClose, onSaved }: Props) {
     const result = await testCredentials(config);
     if (!isMounted.current) return;
 
-    await persistTestResult(result.success, result.error);
-
     if (result.success) {
+      // Only persist test result and save config when the test actually passed
+      await persistTestResult(true);
       await AsyncStorage.setItem(CONFIG_STORAGE_KEY, JSON.stringify(config)).catch(() => {});
       onSaved?.();
       setStep('success');
     } else {
+      // Keep the failure local to wizard state only — don't touch the persisted
+      // test result so Settings continues to reflect the previously saved config
       setTestError(result.error ?? 'Connection failed');
       setStep('error');
     }
@@ -130,6 +132,8 @@ export default function StorageWizard({ visible, onClose, onSaved }: Props) {
 
   const saveAnyway = async () => {
     const config = buildConfig();
+    // New (untested) config is being saved — clear any existing test result so
+    // Settings correctly shows "Configured, not tested" rather than a stale result
     await AsyncStorage.removeItem(TEST_RESULT_KEY).catch(() => {});
     await AsyncStorage.setItem(CONFIG_STORAGE_KEY, JSON.stringify(config)).catch(() => {});
     onSaved?.();
