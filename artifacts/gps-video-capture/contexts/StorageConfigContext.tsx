@@ -32,6 +32,7 @@ interface StorageConfigContextType {
   isCloudConfigured: boolean;
   connectionVerified: boolean;
   lastTestResult: TestResult | null;
+  isEnvPreconfigured: boolean;
   uploadFrame: (params: UploadFrameParams) => Promise<string>;
   testConnection: () => Promise<{ success: boolean; error?: string }>;
   reloadConfig: () => Promise<void>;
@@ -51,6 +52,18 @@ export interface StorageConfig {
   webhookUrl?: string;
   webhookSecret?: string;
 }
+
+const ENV_URL = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
+const ENV_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';
+const ENV_BUCKET = process.env.EXPO_PUBLIC_SUPABASE_BUCKET ?? '';
+const HAS_ENV_CONFIG = Boolean(ENV_URL && ENV_KEY && ENV_BUCKET);
+
+const ENV_CONFIG: StorageConfig = {
+  providerType: 'supabase',
+  supabaseUrl: ENV_URL,
+  supabaseKey: ENV_KEY,
+  supabaseBucket: ENV_BUCKET,
+};
 
 export async function testCredentials(config: StorageConfig): Promise<{ success: boolean; error?: string }> {
   try {
@@ -86,14 +99,23 @@ export async function testCredentials(config: StorageConfig): Promise<{ success:
   }
 }
 
+type ConfigSource = 'env' | 'user' | 'none';
+
 export function StorageConfigProvider({ children }: { children: React.ReactNode }) {
   const [config, setConfig] = useState<StorageConfig>({ providerType: 'none' });
+  const [configSource, setConfigSource] = useState<ConfigSource>('none');
   const [lastTestResult, setLastTestResult] = useState<TestResult | null>(null);
 
   useEffect(() => {
     AsyncStorage.getItem(CONFIG_STORAGE_KEY)
       .then((raw) => {
-        if (raw) setConfig(JSON.parse(raw) as StorageConfig);
+        if (raw) {
+          setConfig(JSON.parse(raw) as StorageConfig);
+          setConfigSource('user');
+        } else if (HAS_ENV_CONFIG) {
+          setConfig(ENV_CONFIG);
+          setConfigSource('env');
+        }
       })
       .catch(() => {});
 
@@ -112,6 +134,8 @@ export function StorageConfigProvider({ children }: { children: React.ReactNode 
     (config.providerType === 'webhook' && Boolean(config.webhookUrl));
 
   const connectionVerified = lastTestResult?.success === true;
+
+  const isEnvPreconfigured = HAS_ENV_CONFIG && configSource === 'env';
 
   const testConnection = useCallback(async (): Promise<{ success: boolean; error?: string }> => {
     const result = await testCredentials(config);
@@ -163,7 +187,16 @@ export function StorageConfigProvider({ children }: { children: React.ReactNode 
   const reloadConfig = useCallback(async () => {
     try {
       const raw = await AsyncStorage.getItem(CONFIG_STORAGE_KEY);
-      if (raw) setConfig(JSON.parse(raw) as StorageConfig);
+      if (raw) {
+        setConfig(JSON.parse(raw) as StorageConfig);
+        setConfigSource('user');
+      } else if (HAS_ENV_CONFIG) {
+        setConfig(ENV_CONFIG);
+        setConfigSource('env');
+      } else {
+        setConfig({ providerType: 'none' });
+        setConfigSource('none');
+      }
     } catch {}
     try {
       const raw = await AsyncStorage.getItem(TEST_RESULT_KEY);
@@ -172,11 +205,16 @@ export function StorageConfigProvider({ children }: { children: React.ReactNode 
   }, []);
 
   const clearConfig = useCallback(() => {
-    const cleared: StorageConfig = { providerType: 'none' };
-    setConfig(cleared);
-    setLastTestResult(null);
-    AsyncStorage.setItem(CONFIG_STORAGE_KEY, JSON.stringify(cleared)).catch(() => {});
+    AsyncStorage.removeItem(CONFIG_STORAGE_KEY).catch(() => {});
     AsyncStorage.removeItem(TEST_RESULT_KEY).catch(() => {});
+    setLastTestResult(null);
+    if (HAS_ENV_CONFIG) {
+      setConfig(ENV_CONFIG);
+      setConfigSource('env');
+    } else {
+      setConfig({ providerType: 'none' });
+      setConfigSource('none');
+    }
   }, []);
 
   const providerLabel = PROVIDER_LABELS[config.providerType] ?? 'Unknown';
@@ -189,6 +227,7 @@ export function StorageConfigProvider({ children }: { children: React.ReactNode 
         isCloudConfigured,
         connectionVerified,
         lastTestResult,
+        isEnvPreconfigured,
         uploadFrame,
         testConnection,
         reloadConfig,

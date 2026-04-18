@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 
 import Colors from '@/constants/colors';
-import { StorageConfig, testCredentials } from '@/contexts/StorageConfigContext';
+import { StorageConfig, testCredentials, useStorageConfig } from '@/contexts/StorageConfigContext';
 import {
   SupabaseBucket,
   SupabaseProject,
@@ -34,6 +34,7 @@ interface Props {
 }
 
 type WizardStep =
+  | 'preconfigured'
   | 'choose'
   | 'supabase-account'
   | 'bucket-select'
@@ -74,6 +75,7 @@ function SetupStep({ n, children }: { n: number; children: React.ReactNode }) {
 }
 
 export default function StorageWizard({ visible, onClose, onSaved }: Props) {
+  const { isEnvPreconfigured } = useStorageConfig();
   const [step, setStep] = useState<WizardStep>('choose');
   const [pendingProvider, setPendingProvider] = useState<ProviderType>('none');
 
@@ -106,9 +108,15 @@ export default function StorageWizard({ visible, onClose, onSaved }: Props) {
     return () => { isMounted.current = false; };
   }, []);
 
+  useEffect(() => {
+    if (visible) {
+      setStep(isEnvPreconfigured ? 'preconfigured' : 'choose');
+    }
+  }, [visible, isEnvPreconfigured]);
+
   const reset = () => {
     testTokenRef.current++;
-    setStep('choose');
+    setStep(isEnvPreconfigured ? 'preconfigured' : 'choose');
     setPendingProvider('none');
     setSupabaseUrl('');
     setSupabaseKey('');
@@ -271,6 +279,63 @@ export default function StorageWizard({ visible, onClose, onSaved }: Props) {
         </View>
 
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+
+          {/* ── PRE-CONFIGURED (env vars) ───────────────────────── */}
+          {step === 'preconfigured' && (
+            <View style={styles.preconfiguredContainer}>
+              <View style={styles.preconfiguredIconRow}>
+                <View style={styles.preconfiguredIcon}>
+                  <Ionicons name="shield-checkmark" size={32} color={Colors.gpsGreen} />
+                </View>
+              </View>
+
+              <Text style={styles.preconfiguredTitle}>Pre-configured</Text>
+              <Text style={styles.preconfiguredSubtitle}>
+                This app has been set up with Supabase credentials by your administrator. No manual setup is required.
+              </Text>
+
+              <View style={styles.preconfiguredCard}>
+                <View style={styles.preconfiguredRow}>
+                  <Text style={styles.preconfiguredLabel}>PROJECT URL</Text>
+                  <Text style={styles.preconfiguredValue} numberOfLines={1}>
+                    {process.env.EXPO_PUBLIC_SUPABASE_URL ?? '—'}
+                  </Text>
+                </View>
+                <View style={styles.preconfiguredDivider} />
+                <View style={styles.preconfiguredRow}>
+                  <Text style={styles.preconfiguredLabel}>BUCKET</Text>
+                  <Text style={styles.preconfiguredValue}>
+                    {process.env.EXPO_PUBLIC_SUPABASE_BUCKET ?? '—'}
+                  </Text>
+                </View>
+                <View style={styles.preconfiguredDivider} />
+                <View style={styles.preconfiguredRow}>
+                  <Text style={styles.preconfiguredLabel}>ANON KEY</Text>
+                  <Text style={styles.preconfiguredValue}>
+                    {'••••••••••••••••••••'}
+                  </Text>
+                </View>
+              </View>
+
+              <InfoBox>
+                <Text style={styles.infoBoxText}>
+                  These credentials are baked into the app build. You can override them by reconfiguring manually below.
+                </Text>
+              </InfoBox>
+
+              <Pressable
+                style={styles.reconfigureBtn}
+                onPress={() => setStep('choose')}
+              >
+                <Ionicons name="settings-outline" size={15} color={Colors.textSecondary} />
+                <Text style={styles.reconfigureBtnText}>Reconfigure manually</Text>
+              </Pressable>
+
+              <Pressable style={[styles.doneBtn, { marginTop: 4 }]} onPress={handleClose}>
+                <Text style={styles.doneBtnText}>Done</Text>
+              </Pressable>
+            </View>
+          )}
 
           {/* ── CHOOSE PROVIDER ─────────────────────────────────── */}
           {step === 'choose' && (
@@ -1195,6 +1260,83 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
   },
   saveAnywayText: { color: Colors.textSecondary, fontFamily: 'Inter_600SemiBold', fontSize: 15 },
+
+  // Pre-configured (env vars)
+  preconfiguredContainer: {
+    alignItems: 'center',
+    paddingTop: 20,
+    gap: 16,
+  },
+  preconfiguredIconRow: {
+    alignItems: 'center',
+  },
+  preconfiguredIcon: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: 'rgba(0,255,136,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(0,255,136,0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  preconfiguredTitle: {
+    color: Colors.text,
+    fontFamily: 'Inter_700Bold',
+    fontSize: 22,
+    textAlign: 'center',
+  },
+  preconfiguredSubtitle: {
+    color: Colors.textSecondary,
+    fontFamily: 'Inter_400Regular',
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 21,
+    maxWidth: 300,
+  },
+  preconfiguredCard: {
+    width: '100%',
+    backgroundColor: Colors.card,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingHorizontal: 16,
+    paddingVertical: 4,
+  },
+  preconfiguredRow: {
+    paddingVertical: 12,
+    gap: 4,
+  },
+  preconfiguredLabel: {
+    color: Colors.textTertiary,
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 10,
+    letterSpacing: 0.8,
+  },
+  preconfiguredValue: {
+    color: Colors.text,
+    fontFamily: 'Inter_400Regular',
+    fontSize: 13,
+  },
+  preconfiguredDivider: {
+    height: 1,
+    backgroundColor: Colors.border,
+  },
+  reconfigureBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  reconfigureBtnText: {
+    color: Colors.textSecondary,
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 14,
+  },
 
   // Info box
   infoBox: {
