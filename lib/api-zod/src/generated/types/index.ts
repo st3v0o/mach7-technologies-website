@@ -6,4 +6,25 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from "./contactRequest";
+export * from "./contactResponse";
+export * from "./errorResponse";
+export * from "./getPortalSessionFrames200";
+export * from "./getPortalSessionFramesParams";
+export * from "./getPortalSessionRoute200";
+export * from "./getPortalSessionRoute200Geojson";
 export * from "./healthStatus";
+export * from "./importGpxRequest";
+export * from "./importGpxRequestFramesItem";
+export * from "./importSessionJsonRequest";
+export * from "./importSessionJsonRequestFramesItem";
+export * from "./importSessionJsonRequestSession";
+export * from "./listPortalSessions200";
+export * from "./listPortalSessionsParams";
+export * from "./listPortalSessionsStatus";
+export * from "./portalFrame";
+export * from "./portalFrameMetadata";
+export * from "./portalSession";
+export * from "./portalSessionRouteGeojson";
+export * from "./portalSessionSummary";
+export * from "./portalStats";

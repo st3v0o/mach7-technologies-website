@@ -27,7 +27,10 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 ```text
 artifacts-monorepo/
 ├── artifacts/              # Deployable applications
-│   └── api-server/         # Express API server
+│   ├── api-server/         # Express API server
+│   ├── geospector-portal/  # Geospector web portal (React + Vite, at /geospector-portal/)
+│   ├── gps-video-capture/  # Geospector iOS app (Expo SDK 54)
+│   └── mach7-website/      # MACH 7 Technologies marketing site (Astro, at /mach7/)
 ├── lib/                    # Shared libraries
 │   ├── api-spec/           # OpenAPI spec + Orval codegen config
 │   ├── api-client-react/   # Generated React Query hooks
@@ -62,11 +65,17 @@ Express 5 API server. Routes live in `src/routes/` and use `@workspace/api-zod` 
 
 - Entry: `src/index.ts` — reads `PORT`, starts Express
 - App setup: `src/app.ts` — mounts CORS, JSON/urlencoded parsing, routes at `/api`
-- Routes: `src/routes/index.ts` mounts sub-routers; `src/routes/health.ts` exposes `GET /health` (full path: `/api/health`)
+- Routes: `src/routes/index.ts` mounts sub-routers; `src/routes/health.ts` exposes `GET /health`; `src/routes/portal.ts` exposes all Geospector Portal endpoints under `/api/portal/`
+- Portal API: sessions CRUD, frames, route GeoJSON, share token lookup, import from JSON/GPX, mock seed
+- Geo helpers: `src/lib/geo.ts` — Haversine distance, GeoJSON LineString builder
 - Depends on: `@workspace/db`, `@workspace/api-zod`
 - `pnpm --filter @workspace/api-server run dev` — run the dev server
 - `pnpm --filter @workspace/api-server run build` — production esbuild bundle (`dist/index.cjs`)
 - Build bundles an allowlist of deps (express, cors, pg, drizzle-orm, zod, etc.) and externalizes the rest
+
+### `artifacts/geospector-portal` (`@workspace/geospector-portal`)
+
+Geospector companion web portal — React + Vite app served at `/geospector-portal/`. Provides session review, map visualization, and metrics for Geospector field capture sessions. The design subagent (Task #38) builds the full frontend UI.
 
 ### `lib/db` (`@workspace/db`)
 
@@ -74,7 +83,8 @@ Database layer using Drizzle ORM with PostgreSQL. Exports a Drizzle client insta
 
 - `src/index.ts` — creates a `Pool` + Drizzle instance, exports schema
 - `src/schema/index.ts` — barrel re-export of all models
-- `src/schema/<modelname>.ts` — table definitions with `drizzle-zod` insert schemas (no models definitions exist right now)
+- `src/schema/portal_sessions.ts` — `portal_sessions` table (Geospector sessions: GPS route, metrics, share token)
+- `src/schema/portal_frames.ts` — `portal_frames` table (individual GPS-tagged frames with image URLs)
 - `drizzle.config.ts` — Drizzle Kit config (requires `DATABASE_URL`, automatically provided by Replit)
 - Exports: `.` (pool, db, schema), `./schema` (schema only)
 

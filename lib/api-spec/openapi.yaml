@@ -12,6 +12,8 @@ tags:
     description: Health operations
   - name: contact
     description: Contact form operations
+  - name: portal
+    description: Geospector Portal — session review, map, and metrics
 paths:
   /contact:
     post:
@@ -57,6 +59,299 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # ── Geospector Portal ──────────────────────────────────────────────────────
+
+  /portal/stats:
+    get:
+      operationId: getPortalStats
+      tags: [portal]
+      summary: Overall portal statistics
+      description: Returns aggregate counts across all sessions
+      responses:
+        "200":
+          description: Stats object
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PortalStats"
+
+  /portal/sessions:
+    get:
+      operationId: listPortalSessions
+      tags: [portal]
+      summary: List all sessions
+      description: Returns sessions ordered by createdAt descending with optional filters
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [active, archived]
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 50
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: Array of sessions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sessions:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PortalSession"
+                  total:
+                    type: integer
+                required:
+                  - sessions
+                  - total
+
+  /portal/sessions/{id}:
+    get:
+      operationId: getPortalSession
+      tags: [portal]
+      summary: Get session detail
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Session detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PortalSession"
+        "404":
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /portal/sessions/{id}/frames:
+    get:
+      operationId: getPortalSessionFrames
+      tags: [portal]
+      summary: Get frames for a session
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 200
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: Array of frames
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  frames:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PortalFrame"
+                  total:
+                    type: integer
+                required:
+                  - frames
+                  - total
+        "404":
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /portal/sessions/{id}/summary:
+    get:
+      operationId: getPortalSessionSummary
+      tags: [portal]
+      summary: Computed metrics summary for a session
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Session summary metrics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PortalSessionSummary"
+        "404":
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /portal/sessions/{id}/route:
+    get:
+      operationId: getPortalSessionRoute
+      tags: [portal]
+      summary: GeoJSON route for a session
+      description: Returns the route_geojson LineString, derived from frame coords if not stored
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: GeoJSON route
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  geojson:
+                    type: object
+                    nullable: true
+                    description: GeoJSON LineString or null if <2 points
+                required:
+                  - geojson
+        "404":
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /portal/share/{token}:
+    get:
+      operationId: getPortalShareSession
+      tags: [portal]
+      summary: Public share view for a session
+      description: Returns full session detail by public share token — no auth required
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Session detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PortalSession"
+        "404":
+          description: Share link not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /portal/import/mock:
+    post:
+      operationId: importMockPortalSession
+      tags: [portal]
+      summary: Generate a demo session
+      description: >
+        Creates a realistic demo Geospector session with 12 frames along a sample
+        route in San Jose, CA. Useful for testing and onboarding.
+      responses:
+        "200":
+          description: Created session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PortalSession"
+
+  /portal/import/session-json:
+    post:
+      operationId: importPortalSessionJson
+      tags: [portal]
+      summary: Import session from JSON
+      description: >
+        Accepts a Geospector session metadata object and an array of frame objects,
+        inserts them into the portal DB, derives route geometry and metrics.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImportSessionJsonRequest"
+      responses:
+        "200":
+          description: Created session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PortalSession"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /portal/import/gpx:
+    post:
+      operationId: importPortalGpx
+      tags: [portal]
+      summary: Import session from GPX XML
+      description: >
+        Parses a GPX track XML string, extracts trackpoints as frames, and creates
+        a session. Optionally accepts supplemental frame metadata JSON.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImportGpxRequest"
+      responses:
+        "200":
+          description: Created session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PortalSession"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # ── Future publish endpoints (placeholders) ────────────────────────────────
+  # POST /portal/publish/session        — direct publish from Geospector mobile app
+  # POST /portal/publish/frame-batch    — batch frame metadata upload from mobile
+  # POST /portal/ingest/supabase-manifest — pull session from Supabase Storage manifest
+
 components:
   schemas:
     HealthStatus:
@@ -96,3 +391,193 @@ components:
       required:
         - error
 
+    PortalSession:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+          nullable: true
+        sessionId:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        startedAt:
+          type: string
+          format: date-time
+          nullable: true
+        endedAt:
+          type: string
+          format: date-time
+          nullable: true
+        captureMode:
+          type: string
+          nullable: true
+        totalFrames:
+          type: integer
+        uploadedFrames:
+          type: integer
+        totalDistanceMiles:
+          type: number
+          nullable: true
+        durationSeconds:
+          type: integer
+          nullable: true
+        averageSpeedMph:
+          type: number
+          nullable: true
+        maxSpeedMph:
+          type: number
+          nullable: true
+        routeGeojson:
+          type: object
+          nullable: true
+          description: GeoJSON LineString
+        sourceType:
+          type: string
+        publicShareToken:
+          type: string
+          nullable: true
+        status:
+          type: string
+        thumbnailUrl:
+          type: string
+          nullable: true
+      required:
+        - id
+        - sessionId
+        - createdAt
+        - totalFrames
+        - uploadedFrames
+        - sourceType
+        - status
+
+    PortalFrame:
+      type: object
+      properties:
+        id:
+          type: integer
+        portalSessionId:
+          type: integer
+        frameIndex:
+          type: integer
+        capturedAt:
+          type: string
+          format: date-time
+        latitude:
+          type: number
+        longitude:
+          type: number
+        heading:
+          type: number
+          nullable: true
+        speedMph:
+          type: number
+          nullable: true
+        imageUrl:
+          type: string
+          nullable: true
+        thumbnailUrl:
+          type: string
+          nullable: true
+        uploadStatus:
+          type: string
+        metadata:
+          type: object
+          nullable: true
+      required:
+        - id
+        - portalSessionId
+        - frameIndex
+        - capturedAt
+        - latitude
+        - longitude
+        - uploadStatus
+
+    PortalSessionSummary:
+      type: object
+      properties:
+        sessionId:
+          type: integer
+        totalFrames:
+          type: integer
+        uploadedFrames:
+          type: integer
+        totalDistanceMiles:
+          type: number
+          nullable: true
+        durationSeconds:
+          type: integer
+          nullable: true
+        averageSpeedMph:
+          type: number
+          nullable: true
+        maxSpeedMph:
+          type: number
+          nullable: true
+        firstFrameAt:
+          type: string
+          format: date-time
+          nullable: true
+        lastFrameAt:
+          type: string
+          format: date-time
+          nullable: true
+        frameCount:
+          type: integer
+        uploadedCount:
+          type: integer
+      required:
+        - sessionId
+        - totalFrames
+        - uploadedFrames
+        - frameCount
+        - uploadedCount
+
+    PortalStats:
+      type: object
+      properties:
+        totalSessions:
+          type: integer
+        totalFrames:
+          type: integer
+        totalDistanceMiles:
+          type: number
+      required:
+        - totalSessions
+        - totalFrames
+        - totalDistanceMiles
+
+    ImportSessionJsonRequest:
+      type: object
+      properties:
+        session:
+          type: object
+          description: Geospector session metadata
+        frames:
+          type: array
+          items:
+            type: object
+          description: Array of frame metadata objects from Geospector
+      required:
+        - session
+        - frames
+
+    ImportGpxRequest:
+      type: object
+      properties:
+        gpx:
+          type: string
+          description: GPX XML string containing track data
+        frames:
+          type: array
+          items:
+            type: object
+          description: Optional supplemental frame metadata JSON
+        title:
+          type: string
+          description: Optional session title
+      required:
+        - gpx

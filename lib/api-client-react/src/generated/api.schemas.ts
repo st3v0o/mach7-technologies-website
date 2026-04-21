@@ -8,3 +8,146 @@
 export interface HealthStatus {
   status: string;
 }
+
+export interface ContactRequest {
+  name: string;
+  org?: string;
+  message: string;
+  recaptchaToken: string;
+}
+
+export interface ContactResponse {
+  success: boolean;
+}
+
+export interface ErrorResponse {
+  error: string;
+}
+
+/**
+ * GeoJSON LineString
+ */
+export type PortalSessionRouteGeojson = { [key: string]: unknown } | null;
+
+export interface PortalSession {
+  id: number;
+  title?: string | null;
+  sessionId: string;
+  createdAt: string;
+  startedAt?: string | null;
+  endedAt?: string | null;
+  captureMode?: string | null;
+  totalFrames: number;
+  uploadedFrames: number;
+  totalDistanceMiles?: number | null;
+  durationSeconds?: number | null;
+  averageSpeedMph?: number | null;
+  maxSpeedMph?: number | null;
+  /** GeoJSON LineString */
+  routeGeojson?: PortalSessionRouteGeojson;
+  sourceType: string;
+  publicShareToken?: string | null;
+  status: string;
+  thumbnailUrl?: string | null;
+}
+
+export type PortalFrameMetadata = { [key: string]: unknown } | null;
+
+export interface PortalFrame {
+  id: number;
+  portalSessionId: number;
+  frameIndex: number;
+  capturedAt: string;
+  latitude: number;
+  longitude: number;
+  heading?: number | null;
+  speedMph?: number | null;
+  imageUrl?: string | null;
+  thumbnailUrl?: string | null;
+  uploadStatus: string;
+  metadata?: PortalFrameMetadata;
+}
+
+export interface PortalSessionSummary {
+  sessionId: number;
+  totalFrames: number;
+  uploadedFrames: number;
+  totalDistanceMiles?: number | null;
+  durationSeconds?: number | null;
+  averageSpeedMph?: number | null;
+  maxSpeedMph?: number | null;
+  firstFrameAt?: string | null;
+  lastFrameAt?: string | null;
+  frameCount: number;
+  uploadedCount: number;
+}
+
+export interface PortalStats {
+  totalSessions: number;
+  totalFrames: number;
+  totalDistanceMiles: number;
+}
+
+/**
+ * Geospector session metadata
+ */
+export type ImportSessionJsonRequestSession = { [key: string]: unknown };
+
+export type ImportSessionJsonRequestFramesItem = { [key: string]: unknown };
+
+export interface ImportSessionJsonRequest {
+  /** Geospector session metadata */
+  session: ImportSessionJsonRequestSession;
+  /** Array of frame metadata objects from Geospector */
+  frames: ImportSessionJsonRequestFramesItem[];
+}
+
+export type ImportGpxRequestFramesItem = { [key: string]: unknown };
+
+export interface ImportGpxRequest {
+  /** GPX XML string containing track data */
+  gpx: string;
+  /** Optional supplemental frame metadata JSON */
+  frames?: ImportGpxRequestFramesItem[];
+  /** Optional session title */
+  title?: string;
+}
+
+export type ListPortalSessionsParams = {
+  status?: ListPortalSessionsStatus;
+  limit?: number;
+  offset?: number;
+};
+
+export type ListPortalSessionsStatus =
+  (typeof ListPortalSessionsStatus)[keyof typeof ListPortalSessionsStatus];
+
+export const ListPortalSessionsStatus = {
+  active: "active",
+  archived: "archived",
+} as const;
+
+export type ListPortalSessions200 = {
+  sessions: PortalSession[];
+  total: number;
+};
+
+export type GetPortalSessionFramesParams = {
+  limit?: number;
+  offset?: number;
+};
+
+export type GetPortalSessionFrames200 = {
+  frames: PortalFrame[];
+  total: number;
+};
+
+/**
+ * GeoJSON LineString or null if <2 points
+ */
+export type GetPortalSessionRoute200Geojson = { [key: string]: unknown } | null;
+
+export type GetPortalSessionRoute200 = {
+  /** GeoJSON LineString or null if <2 points */
+  geojson: GetPortalSessionRoute200Geojson;
+};

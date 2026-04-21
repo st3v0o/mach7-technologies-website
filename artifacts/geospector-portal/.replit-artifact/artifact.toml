@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/geospector-portal/"
+title = "Geospector Portal"
+version = "1.0.0"
+id = "artifacts/geospector-portal"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/geospector-portal/" ]
+localPort = 24441
+
+[services.development]
+run = "pnpm --filter @workspace/geospector-portal run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/geospector-portal", "run", "build" ]
+publicDir = "artifacts/geospector-portal/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "24441"
+BASE_PATH = "/geospector-portal/"

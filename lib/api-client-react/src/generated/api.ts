@@ -5,24 +5,129 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import type {
+  MutationFunction,
   QueryFunction,
   QueryKey,
+  UseMutationOptions,
+  UseMutationResult,
   UseQueryOptions,
   UseQueryResult,
 } from "@tanstack/react-query";
 
-import type { HealthStatus } from "./api.schemas";
+import type {
+  ContactRequest,
+  ContactResponse,
+  ErrorResponse,
+  GetPortalSessionFrames200,
+  GetPortalSessionFramesParams,
+  GetPortalSessionRoute200,
+  HealthStatus,
+  ImportGpxRequest,
+  ImportSessionJsonRequest,
+  ListPortalSessions200,
+  ListPortalSessionsParams,
+  PortalSession,
+  PortalSessionSummary,
+  PortalStats,
+} from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
-import type { ErrorType } from "../custom-fetch";
+import type { ErrorType, BodyType } from "../custom-fetch";
 
 type AwaitedInput<T> = PromiseLike<T> | T;
 
 type Awaited<O> = O extends AwaitedInput<infer T> ? T : never;
 
 type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
+
+/**
+ * Verifies reCAPTCHA token and sends an email to the site owner
+ * @summary Submit contact form
+ */
+export const getSubmitContactUrl = () => {
+  return `/api/contact`;
+};
+
+export const submitContact = async (
+  contactRequest: ContactRequest,
+  options?: RequestInit,
+): Promise<ContactResponse> => {
+  return customFetch<ContactResponse>(getSubmitContactUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(contactRequest),
+  });
+};
+
+export const getSubmitContactMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof submitContact>>,
+    TError,
+    { data: BodyType<ContactRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof submitContact>>,
+  TError,
+  { data: BodyType<ContactRequest> },
+  TContext
+> => {
+  const mutationKey = ["submitContact"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof submitContact>>,
+    { data: BodyType<ContactRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return submitContact(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SubmitContactMutationResult = NonNullable<
+  Awaited<ReturnType<typeof submitContact>>
+>;
+export type SubmitContactMutationBody = BodyType<ContactRequest>;
+export type SubmitContactMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Submit contact form
+ */
+export const useSubmitContact = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof submitContact>>,
+    TError,
+    { data: BodyType<ContactRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof submitContact>>,
+  TError,
+  { data: BodyType<ContactRequest> },
+  TContext
+> => {
+  return useMutation(getSubmitContactMutationOptions(options));
+};
 
 /**
  * Returns server health status
@@ -99,3 +204,915 @@ export function useHealthCheck<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * Returns aggregate counts across all sessions
+ * @summary Overall portal statistics
+ */
+export const getGetPortalStatsUrl = () => {
+  return `/api/portal/stats`;
+};
+
+export const getPortalStats = async (
+  options?: RequestInit,
+): Promise<PortalStats> => {
+  return customFetch<PortalStats>(getGetPortalStatsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetPortalStatsQueryKey = () => {
+  return [`/api/portal/stats`] as const;
+};
+
+export const getGetPortalStatsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getPortalStats>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getPortalStats>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetPortalStatsQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getPortalStats>>> = ({
+    signal,
+  }) => getPortalStats({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getPortalStats>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetPortalStatsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPortalStats>>
+>;
+export type GetPortalStatsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Overall portal statistics
+ */
+
+export function useGetPortalStats<
+  TData = Awaited<ReturnType<typeof getPortalStats>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getPortalStats>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetPortalStatsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Returns sessions ordered by createdAt descending with optional filters
+ * @summary List all sessions
+ */
+export const getListPortalSessionsUrl = (params?: ListPortalSessionsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/portal/sessions?${stringifiedParams}`
+    : `/api/portal/sessions`;
+};
+
+export const listPortalSessions = async (
+  params?: ListPortalSessionsParams,
+  options?: RequestInit,
+): Promise<ListPortalSessions200> => {
+  return customFetch<ListPortalSessions200>(getListPortalSessionsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListPortalSessionsQueryKey = (
+  params?: ListPortalSessionsParams,
+) => {
+  return [`/api/portal/sessions`, ...(params ? [params] : [])] as const;
+};
+
+export const getListPortalSessionsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listPortalSessions>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListPortalSessionsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listPortalSessions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListPortalSessionsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listPortalSessions>>
+  > = ({ signal }) => listPortalSessions(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listPortalSessions>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListPortalSessionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPortalSessions>>
+>;
+export type ListPortalSessionsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List all sessions
+ */
+
+export function useListPortalSessions<
+  TData = Awaited<ReturnType<typeof listPortalSessions>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListPortalSessionsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listPortalSessions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListPortalSessionsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get session detail
+ */
+export const getGetPortalSessionUrl = (id: number) => {
+  return `/api/portal/sessions/${id}`;
+};
+
+export const getPortalSession = async (
+  id: number,
+  options?: RequestInit,
+): Promise<PortalSession> => {
+  return customFetch<PortalSession>(getGetPortalSessionUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetPortalSessionQueryKey = (id: number) => {
+  return [`/api/portal/sessions/${id}`] as const;
+};
+
+export const getGetPortalSessionQueryOptions = <
+  TData = Awaited<ReturnType<typeof getPortalSession>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getPortalSession>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetPortalSessionQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getPortalSession>>
+  > = ({ signal }) => getPortalSession(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getPortalSession>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetPortalSessionQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPortalSession>>
+>;
+export type GetPortalSessionQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Get session detail
+ */
+
+export function useGetPortalSession<
+  TData = Awaited<ReturnType<typeof getPortalSession>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getPortalSession>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetPortalSessionQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get frames for a session
+ */
+export const getGetPortalSessionFramesUrl = (
+  id: number,
+  params?: GetPortalSessionFramesParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/portal/sessions/${id}/frames?${stringifiedParams}`
+    : `/api/portal/sessions/${id}/frames`;
+};
+
+export const getPortalSessionFrames = async (
+  id: number,
+  params?: GetPortalSessionFramesParams,
+  options?: RequestInit,
+): Promise<GetPortalSessionFrames200> => {
+  return customFetch<GetPortalSessionFrames200>(
+    getGetPortalSessionFramesUrl(id, params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetPortalSessionFramesQueryKey = (
+  id: number,
+  params?: GetPortalSessionFramesParams,
+) => {
+  return [
+    `/api/portal/sessions/${id}/frames`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getGetPortalSessionFramesQueryOptions = <
+  TData = Awaited<ReturnType<typeof getPortalSessionFrames>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  id: number,
+  params?: GetPortalSessionFramesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getPortalSessionFrames>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetPortalSessionFramesQueryKey(id, params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getPortalSessionFrames>>
+  > = ({ signal }) =>
+    getPortalSessionFrames(id, params, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getPortalSessionFrames>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetPortalSessionFramesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPortalSessionFrames>>
+>;
+export type GetPortalSessionFramesQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Get frames for a session
+ */
+
+export function useGetPortalSessionFrames<
+  TData = Awaited<ReturnType<typeof getPortalSessionFrames>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  id: number,
+  params?: GetPortalSessionFramesParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getPortalSessionFrames>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetPortalSessionFramesQueryOptions(
+    id,
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Computed metrics summary for a session
+ */
+export const getGetPortalSessionSummaryUrl = (id: number) => {
+  return `/api/portal/sessions/${id}/summary`;
+};
+
+export const getPortalSessionSummary = async (
+  id: number,
+  options?: RequestInit,
+): Promise<PortalSessionSummary> => {
+  return customFetch<PortalSessionSummary>(getGetPortalSessionSummaryUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetPortalSessionSummaryQueryKey = (id: number) => {
+  return [`/api/portal/sessions/${id}/summary`] as const;
+};
+
+export const getGetPortalSessionSummaryQueryOptions = <
+  TData = Awaited<ReturnType<typeof getPortalSessionSummary>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getPortalSessionSummary>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetPortalSessionSummaryQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getPortalSessionSummary>>
+  > = ({ signal }) =>
+    getPortalSessionSummary(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getPortalSessionSummary>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetPortalSessionSummaryQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPortalSessionSummary>>
+>;
+export type GetPortalSessionSummaryQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Computed metrics summary for a session
+ */
+
+export function useGetPortalSessionSummary<
+  TData = Awaited<ReturnType<typeof getPortalSessionSummary>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getPortalSessionSummary>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetPortalSessionSummaryQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Returns the route_geojson LineString, derived from frame coords if not stored
+ * @summary GeoJSON route for a session
+ */
+export const getGetPortalSessionRouteUrl = (id: number) => {
+  return `/api/portal/sessions/${id}/route`;
+};
+
+export const getPortalSessionRoute = async (
+  id: number,
+  options?: RequestInit,
+): Promise<GetPortalSessionRoute200> => {
+  return customFetch<GetPortalSessionRoute200>(
+    getGetPortalSessionRouteUrl(id),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetPortalSessionRouteQueryKey = (id: number) => {
+  return [`/api/portal/sessions/${id}/route`] as const;
+};
+
+export const getGetPortalSessionRouteQueryOptions = <
+  TData = Awaited<ReturnType<typeof getPortalSessionRoute>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getPortalSessionRoute>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetPortalSessionRouteQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getPortalSessionRoute>>
+  > = ({ signal }) => getPortalSessionRoute(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getPortalSessionRoute>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetPortalSessionRouteQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPortalSessionRoute>>
+>;
+export type GetPortalSessionRouteQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary GeoJSON route for a session
+ */
+
+export function useGetPortalSessionRoute<
+  TData = Awaited<ReturnType<typeof getPortalSessionRoute>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getPortalSessionRoute>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetPortalSessionRouteQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Returns full session detail by public share token — no auth required
+ * @summary Public share view for a session
+ */
+export const getGetPortalShareSessionUrl = (token: string) => {
+  return `/api/portal/share/${token}`;
+};
+
+export const getPortalShareSession = async (
+  token: string,
+  options?: RequestInit,
+): Promise<PortalSession> => {
+  return customFetch<PortalSession>(getGetPortalShareSessionUrl(token), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetPortalShareSessionQueryKey = (token: string) => {
+  return [`/api/portal/share/${token}`] as const;
+};
+
+export const getGetPortalShareSessionQueryOptions = <
+  TData = Awaited<ReturnType<typeof getPortalShareSession>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  token: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getPortalShareSession>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetPortalShareSessionQueryKey(token);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getPortalShareSession>>
+  > = ({ signal }) =>
+    getPortalShareSession(token, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!token,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getPortalShareSession>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetPortalShareSessionQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPortalShareSession>>
+>;
+export type GetPortalShareSessionQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Public share view for a session
+ */
+
+export function useGetPortalShareSession<
+  TData = Awaited<ReturnType<typeof getPortalShareSession>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  token: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getPortalShareSession>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetPortalShareSessionQueryOptions(token, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Creates a realistic demo Geospector session with 12 frames along a sample route in San Jose, CA. Useful for testing and onboarding.
+
+ * @summary Generate a demo session
+ */
+export const getImportMockPortalSessionUrl = () => {
+  return `/api/portal/import/mock`;
+};
+
+export const importMockPortalSession = async (
+  options?: RequestInit,
+): Promise<PortalSession> => {
+  return customFetch<PortalSession>(getImportMockPortalSessionUrl(), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getImportMockPortalSessionMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof importMockPortalSession>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof importMockPortalSession>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["importMockPortalSession"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof importMockPortalSession>>,
+    void
+  > = () => {
+    return importMockPortalSession(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ImportMockPortalSessionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof importMockPortalSession>>
+>;
+
+export type ImportMockPortalSessionMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Generate a demo session
+ */
+export const useImportMockPortalSession = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof importMockPortalSession>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof importMockPortalSession>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getImportMockPortalSessionMutationOptions(options));
+};
+
+/**
+ * Accepts a Geospector session metadata object and an array of frame objects, inserts them into the portal DB, derives route geometry and metrics.
+
+ * @summary Import session from JSON
+ */
+export const getImportPortalSessionJsonUrl = () => {
+  return `/api/portal/import/session-json`;
+};
+
+export const importPortalSessionJson = async (
+  importSessionJsonRequest: ImportSessionJsonRequest,
+  options?: RequestInit,
+): Promise<PortalSession> => {
+  return customFetch<PortalSession>(getImportPortalSessionJsonUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(importSessionJsonRequest),
+  });
+};
+
+export const getImportPortalSessionJsonMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof importPortalSessionJson>>,
+    TError,
+    { data: BodyType<ImportSessionJsonRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof importPortalSessionJson>>,
+  TError,
+  { data: BodyType<ImportSessionJsonRequest> },
+  TContext
+> => {
+  const mutationKey = ["importPortalSessionJson"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof importPortalSessionJson>>,
+    { data: BodyType<ImportSessionJsonRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return importPortalSessionJson(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ImportPortalSessionJsonMutationResult = NonNullable<
+  Awaited<ReturnType<typeof importPortalSessionJson>>
+>;
+export type ImportPortalSessionJsonMutationBody =
+  BodyType<ImportSessionJsonRequest>;
+export type ImportPortalSessionJsonMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Import session from JSON
+ */
+export const useImportPortalSessionJson = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof importPortalSessionJson>>,
+    TError,
+    { data: BodyType<ImportSessionJsonRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof importPortalSessionJson>>,
+  TError,
+  { data: BodyType<ImportSessionJsonRequest> },
+  TContext
+> => {
+  return useMutation(getImportPortalSessionJsonMutationOptions(options));
+};
+
+/**
+ * Parses a GPX track XML string, extracts trackpoints as frames, and creates a session. Optionally accepts supplemental frame metadata JSON.
+
+ * @summary Import session from GPX XML
+ */
+export const getImportPortalGpxUrl = () => {
+  return `/api/portal/import/gpx`;
+};
+
+export const importPortalGpx = async (
+  importGpxRequest: ImportGpxRequest,
+  options?: RequestInit,
+): Promise<PortalSession> => {
+  return customFetch<PortalSession>(getImportPortalGpxUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(importGpxRequest),
+  });
+};
+
+export const getImportPortalGpxMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof importPortalGpx>>,
+    TError,
+    { data: BodyType<ImportGpxRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof importPortalGpx>>,
+  TError,
+  { data: BodyType<ImportGpxRequest> },
+  TContext
+> => {
+  const mutationKey = ["importPortalGpx"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof importPortalGpx>>,
+    { data: BodyType<ImportGpxRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return importPortalGpx(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ImportPortalGpxMutationResult = NonNullable<
+  Awaited<ReturnType<typeof importPortalGpx>>
+>;
+export type ImportPortalGpxMutationBody = BodyType<ImportGpxRequest>;
+export type ImportPortalGpxMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Import session from GPX XML
+ */
+export const useImportPortalGpx = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof importPortalGpx>>,
+    TError,
+    { data: BodyType<ImportGpxRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof importPortalGpx>>,
+  TError,
+  { data: BodyType<ImportGpxRequest> },
+  TContext
+> => {
+  return useMutation(getImportPortalGpxMutationOptions(options));
+};

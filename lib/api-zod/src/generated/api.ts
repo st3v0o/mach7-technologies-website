@@ -8,9 +8,320 @@
 import * as zod from "zod";
 
 /**
+ * Verifies reCAPTCHA token and sends an email to the site owner
+ * @summary Submit contact form
+ */
+export const SubmitContactBody = zod.object({
+  name: zod.string(),
+  org: zod.string().optional(),
+  message: zod.string(),
+  recaptchaToken: zod.string(),
+});
+
+export const SubmitContactResponse = zod.object({
+  success: zod.boolean(),
+});
+
+/**
  * Returns server health status
  * @summary Health check
  */
 export const HealthCheckResponse = zod.object({
   status: zod.string(),
+});
+
+/**
+ * Returns aggregate counts across all sessions
+ * @summary Overall portal statistics
+ */
+export const GetPortalStatsResponse = zod.object({
+  totalSessions: zod.number(),
+  totalFrames: zod.number(),
+  totalDistanceMiles: zod.number(),
+});
+
+/**
+ * Returns sessions ordered by createdAt descending with optional filters
+ * @summary List all sessions
+ */
+export const listPortalSessionsQueryLimitDefault = 50;
+export const listPortalSessionsQueryOffsetDefault = 0;
+
+export const ListPortalSessionsQueryParams = zod.object({
+  status: zod.enum(["active", "archived"]).optional(),
+  limit: zod.coerce.number().default(listPortalSessionsQueryLimitDefault),
+  offset: zod.coerce.number().default(listPortalSessionsQueryOffsetDefault),
+});
+
+export const ListPortalSessionsResponse = zod.object({
+  sessions: zod.array(
+    zod.object({
+      id: zod.number(),
+      title: zod.string().nullish(),
+      sessionId: zod.string(),
+      createdAt: zod.date(),
+      startedAt: zod.date().nullish(),
+      endedAt: zod.date().nullish(),
+      captureMode: zod.string().nullish(),
+      totalFrames: zod.number(),
+      uploadedFrames: zod.number(),
+      totalDistanceMiles: zod.number().nullish(),
+      durationSeconds: zod.number().nullish(),
+      averageSpeedMph: zod.number().nullish(),
+      maxSpeedMph: zod.number().nullish(),
+      routeGeojson: zod
+        .object({})
+        .passthrough()
+        .nullish()
+        .describe("GeoJSON LineString"),
+      sourceType: zod.string(),
+      publicShareToken: zod.string().nullish(),
+      status: zod.string(),
+      thumbnailUrl: zod.string().nullish(),
+    }),
+  ),
+  total: zod.number(),
+});
+
+/**
+ * @summary Get session detail
+ */
+export const GetPortalSessionParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetPortalSessionResponse = zod.object({
+  id: zod.number(),
+  title: zod.string().nullish(),
+  sessionId: zod.string(),
+  createdAt: zod.date(),
+  startedAt: zod.date().nullish(),
+  endedAt: zod.date().nullish(),
+  captureMode: zod.string().nullish(),
+  totalFrames: zod.number(),
+  uploadedFrames: zod.number(),
+  totalDistanceMiles: zod.number().nullish(),
+  durationSeconds: zod.number().nullish(),
+  averageSpeedMph: zod.number().nullish(),
+  maxSpeedMph: zod.number().nullish(),
+  routeGeojson: zod
+    .object({})
+    .passthrough()
+    .nullish()
+    .describe("GeoJSON LineString"),
+  sourceType: zod.string(),
+  publicShareToken: zod.string().nullish(),
+  status: zod.string(),
+  thumbnailUrl: zod.string().nullish(),
+});
+
+/**
+ * @summary Get frames for a session
+ */
+export const GetPortalSessionFramesParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const getPortalSessionFramesQueryLimitDefault = 200;
+export const getPortalSessionFramesQueryOffsetDefault = 0;
+
+export const GetPortalSessionFramesQueryParams = zod.object({
+  limit: zod.coerce.number().default(getPortalSessionFramesQueryLimitDefault),
+  offset: zod.coerce.number().default(getPortalSessionFramesQueryOffsetDefault),
+});
+
+export const GetPortalSessionFramesResponse = zod.object({
+  frames: zod.array(
+    zod.object({
+      id: zod.number(),
+      portalSessionId: zod.number(),
+      frameIndex: zod.number(),
+      capturedAt: zod.date(),
+      latitude: zod.number(),
+      longitude: zod.number(),
+      heading: zod.number().nullish(),
+      speedMph: zod.number().nullish(),
+      imageUrl: zod.string().nullish(),
+      thumbnailUrl: zod.string().nullish(),
+      uploadStatus: zod.string(),
+      metadata: zod.object({}).passthrough().nullish(),
+    }),
+  ),
+  total: zod.number(),
+});
+
+/**
+ * @summary Computed metrics summary for a session
+ */
+export const GetPortalSessionSummaryParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetPortalSessionSummaryResponse = zod.object({
+  sessionId: zod.number(),
+  totalFrames: zod.number(),
+  uploadedFrames: zod.number(),
+  totalDistanceMiles: zod.number().nullish(),
+  durationSeconds: zod.number().nullish(),
+  averageSpeedMph: zod.number().nullish(),
+  maxSpeedMph: zod.number().nullish(),
+  firstFrameAt: zod.date().nullish(),
+  lastFrameAt: zod.date().nullish(),
+  frameCount: zod.number(),
+  uploadedCount: zod.number(),
+});
+
+/**
+ * Returns the route_geojson LineString, derived from frame coords if not stored
+ * @summary GeoJSON route for a session
+ */
+export const GetPortalSessionRouteParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetPortalSessionRouteResponse = zod.object({
+  geojson: zod
+    .object({})
+    .passthrough()
+    .nullable()
+    .describe("GeoJSON LineString or null if <2 points"),
+});
+
+/**
+ * Returns full session detail by public share token — no auth required
+ * @summary Public share view for a session
+ */
+export const GetPortalShareSessionParams = zod.object({
+  token: zod.coerce.string(),
+});
+
+export const GetPortalShareSessionResponse = zod.object({
+  id: zod.number(),
+  title: zod.string().nullish(),
+  sessionId: zod.string(),
+  createdAt: zod.date(),
+  startedAt: zod.date().nullish(),
+  endedAt: zod.date().nullish(),
+  captureMode: zod.string().nullish(),
+  totalFrames: zod.number(),
+  uploadedFrames: zod.number(),
+  totalDistanceMiles: zod.number().nullish(),
+  durationSeconds: zod.number().nullish(),
+  averageSpeedMph: zod.number().nullish(),
+  maxSpeedMph: zod.number().nullish(),
+  routeGeojson: zod
+    .object({})
+    .passthrough()
+    .nullish()
+    .describe("GeoJSON LineString"),
+  sourceType: zod.string(),
+  publicShareToken: zod.string().nullish(),
+  status: zod.string(),
+  thumbnailUrl: zod.string().nullish(),
+});
+
+/**
+ * Creates a realistic demo Geospector session with 12 frames along a sample route in San Jose, CA. Useful for testing and onboarding.
+
+ * @summary Generate a demo session
+ */
+export const ImportMockPortalSessionResponse = zod.object({
+  id: zod.number(),
+  title: zod.string().nullish(),
+  sessionId: zod.string(),
+  createdAt: zod.date(),
+  startedAt: zod.date().nullish(),
+  endedAt: zod.date().nullish(),
+  captureMode: zod.string().nullish(),
+  totalFrames: zod.number(),
+  uploadedFrames: zod.number(),
+  totalDistanceMiles: zod.number().nullish(),
+  durationSeconds: zod.number().nullish(),
+  averageSpeedMph: zod.number().nullish(),
+  maxSpeedMph: zod.number().nullish(),
+  routeGeojson: zod
+    .object({})
+    .passthrough()
+    .nullish()
+    .describe("GeoJSON LineString"),
+  sourceType: zod.string(),
+  publicShareToken: zod.string().nullish(),
+  status: zod.string(),
+  thumbnailUrl: zod.string().nullish(),
+});
+
+/**
+ * Accepts a Geospector session metadata object and an array of frame objects, inserts them into the portal DB, derives route geometry and metrics.
+
+ * @summary Import session from JSON
+ */
+export const ImportPortalSessionJsonBody = zod.object({
+  session: zod.object({}).passthrough().describe("Geospector session metadata"),
+  frames: zod
+    .array(zod.object({}).passthrough())
+    .describe("Array of frame metadata objects from Geospector"),
+});
+
+export const ImportPortalSessionJsonResponse = zod.object({
+  id: zod.number(),
+  title: zod.string().nullish(),
+  sessionId: zod.string(),
+  createdAt: zod.date(),
+  startedAt: zod.date().nullish(),
+  endedAt: zod.date().nullish(),
+  captureMode: zod.string().nullish(),
+  totalFrames: zod.number(),
+  uploadedFrames: zod.number(),
+  totalDistanceMiles: zod.number().nullish(),
+  durationSeconds: zod.number().nullish(),
+  averageSpeedMph: zod.number().nullish(),
+  maxSpeedMph: zod.number().nullish(),
+  routeGeojson: zod
+    .object({})
+    .passthrough()
+    .nullish()
+    .describe("GeoJSON LineString"),
+  sourceType: zod.string(),
+  publicShareToken: zod.string().nullish(),
+  status: zod.string(),
+  thumbnailUrl: zod.string().nullish(),
+});
+
+/**
+ * Parses a GPX track XML string, extracts trackpoints as frames, and creates a session. Optionally accepts supplemental frame metadata JSON.
+
+ * @summary Import session from GPX XML
+ */
+export const ImportPortalGpxBody = zod.object({
+  gpx: zod.string().describe("GPX XML string containing track data"),
+  frames: zod
+    .array(zod.object({}).passthrough())
+    .optional()
+    .describe("Optional supplemental frame metadata JSON"),
+  title: zod.string().optional().describe("Optional session title"),
+});
+
+export const ImportPortalGpxResponse = zod.object({
+  id: zod.number(),
+  title: zod.string().nullish(),
+  sessionId: zod.string(),
+  createdAt: zod.date(),
+  startedAt: zod.date().nullish(),
+  endedAt: zod.date().nullish(),
+  captureMode: zod.string().nullish(),
+  totalFrames: zod.number(),
+  uploadedFrames: zod.number(),
+  totalDistanceMiles: zod.number().nullish(),
+  durationSeconds: zod.number().nullish(),
+  averageSpeedMph: zod.number().nullish(),
+  maxSpeedMph: zod.number().nullish(),
+  routeGeojson: zod
+    .object({})
+    .passthrough()
+    .nullish()
+    .describe("GeoJSON LineString"),
+  sourceType: zod.string(),
+  publicShareToken: zod.string().nullish(),
+  status: zod.string(),
+  thumbnailUrl: zod.string().nullish(),
 });
