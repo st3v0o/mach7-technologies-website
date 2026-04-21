@@ -1,0 +1,275 @@
+Build a companion web portal for my existing app, Geospector.
+
+Context
+Geospector is an iOS field data-capture app built with Expo + React Native + TypeScript. It records GPS-tagged photo frames during a session. Each frame has coordinates, speed, heading, timestamp, and a session ID. Sessions are saved locally and uploaded in the background to Supabase Storage or a generic webhook target. The mobile app already handles field capture, offline queueing, and upload retries.
+
+The web portal should NOT replace the mobile app.
+The mobile app is for capture and upload.
+The web portal is for visualization, sharing, metrics, review, and later reporting.
+
+Primary product goal
+Create a hosted web experience where each Geospector session can be viewed on a shareable page with:
+- a map
+- the GPS route
+- frame points
+- frame photo previews
+- summary metrics
+- a session detail view for reviewing collected data
+
+Use the existing Geospector data model and concepts wherever possible.
+
+Recommended implementation choices
+- Use TypeScript throughout
+- Frontend: React
+- Mapping: Leaflet for MVP simplicity
+- Backend: Node.js
+- API: Express or Fastify, whichever is simplest for the MVP
+- Database: Postgres with PostGIS if feasible, otherwise start with plain Postgres and GeoJSON columns
+- Storage integration: Supabase Storage first
+- Keep architecture modular so generic webhook ingestion can be added next
+- Do not overengineer
+
+Existing app stack and constraints
+- Mobile app: Expo SDK 54 + React Native 0.81
+- Language: TypeScript
+- Existing cloud storage target: Supabase Storage or generic HTTP webhook
+- Existing API server: Express + Fastify internal service for asset serving
+- Monorepo: pnpm workspaces
+- Existing app uses sessions, frames, GPS route replay, upload queue, and GPX export
+- Marketing site exists separately in Astro and does not need to be rebuilt
+- This new portal can be a separate web app and API service, but keep it easy to integrate into the monorepo later
+
+Build an MVP with these concepts
+
+Core entities
+
+1. Session
+Represents one recording run.
+
+Fields:
+- id
+- title
+- created_at
+- started_at
+- ended_at
+- session_id from mobile app
+- capture_mode if available
+- total_frames
+- uploaded_frames
+- total_distance_miles
+- duration_seconds
+- average_speed_mph
+- max_speed_mph
+- bounding_box if helpful
+- route_geojson as LineString if available
+- source_type ("supabase" or "webhook")
+- public_share_token for shareable links
+- status
+
+2. Frame
+Represents one captured image/frame.
+
+Fields:
+- id
+- session_id
+- frame_index
+- timestamp
+- latitude
+- longitude
+- heading
+- speed
+- image_url
+- thumbnail_url if available
+- upload_status
+- metadata JSON for future flexibility
+
+3. Session summary / metrics
+Derived values:
+- number of points/frames
+- miles surveyed
+- duration
+- average speed
+- max speed
+- first frame time
+- last frame time
+- number of uploaded frames
+- optional feet-per-frame or frame density metric if easy
+
+Main features to build
+
+1. Session list page
+Create a page that lists sessions with:
+- title or session ID
+- date/time
+- frame count
+- distance
+- upload status
+- thumbnail preview if available
+- button/link to open session detail page
+
+2. Session detail page
+Route: /sessions/:id
+
+Display:
+- a metric summary header
+- a map
+- the route polyline
+- frame markers or simplified points along the route
+- a filmstrip or gallery of captured frames
+- a table/list of frame metadata
+
+Map behavior:
+- automatically fit bounds to route/points
+- clicking a marker should show:
+  - frame image
+  - timestamp
+  - lat/lon
+  - speed
+  - heading
+  - frame index
+- clicking an item in the filmstrip/list should focus the corresponding map point
+
+3. Public share page
+Route: /share/:token
+
+This should be a simplified public-facing session viewer with:
+- map
+- route
+- selected photos/frames
+- summary metrics
+- no editing/admin functions
+
+4. Metrics panel
+For each session show:
+- total frames
+- uploaded frames
+- total distance in miles
+- duration
+- average speed
+- max speed
+- start time
+- end time
+
+5. Data ingestion path
+Build the system so Geospector can later publish data into this portal.
+
+Support these MVP ingestion paths:
+- import a session JSON file
+- import a GPX file plus photo/frame metadata JSON
+- ingest from a Supabase-backed session manifest
+- create a clearly marked placeholder ingestion endpoint for future direct app publishing
+
+Important:
+Do not try to fully implement mobile-to-web sync logic yet.
+Instead create a clean ingestion boundary and mock/demo importer.
+
+Suggested API routes
+- GET /api/sessions
+- GET /api/sessions/:id
+- GET /api/sessions/:id/frames
+- GET /api/sessions/:id/summary
+- GET /api/share/:token
+- POST /api/import/session-json
+- POST /api/import/gpx
+- POST /api/import/mock-geospector-session
+
+For future integration, add placeholder/commented routes like:
+- POST /api/publish/session
+- POST /api/publish/frame-batch
+
+Data assumptions
+Assume the mobile app can eventually provide or export:
+- session metadata JSON
+- frame metadata JSON array
+- GPX or GeoJSON route
+- uploaded image URLs from Supabase Storage
+
+If route_geojson is not present, derive route geometry from ordered frame coordinates.
+
+Distance and metrics
+Implement or stub:
+- total distance calculated from ordered GPS coordinates
+- duration from start/end timestamps
+- average speed from frame data if available
+- max speed from frame data if available
+
+If PostGIS is easy to add, use it.
+If not, compute metrics in TypeScript for the MVP and leave TODO comments for PostGIS optimization later.
+
+UI requirements
+- clean, modern, minimal interface
+- mobile-friendly but optimized for desktop review
+- session detail page should feel like a field review dashboard
+- layout suggestion:
+  - top summary cards
+  - large map
+  - frame gallery below
+  - metadata table below or beside gallery
+
+Map requirements
+- use Leaflet for MVP
+- render route line
+- render frame markers
+- support marker clustering if easy, but not required
+- keep implementation simple and maintainable
+
+Seed/demo data
+Include demo data for at least one full Geospector session:
+- one session
+- one route
+- at least 10 frames
+- image placeholders or sample URLs
+- realistic timestamps, speeds, headings, and coordinates
+
+Architecture expectations
+- organize the project cleanly
+- separate frontend and backend
+- use TypeScript throughout
+- keep code comments explaining where Geospector mobile upload integration will connect later
+- make it easy to plug into a pnpm monorepo later
+- keep Supabase integration isolated in its own service/module
+- keep ingestion/import logic isolated in its own module
+
+Nice-to-have if easy
+- session filtering by date
+- CSV or JSON export of frame metadata
+- GPX export from stored route
+- thumbnail strip synced to selected map point
+- basic auth placeholder for admin pages
+
+Do not do these yet
+- do not rebuild the mobile app
+- do not build a full auth/permissions system
+- do not build a complex GIS publishing stack
+- do not build a custom tile server
+- do not overcomplicate storage abstractions
+- do not spend time on heavy styling before the core flow works
+
+Deliverables
+- working MVP web portal
+- session list page
+- session detail page
+- public share page
+- mock/demo import flow
+- clear setup instructions
+- .env.example
+- concise README explaining:
+  - architecture
+  - how Geospector data maps into the portal
+  - where future publish integration should hook in
+  - recommended next steps
+
+Success criteria
+I should be able to run the app locally, open a demo session, see:
+- route on a map
+- clickable frame points
+- images/photos tied to points
+- session metrics
+- a shareable public view
+
+After the MVP is working, provide a short next-step plan for:
+1. direct publish from Geospector mobile app
+2. Supabase session manifest ingestion
+3. auth/admin
+4. analytics/reporting
+5. large-session performance improvements
