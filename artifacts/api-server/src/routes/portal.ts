@@ -298,7 +298,9 @@ router.post("/import/mock", async (req, res) => {
   // Insert session
   const startedAt = baseTime;
   const endedAt = new Date(baseTime.getTime() + durationSec * 1000);
-  const thumbnailUrl = `https://picsum.photos/seed/geo1/800/600`;
+  // Curated photo IDs: roads, trails, bridges, field survey scenes
+  const surveyPhotoIds = [57, 1016, 1022, 1035, 83, 1010, 29, 37, 62, 100, 1039, 1048];
+  const thumbnailUrl = `https://picsum.photos/id/${surveyPhotoIds[0]}/800/600`;
 
   const [session] = await db
     .insert(portalSessionsTable)
@@ -336,8 +338,8 @@ router.post("/import/mock", async (req, res) => {
     longitude: pt.lon,
     heading: pt.heading,
     speedMph: speeds[i] ?? 20,
-    imageUrl: `https://picsum.photos/seed/geo${i + 1}/800/600`,
-    thumbnailUrl: `https://picsum.photos/seed/geo${i + 1}/200/150`,
+    imageUrl: `https://picsum.photos/id/${surveyPhotoIds[i % surveyPhotoIds.length]}/800/600`,
+    thumbnailUrl: `https://picsum.photos/id/${surveyPhotoIds[i % surveyPhotoIds.length]}/200/150`,
     uploadStatus: "uploaded",
     metadata: null,
   }));
