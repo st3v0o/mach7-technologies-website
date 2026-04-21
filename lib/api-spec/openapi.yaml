@@ -107,17 +107,9 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  sessions:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/PortalSession"
-                  total:
-                    type: integer
-                required:
-                  - sessions
-                  - total
+                type: array
+                items:
+                  $ref: "#/components/schemas/PortalSession"
 
   /portal/sessions/{id}:
     get:

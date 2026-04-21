@@ -19,7 +19,6 @@ export * from "./importGpxRequestFramesItem";
 export * from "./importSessionJsonRequest";
 export * from "./importSessionJsonRequestFramesItem";
 export * from "./importSessionJsonRequestSession";
-export * from "./listPortalSessions200";
 export * from "./listPortalSessionsParams";
 export * from "./listPortalSessionsStatus";
 export * from "./portalFrame";

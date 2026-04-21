@@ -127,11 +127,6 @@ export const ListPortalSessionsStatus = {
   archived: "archived",
 } as const;
 
-export type ListPortalSessions200 = {
-  sessions: PortalSession[];
-  total: number;
-};
-
 export type GetPortalSessionFramesParams = {
   limit?: number;
   offset?: number;

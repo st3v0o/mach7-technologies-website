@@ -26,7 +26,6 @@ import type {
   HealthStatus,
   ImportGpxRequest,
   ImportSessionJsonRequest,
-  ListPortalSessions200,
   ListPortalSessionsParams,
   PortalSession,
   PortalSessionSummary,
@@ -304,8 +303,8 @@ export const getListPortalSessionsUrl = (params?: ListPortalSessionsParams) => {
 export const listPortalSessions = async (
   params?: ListPortalSessionsParams,
   options?: RequestInit,
-): Promise<ListPortalSessions200> => {
-  return customFetch<ListPortalSessions200>(getListPortalSessionsUrl(params), {
+): Promise<PortalSession[]> => {
+  return customFetch<PortalSession[]>(getListPortalSessionsUrl(params), {
     ...options,
     method: "GET",
   });

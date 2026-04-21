@@ -6,9 +6,9 @@ function toRad(deg: number): number {
 
 /**
  * Calculate the great-circle distance in miles between two GPS coordinates
- * using the Haversine formula.
+ * using the Haversine formula (point-to-point).
  */
-export function haversineDistanceMiles(
+function haversinePointMiles(
   lat1: number,
   lon1: number,
   lat2: number,
@@ -28,17 +28,17 @@ export function haversineDistanceMiles(
 
 /**
  * Sum haversine distances over an ordered array of [lat, lon] coordinate pairs.
- * Returns total distance in miles.
+ * Returns total route distance in miles.
  *
  * TODO: Replace with PostGIS ST_Length once PostGIS is added for large-session
  * performance improvements.
  */
-export function totalDistanceMiles(coords: Array<[number, number]>): number {
+export function haversineDistanceMiles(coords: Array<[number, number]>): number {
   let total = 0;
   for (let i = 1; i < coords.length; i++) {
     const [lat1, lon1] = coords[i - 1]!;
     const [lat2, lon2] = coords[i]!;
-    total += haversineDistanceMiles(lat1, lon1, lat2, lon2);
+    total += haversinePointMiles(lat1, lon1, lat2, lon2);
   }
   return total;
 }

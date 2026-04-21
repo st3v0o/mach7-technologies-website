@@ -19,7 +19,7 @@ import {
   ImportPortalSessionJsonBody,
   ImportPortalGpxBody,
 } from "@workspace/api-zod";
-import { totalDistanceMiles, buildLineString } from "../lib/geo.js";
+import { haversineDistanceMiles, buildLineString } from "../lib/geo.js";
 import { XMLParser } from "fast-xml-parser";
 
 const router = Router();
@@ -32,7 +32,7 @@ function computeMetrics(frames: Array<{ latitude: number; longitude: number; spe
   }
 
   const coords = frames.map((f): [number, number] => [f.latitude, f.longitude]);
-  const dist = totalDistanceMiles(coords);
+  const dist = haversineDistanceMiles(coords);
 
   const sorted = [...frames].sort((a, b) => a.capturedAt.getTime() - b.capturedAt.getTime());
   const durationSeconds = Math.round(
@@ -82,21 +82,15 @@ router.get("/sessions", async (req, res) => {
 
   const whereClause = status ? eq(portalSessionsTable.status, status) : undefined;
 
-  const [sessions, [totalRow]] = await Promise.all([
-    db
-      .select()
-      .from(portalSessionsTable)
-      .where(whereClause)
-      .orderBy(desc(portalSessionsTable.createdAt))
-      .limit(limit)
-      .offset(offset),
-    db
-      .select({ total: count() })
-      .from(portalSessionsTable)
-      .where(whereClause),
-  ]);
+  const sessions = await db
+    .select()
+    .from(portalSessionsTable)
+    .where(whereClause)
+    .orderBy(desc(portalSessionsTable.createdAt))
+    .limit(limit)
+    .offset(offset);
 
-  res.json({ sessions, total: totalRow?.total ?? 0 });
+  res.json(sessions);
 });
 
 // ── GET /portal/sessions/:id ─────────────────────────────────────────────────
@@ -295,7 +289,7 @@ router.post("/import/mock", async (req, res) => {
 
   // Compute metrics
   const coords = routePoints.map((p): [number, number] => [p.lat, p.lon]);
-  const dist = totalDistanceMiles(coords);
+  const dist = haversineDistanceMiles(coords);
   const durationSec = routePoints.length * 3; // 3 seconds between frames
   const avgSpeed = speeds.reduce((a, b) => a + b, 0) / speeds.length;
   const maxSpeed = Math.max(...speeds);
@@ -485,7 +479,7 @@ router.post("/import/gpx", async (req, res) => {
   const baseTime = new Date();
   const coords = trkpts.map((p): [number, number] => [p.lat, p.lon]);
   const geojson = buildLineString(coords);
-  const dist = totalDistanceMiles(coords);
+  const dist = haversineDistanceMiles(coords);
 
   const mappedFrames = trkpts.map((pt, i) => {
     const capturedAt = pt.time ? new Date(pt.time) : new Date(baseTime.getTime() + i * 3000);
@@ -567,17 +561,17 @@ router.post("/import/gpx", async (req, res) => {
 // ── TODO: Future publish endpoints ───────────────────────────────────────────
 // These will be added once the Geospector mobile app supports direct publishing.
 //
-// TODO: POST /api/portal/publish/session
+// TODO: POST /api/publish/session
 //   — Direct publish from Geospector mobile app
 //   — Body: { sessionId, title, captureMode, startedAt, endedAt, frameCount }
 //   — Creates a portal session record and returns an upload token
 //
-// TODO: POST /api/portal/publish/frame-batch
+// TODO: POST /api/publish/frame-batch
 //   — Batch frame upload from Geospector mobile app
 //   — Body: { sessionId, frames: FrameMetadata[] }
 //   — Associates uploaded Supabase Storage image URLs with frame records
 //
-// TODO: POST /api/portal/ingest/supabase-manifest
+// TODO: POST /api/ingest/supabase-manifest
 //   — Pull session data from a Supabase Storage manifest file
 //   — Body: { supabaseUrl, bucketName, manifestPath, anonKey }
 //   — Downloads manifest JSON, parses sessions/frames, inserts into portal DB

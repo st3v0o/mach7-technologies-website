@@ -53,35 +53,33 @@ export const ListPortalSessionsQueryParams = zod.object({
   offset: zod.coerce.number().default(listPortalSessionsQueryOffsetDefault),
 });
 
-export const ListPortalSessionsResponse = zod.object({
-  sessions: zod.array(
-    zod.object({
-      id: zod.number(),
-      title: zod.string().nullish(),
-      sessionId: zod.string(),
-      createdAt: zod.date(),
-      startedAt: zod.date().nullish(),
-      endedAt: zod.date().nullish(),
-      captureMode: zod.string().nullish(),
-      totalFrames: zod.number(),
-      uploadedFrames: zod.number(),
-      totalDistanceMiles: zod.number().nullish(),
-      durationSeconds: zod.number().nullish(),
-      averageSpeedMph: zod.number().nullish(),
-      maxSpeedMph: zod.number().nullish(),
-      routeGeojson: zod
-        .object({})
-        .passthrough()
-        .nullish()
-        .describe("GeoJSON LineString"),
-      sourceType: zod.string(),
-      publicShareToken: zod.string().nullish(),
-      status: zod.string(),
-      thumbnailUrl: zod.string().nullish(),
-    }),
-  ),
-  total: zod.number(),
+export const ListPortalSessionsResponseItem = zod.object({
+  id: zod.number(),
+  title: zod.string().nullish(),
+  sessionId: zod.string(),
+  createdAt: zod.date(),
+  startedAt: zod.date().nullish(),
+  endedAt: zod.date().nullish(),
+  captureMode: zod.string().nullish(),
+  totalFrames: zod.number(),
+  uploadedFrames: zod.number(),
+  totalDistanceMiles: zod.number().nullish(),
+  durationSeconds: zod.number().nullish(),
+  averageSpeedMph: zod.number().nullish(),
+  maxSpeedMph: zod.number().nullish(),
+  routeGeojson: zod
+    .object({})
+    .passthrough()
+    .nullish()
+    .describe("GeoJSON LineString"),
+  sourceType: zod.string(),
+  publicShareToken: zod.string().nullish(),
+  status: zod.string(),
+  thumbnailUrl: zod.string().nullish(),
 });
+export const ListPortalSessionsResponse = zod.array(
+  ListPortalSessionsResponseItem,
+);
 
 /**
  * @summary Get session detail
