@@ -3,30 +3,30 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
+import SessionList from "@/pages/SessionList";
+import SessionDetail from "@/pages/SessionDetail";
+import SharePage from "@/pages/SharePage";
+import ImportPage from "@/pages/ImportPage";
 
-const queryClient = new QueryClient();
-
-function Home() {
-  return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-gray-50">
-      <div className="text-center">
-        <h1 className="text-2xl font-bold text-gray-900">Geospector Portal — coming soon</h1>
-        <p className="mt-2 text-sm text-gray-600">The portal is being set up. Session list and map view will appear here.</p>
-      </div>
-    </div>
-  );
-}
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: { retry: 1, staleTime: 30_000 },
+  },
+});
 
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={Home} />
+      <Route path="/" component={SessionList} />
+      <Route path="/sessions/:id" component={SessionDetail} />
+      <Route path="/share/:token" component={SharePage} />
+      <Route path="/import" component={ImportPage} />
       <Route component={NotFound} />
     </Switch>
   );
 }
 
-function App() {
+export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
@@ -38,5 +38,3 @@ function App() {
     </QueryClientProvider>
   );
 }
-
-export default App;
