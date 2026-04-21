@@ -118,6 +118,12 @@ export default function CaptureScreen() {
   const [dismissedEnvError, setDismissedEnvError] = useState(false);
   const [retryingEnvTest, setRetryingEnvTest] = useState(false);
 
+  useEffect(() => {
+    if (envTestError) {
+      setDismissedEnvError(false);
+    }
+  }, [envTestError]);
+
   const handleRetryConnection = useCallback(async () => {
     if (retryingEnvTest) return;
     setRetryingEnvTest(true);
