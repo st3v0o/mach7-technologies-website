@@ -598,17 +598,30 @@ export default function StorageWizard({ visible, onClose, onSaved }: Props) {
               </Text>
 
               {selectedProject && (
-                <Pressable
-                  style={styles.dashboardLink}
-                  onPress={() =>
-                    WebBrowser.openBrowserAsync(
-                      `https://supabase.com/dashboard/project/${selectedProject.id}/storage/buckets/new`
-                    )
-                  }
-                >
-                  <Ionicons name="open-outline" size={14} color={Colors.blue} />
-                  <Text style={styles.dashboardLinkText}>Create a new bucket in Supabase ↗</Text>
-                </Pressable>
+                <>
+                  <Pressable
+                    style={styles.dashboardLink}
+                    onPress={() =>
+                      WebBrowser.openBrowserAsync(
+                        `https://supabase.com/dashboard/project/${selectedProject.id}/storage/buckets/new`
+                      )
+                    }
+                  >
+                    <Ionicons name="open-outline" size={14} color={Colors.blue} />
+                    <Text style={styles.dashboardLinkText}>Create a new bucket in Supabase ↗</Text>
+                  </Pressable>
+                  <Pressable
+                    style={styles.dashboardLink}
+                    onPress={() =>
+                      WebBrowser.openBrowserAsync(
+                        `https://supabase.com/dashboard/project/${selectedProject.id}/storage/policies`
+                      )
+                    }
+                  >
+                    <Ionicons name="open-outline" size={14} color={Colors.blue} />
+                    <Text style={styles.dashboardLinkText}>Manage bucket permissions in Supabase ↗</Text>
+                  </Pressable>
+                </>
               )}
 
               <View style={styles.formActions}>
