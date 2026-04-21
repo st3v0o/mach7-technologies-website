@@ -418,7 +418,10 @@ export default function StorageWizard({ visible, onClose, onSaved }: Props) {
                   <Text style={{ fontFamily: 'Inter_600SemiBold', color: Colors.text }}>Your token is never stored.</Text>
                   {' '}It is kept in memory only during setup to fetch your project credentials, and is cleared when you close this screen.{'\n\n'}
                   Generate a token at{' '}
-                  <Text style={{ color: Colors.blue }}>supabase.com/dashboard/account/tokens</Text>
+                  <Text
+                    style={{ color: Colors.blue }}
+                    onPress={() => WebBrowser.openBrowserAsync('https://supabase.com/dashboard/account/tokens')}
+                  >supabase.com/dashboard/account/tokens</Text>
                 </Text>
               </InfoBox>
 
