@@ -5,6 +5,7 @@ import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Animated,
   Easing,
   KeyboardAvoidingView,
@@ -113,8 +114,16 @@ export default function CaptureScreen() {
   } = useRecording();
 
   const { pendingCount, failedCount, isCloudConfigured } = useUpload();
-  const { envTestError } = useStorageConfig();
+  const { envTestError, testConnection } = useStorageConfig();
   const [dismissedEnvError, setDismissedEnvError] = useState(false);
+  const [retryingEnvTest, setRetryingEnvTest] = useState(false);
+
+  const handleRetryConnection = useCallback(async () => {
+    if (retryingEnvTest) return;
+    setRetryingEnvTest(true);
+    await testConnection();
+    setRetryingEnvTest(false);
+  }, [retryingEnvTest, testConnection]);
 
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showJobNameModal, setShowJobNameModal] = useState(false);
@@ -791,6 +800,18 @@ export default function CaptureScreen() {
               Cloud storage unreachable: {envTestError}
             </Text>
             <Pressable
+              onPress={handleRetryConnection}
+              hitSlop={10}
+              disabled={retryingEnvTest}
+              style={({ pressed }) => [styles.envErrorRetry, pressed && { opacity: 0.6 }]}
+            >
+              {retryingEnvTest ? (
+                <ActivityIndicator size="small" color={Colors.textSecondary} style={{ width: 16, height: 16 }} />
+              ) : (
+                <Text style={styles.envErrorRetryText}>Retry</Text>
+              )}
+            </Pressable>
+            <Pressable
               onPress={() => setDismissedEnvError(true)}
               hitSlop={10}
               style={({ pressed }) => [styles.envErrorDismiss, pressed && { opacity: 0.6 }]}
@@ -1310,6 +1331,19 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_500Medium',
     fontSize: 12,
     lineHeight: 17,
+  },
+  envErrorRetry: {
+    paddingLeft: 10,
+    paddingRight: 2,
+    flexShrink: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    minWidth: 16,
+  },
+  envErrorRetryText: {
+    color: Colors.textSecondary,
+    fontFamily: 'Inter_500Medium',
+    fontSize: 12,
   },
   envErrorDismiss: {
     paddingLeft: 8,

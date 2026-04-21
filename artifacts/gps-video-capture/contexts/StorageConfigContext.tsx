@@ -169,6 +169,11 @@ export function StorageConfigProvider({ children }: { children: React.ReactNode 
     const testResult: TestResult = { ...result, testedAt: Date.now() };
     setLastTestResult(testResult);
     AsyncStorage.setItem(TEST_RESULT_KEY, JSON.stringify(testResult)).catch(() => {});
+    if (result.success) {
+      setEnvTestError(null);
+    } else {
+      setEnvTestError(result.error ?? 'Connection test failed');
+    }
     return result;
   }, [config]);
 
