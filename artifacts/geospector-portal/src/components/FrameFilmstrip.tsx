@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import type { PortalFrame } from "@workspace/api-client-react";
 
 interface FrameFilmstripProps {
@@ -10,14 +10,14 @@ interface FrameFilmstripProps {
 export default function FrameFilmstrip({ frames, selectedFrameId, onSelectFrame }: FrameFilmstripProps) {
   const stripRef = useRef<HTMLDivElement>(null);
 
-  function scrollToFrame(frameId: number) {
-    const el = stripRef.current?.querySelector(`[data-frame-id="${frameId}"]`) as HTMLElement | null;
+  useEffect(() => {
+    if (selectedFrameId == null) return;
+    const el = stripRef.current?.querySelector(`[data-frame-id="${selectedFrameId}"]`) as HTMLElement | null;
     el?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
-  }
+  }, [selectedFrameId]);
 
   function handleClick(frame: PortalFrame) {
     onSelectFrame(frame);
-    scrollToFrame(frame.id);
   }
 
   if (frames.length === 0) {

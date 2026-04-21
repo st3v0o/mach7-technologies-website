@@ -50,6 +50,24 @@ function FrameMarkers({
   selectedFrameId?: number;
   onMarkerClick: (frame: PortalFrame) => void;
 }) {
+  const map = useMap();
+  const markerRefs = useRef<Map<number, L.Marker>>(new Map());
+  const prevSelectedId = useRef<number | undefined>(undefined);
+
+  useEffect(() => {
+    if (selectedFrameId == null || selectedFrameId === prevSelectedId.current) return;
+    prevSelectedId.current = selectedFrameId;
+
+    const marker = markerRefs.current.get(selectedFrameId);
+    if (!marker) return;
+
+    const latlng = marker.getLatLng();
+    map.panTo(latlng, { animate: true });
+    setTimeout(() => {
+      marker.openPopup();
+    }, 300);
+  }, [selectedFrameId, map]);
+
   return (
     <>
       {frames.map((frame) => (
@@ -57,6 +75,13 @@ function FrameMarkers({
           key={frame.id}
           position={[frame.latitude, frame.longitude]}
           eventHandlers={{ click: () => onMarkerClick(frame) }}
+          ref={(ref) => {
+            if (ref) {
+              markerRefs.current.set(frame.id, ref);
+            } else {
+              markerRefs.current.delete(frame.id);
+            }
+          }}
         >
           <Popup maxWidth={220} autoPan={false}>
             <div style={{ fontSize: 12 }}>
