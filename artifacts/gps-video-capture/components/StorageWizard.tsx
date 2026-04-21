@@ -419,7 +419,7 @@ export default function StorageWizard({ visible, onClose, onSaved }: Props) {
                   {' '}It is kept in memory only during setup to fetch your project credentials, and is cleared when you close this screen.{'\n\n'}
                   Generate a token at{' '}
                   <Text
-                    style={{ color: Colors.blue }}
+                    style={{ color: Colors.blue, textDecorationLine: 'underline' }}
                     onPress={() => WebBrowser.openBrowserAsync('https://supabase.com/dashboard/account/tokens')}
                   >supabase.com/dashboard/account/tokens</Text>
                 </Text>
@@ -1215,6 +1215,7 @@ const styles = StyleSheet.create({
     color: Colors.blue,
     fontFamily: 'Inter_400Regular',
     fontSize: 13,
+    textDecorationLine: 'underline',
   },
 
   // Centered steps (testing / success / error)
