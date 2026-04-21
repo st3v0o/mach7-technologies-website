@@ -898,6 +898,14 @@ export default function StorageWizard({ visible, onClose, onSaved }: Props) {
                   <Text style={styles.saveAnywayText}>Save Anyway</Text>
                 </Pressable>
               </View>
+              {originStep === 'bucket-select' && (
+                <Pressable
+                  style={styles.changeProjectBtn}
+                  onPress={() => setStep('supabase-account')}
+                >
+                  <Text style={styles.changeProjectText}>Change Project</Text>
+                </Pressable>
+              )}
             </View>
           )}
 
@@ -1293,6 +1301,15 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
   },
   saveAnywayText: { color: Colors.textSecondary, fontFamily: 'Inter_600SemiBold', fontSize: 15 },
+  changeProjectBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+  },
+  changeProjectText: {
+    color: Colors.blue,
+    fontFamily: 'Inter_500Medium',
+    fontSize: 14,
+  },
 
   // Pre-configured (env vars)
   preconfiguredContainer: {
