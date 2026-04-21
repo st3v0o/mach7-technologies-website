@@ -600,32 +600,32 @@ export default function StorageWizard({ visible, onClose, onSaved }: Props) {
                 The bucket must already exist in your Supabase project with public access or an anon-upload RLS policy.
               </Text>
 
-              {selectedProject && (
-                <>
-                  <Pressable
-                    style={styles.dashboardLink}
-                    onPress={() =>
-                      WebBrowser.openBrowserAsync(
-                        `https://supabase.com/dashboard/project/${selectedProject.id}/storage/buckets/new`
-                      )
-                    }
-                  >
-                    <Ionicons name="open-outline" size={14} color={Colors.blue} />
-                    <Text style={styles.dashboardLinkText}>Create a new bucket in Supabase ↗</Text>
-                  </Pressable>
-                  <Pressable
-                    style={styles.dashboardLink}
-                    onPress={() =>
-                      WebBrowser.openBrowserAsync(
-                        `https://supabase.com/dashboard/project/${selectedProject.id}/storage/policies`
-                      )
-                    }
-                  >
-                    <Ionicons name="open-outline" size={14} color={Colors.blue} />
-                    <Text style={styles.dashboardLinkText}>Manage bucket permissions in Supabase ↗</Text>
-                  </Pressable>
-                </>
-              )}
+              <Pressable
+                style={styles.dashboardLink}
+                onPress={() =>
+                  WebBrowser.openBrowserAsync(
+                    selectedProject
+                      ? `https://supabase.com/dashboard/project/${selectedProject.id}/storage/buckets/new`
+                      : 'https://supabase.com/dashboard'
+                  )
+                }
+              >
+                <Ionicons name="open-outline" size={14} color={Colors.blue} />
+                <Text style={styles.dashboardLinkText}>Create a new bucket in Supabase ↗</Text>
+              </Pressable>
+              <Pressable
+                style={styles.dashboardLink}
+                onPress={() =>
+                  WebBrowser.openBrowserAsync(
+                    selectedProject
+                      ? `https://supabase.com/dashboard/project/${selectedProject.id}/storage/policies`
+                      : 'https://supabase.com/dashboard'
+                  )
+                }
+              >
+                <Ionicons name="open-outline" size={14} color={Colors.blue} />
+                <Text style={styles.dashboardLinkText}>Manage bucket permissions in Supabase ↗</Text>
+              </Pressable>
 
               <View style={styles.formActions}>
                 <Pressable
