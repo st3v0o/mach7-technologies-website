@@ -6,6 +6,7 @@ import {
   real,
   jsonb,
   timestamp,
+  boolean,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
@@ -29,6 +30,8 @@ export const portalSessionsTable = pgTable("portal_sessions", {
   publicShareToken: text("public_share_token").unique(), // random UUID for /share/:token links
   status: text("status").notNull().default("active"), // 'active' | 'archived'
   thumbnailUrl: text("thumbnail_url"), // URL of first frame image used as preview
+  isPublic: boolean("is_public").notNull().default(false), // whether this session appears on the public feed
+  publishedAt: timestamp("published_at", { withTimezone: true }), // when it was made public
 });
 
 export const insertPortalSessionSchema = createInsertSchema(portalSessionsTable).omit({

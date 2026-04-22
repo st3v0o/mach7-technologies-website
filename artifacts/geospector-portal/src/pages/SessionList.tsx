@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { useListPortalSessions, useGetPortalStats, useImportMockPortalSession, getListPortalSessionsQueryKey } from "@workspace/api-client-react";
-import { MapPin, Clock, Gauge, Upload, Plus, BarChart2, Route } from "lucide-react";
+import { MapPin, Clock, Gauge, Upload, Plus, BarChart2, Route, Globe } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { PortalSession } from "@workspace/api-client-react";
 
@@ -40,18 +40,26 @@ function SessionCard({ session }: { session: PortalSession }) {
 
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
-            <div>
+            <div className="min-w-0 flex-1">
               <h3 className="font-semibold text-white group-hover:text-blue-300 transition-colors truncate">
                 {session.title ?? session.sessionId}
               </h3>
               <p className="text-xs text-slate-400 mt-0.5">{formatDate(session.createdAt)}</p>
             </div>
-            <span className={`
-              flex-none text-xs px-2 py-0.5 rounded-full font-medium
-              ${session.status === "active" ? "bg-green-900/60 text-green-300" : "bg-slate-700 text-slate-400"}
-            `}>
-              {session.status}
-            </span>
+            <div className="flex items-center gap-1.5 flex-none">
+              {session.isPublic && (
+                <span className="flex items-center gap-1 bg-green-900/60 text-green-300 text-xs px-2 py-0.5 rounded-full font-medium">
+                  <Globe className="h-3 w-3" />
+                  Public
+                </span>
+              )}
+              <span className={`
+                text-xs px-2 py-0.5 rounded-full font-medium
+                ${session.status === "active" ? "bg-slate-700 text-slate-400" : "bg-slate-700 text-slate-400"}
+              `}>
+                {session.status}
+              </span>
+            </div>
           </div>
 
           <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-slate-400">
@@ -107,9 +115,13 @@ export default function SessionList() {
     <div className="min-h-screen bg-slate-900 text-white">
       <header className="border-b border-slate-700 bg-slate-800/80 backdrop-blur sticky top-0 z-10">
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <MapPin className="h-5 w-5 text-blue-400" />
-            <span className="font-bold text-lg tracking-tight">Geospector Portal</span>
+          <div className="flex items-center gap-3">
+            <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+              <MapPin className="h-5 w-5 text-blue-400" />
+              <span className="font-bold text-lg tracking-tight">Geospector Portal</span>
+            </Link>
+            <span className="text-slate-600">/</span>
+            <span className="text-slate-300 text-sm font-medium">My Sessions</span>
           </div>
           <div className="flex gap-2">
             <Link

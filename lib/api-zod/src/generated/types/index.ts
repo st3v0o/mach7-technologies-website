@@ -9,6 +9,8 @@
 export * from "./contactRequest";
 export * from "./contactResponse";
 export * from "./errorResponse";
+export * from "./getPortalFeed200";
+export * from "./getPortalFeedParams";
 export * from "./getPortalSessionFrames200";
 export * from "./getPortalSessionFramesParams";
 export * from "./getPortalSessionRoute200";
@@ -27,3 +29,4 @@ export * from "./portalSession";
 export * from "./portalSessionRouteGeojson";
 export * from "./portalSessionSummary";
 export * from "./portalStats";
+export * from "./publishPortalSessionBody";

@@ -4,13 +4,18 @@ import {
   useGetPortalSession,
   useGetPortalSessionFrames,
   useGetPortalSessionRoute,
+  usePublishPortalSession,
+  getGetPortalSessionQueryKey,
+  getListPortalSessionsQueryKey,
+  getGetPortalFeedQueryKey,
 } from "@workspace/api-client-react";
 import type { PortalFrame } from "@workspace/api-client-react";
 import MetricsBar from "@/components/MetricsBar";
 import SessionMap from "@/components/SessionMap";
 import FrameFilmstrip from "@/components/FrameFilmstrip";
-import { ArrowLeft, Share2, MapPin, CheckCircle } from "lucide-react";
+import { ArrowLeft, Share2, MapPin, CheckCircle, Globe, EyeOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useQueryClient } from "@tanstack/react-query";
 
 function formatTimestamp(ts: string): string {
   try {
@@ -28,11 +33,36 @@ export default function SessionDetail() {
   const sessionId = Number(params.id);
   const [, navigate] = useLocation();
   const { toast } = useToast();
+  const qc = useQueryClient();
   const [selectedFrame, setSelectedFrame] = useState<PortalFrame | null>(null);
 
   const { data: session, isLoading: sessionLoading, error: sessionError } = useGetPortalSession(sessionId);
   const { data: framesData, isLoading: framesLoading } = useGetPortalSessionFrames(sessionId, { limit: 500 });
   const { data: routeData } = useGetPortalSessionRoute(sessionId);
+
+  const { mutate: togglePublish, isPending: publishing } = usePublishPortalSession({
+    mutation: {
+      onSuccess(updated) {
+        qc.setQueryData(getGetPortalSessionQueryKey(sessionId), updated);
+        qc.invalidateQueries({ queryKey: getListPortalSessionsQueryKey() });
+        qc.invalidateQueries({ queryKey: getGetPortalFeedQueryKey() });
+        toast({
+          title: updated.isPublic ? "Session published!" : "Session made private",
+          description: updated.isPublic
+            ? "It now appears on the public feed."
+            : "Removed from the public feed.",
+        });
+      },
+      onError() {
+        toast({ title: "Failed to update", description: "Please try again.", variant: "destructive" });
+      },
+    },
+  });
+
+  function handleTogglePublish() {
+    if (!session) return;
+    togglePublish({ id: sessionId, data: { isPublic: !session.isPublic } });
+  }
 
   const frames = framesData?.frames ?? [];
   const routeGeojson = routeData?.geojson ?? session?.routeGeojson;
@@ -59,7 +89,7 @@ export default function SessionDetail() {
       <div className="min-h-screen bg-slate-900 text-white flex items-center justify-center">
         <div className="text-center">
           <p className="text-red-400 mb-4">Session not found or failed to load.</p>
-          <button onClick={() => navigate("/")} className="text-blue-400 hover:underline text-sm">← Back to sessions</button>
+          <button onClick={() => navigate("/sessions")} className="text-blue-400 hover:underline text-sm">← Back to sessions</button>
         </div>
       </div>
     );
@@ -70,7 +100,7 @@ export default function SessionDetail() {
       <header className="border-b border-slate-700 bg-slate-800/80 backdrop-blur sticky top-0 z-10">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center gap-3">
           <button
-            onClick={() => navigate("/")}
+            onClick={() => navigate("/sessions")}
             className="flex items-center gap-1.5 text-slate-400 hover:text-white transition-colors text-sm"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -80,7 +110,34 @@ export default function SessionDetail() {
           <div className="flex items-center gap-2 flex-1 min-w-0">
             <MapPin className="h-4 w-4 text-blue-400 flex-none" />
             <h1 className="font-semibold truncate">{session.title ?? session.sessionId}</h1>
+            {session.isPublic && (
+              <span className="flex-none flex items-center gap-1 bg-green-700/60 text-green-300 text-xs px-2 py-0.5 rounded-full font-medium">
+                <Globe className="h-3 w-3" />
+                Public
+              </span>
+            )}
           </div>
+          <button
+            onClick={handleTogglePublish}
+            disabled={publishing}
+            className={`flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg border transition-colors disabled:opacity-50 ${
+              session.isPublic
+                ? "border-green-600 text-green-300 hover:border-red-500 hover:text-red-300"
+                : "border-slate-600 text-slate-300 hover:border-green-500 hover:text-green-300"
+            }`}
+          >
+            {session.isPublic ? (
+              <>
+                <EyeOff className="h-3.5 w-3.5" />
+                {publishing ? "Updating…" : "Make Private"}
+              </>
+            ) : (
+              <>
+                <Globe className="h-3.5 w-3.5" />
+                {publishing ? "Publishing…" : "Publish"}
+              </>
+            )}
+          </button>
           {session.publicShareToken && (
             <button
               onClick={handleShare}

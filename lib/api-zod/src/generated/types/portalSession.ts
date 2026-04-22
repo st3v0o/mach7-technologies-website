@@ -27,4 +27,6 @@ export interface PortalSession {
   publicShareToken?: string | null;
   status: string;
   thumbnailUrl?: string | null;
+  isPublic: boolean;
+  publishedAt?: Date | null;
 }

@@ -20,6 +20,8 @@ import type {
   ContactRequest,
   ContactResponse,
   ErrorResponse,
+  GetPortalFeed200,
+  GetPortalFeedParams,
   GetPortalSessionFrames200,
   GetPortalSessionFramesParams,
   GetPortalSessionRoute200,
@@ -30,6 +32,7 @@ import type {
   PortalSession,
   PortalSessionSummary,
   PortalStats,
+  PublishPortalSessionBody,
 } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
@@ -203,6 +206,190 @@ export function useHealthCheck<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * Returns all public sessions ordered by publishedAt descending
+ * @summary Public map discovery feed
+ */
+export const getGetPortalFeedUrl = (params?: GetPortalFeedParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/portal/feed?${stringifiedParams}`
+    : `/api/portal/feed`;
+};
+
+export const getPortalFeed = async (
+  params?: GetPortalFeedParams,
+  options?: RequestInit,
+): Promise<GetPortalFeed200> => {
+  return customFetch<GetPortalFeed200>(getGetPortalFeedUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetPortalFeedQueryKey = (params?: GetPortalFeedParams) => {
+  return [`/api/portal/feed`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetPortalFeedQueryOptions = <
+  TData = Awaited<ReturnType<typeof getPortalFeed>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetPortalFeedParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getPortalFeed>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetPortalFeedQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getPortalFeed>>> = ({
+    signal,
+  }) => getPortalFeed(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getPortalFeed>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetPortalFeedQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPortalFeed>>
+>;
+export type GetPortalFeedQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Public map discovery feed
+ */
+
+export function useGetPortalFeed<
+  TData = Awaited<ReturnType<typeof getPortalFeed>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetPortalFeedParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getPortalFeed>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetPortalFeedQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Sets isPublic on a session; sets publishedAt to now() when publishing
+ * @summary Publish or unpublish a session
+ */
+export const getPublishPortalSessionUrl = (id: number) => {
+  return `/api/portal/sessions/${id}/publish`;
+};
+
+export const publishPortalSession = async (
+  id: number,
+  publishPortalSessionBody: PublishPortalSessionBody,
+  options?: RequestInit,
+): Promise<PortalSession> => {
+  return customFetch<PortalSession>(getPublishPortalSessionUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(publishPortalSessionBody),
+  });
+};
+
+export const getPublishPortalSessionMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof publishPortalSession>>,
+    TError,
+    { id: number; data: BodyType<PublishPortalSessionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof publishPortalSession>>,
+  TError,
+  { id: number; data: BodyType<PublishPortalSessionBody> },
+  TContext
+> => {
+  const mutationKey = ["publishPortalSession"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof publishPortalSession>>,
+    { id: number; data: BodyType<PublishPortalSessionBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return publishPortalSession(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type PublishPortalSessionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof publishPortalSession>>
+>;
+export type PublishPortalSessionMutationBody =
+  BodyType<PublishPortalSessionBody>;
+export type PublishPortalSessionMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Publish or unpublish a session
+ */
+export const usePublishPortalSession = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof publishPortalSession>>,
+    TError,
+    { id: number; data: BodyType<PublishPortalSessionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof publishPortalSession>>,
+  TError,
+  { id: number; data: BodyType<PublishPortalSessionBody> },
+  TContext
+> => {
+  return useMutation(getPublishPortalSessionMutationOptions(options));
+};
 
 /**
  * Returns aggregate counts across all sessions

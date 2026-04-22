@@ -7,7 +7,7 @@ import {
   type InsertPortalSession,
   type InsertPortalFrame,
 } from "@workspace/db";
-import { eq, desc, and, sql, count } from "drizzle-orm";
+import { eq, desc, and, sql, count, isNotNull } from "drizzle-orm";
 import {
   ListPortalSessionsQueryParams,
   GetPortalSessionParams,
@@ -18,6 +18,9 @@ import {
   GetPortalShareSessionParams,
   ImportPortalSessionJsonBody,
   ImportPortalGpxBody,
+  GetPortalFeedQueryParams,
+  PublishPortalSessionParams,
+  PublishPortalSessionBody,
 } from "@workspace/api-zod";
 import { haversineDistanceMiles, buildLineString } from "../lib/geo.js";
 import { XMLParser } from "fast-xml-parser";
@@ -556,6 +559,71 @@ router.post("/import/gpx", async (req, res) => {
   }));
 
   await db.insert(portalFramesTable).values(frameValues);
+
+  res.json(session);
+});
+
+// ── GET /portal/feed ─────────────────────────────────────────────────────────
+
+router.get("/feed", async (req, res) => {
+  const parsed = GetPortalFeedQueryParams.safeParse(req.query);
+  const limit = parsed.success ? (parsed.data.limit ?? 50) : 50;
+  const offset = parsed.success ? (parsed.data.offset ?? 0) : 0;
+
+  const [sessions, [statsRow]] = await Promise.all([
+    db
+      .select()
+      .from(portalSessionsTable)
+      .where(eq(portalSessionsTable.isPublic, true))
+      .orderBy(desc(portalSessionsTable.publishedAt))
+      .limit(limit)
+      .offset(offset),
+    db
+      .select({
+        totalPublic: count(),
+        totalPublicDistanceMiles: sql<number>`coalesce(sum(${portalSessionsTable.totalDistanceMiles}), 0)`,
+      })
+      .from(portalSessionsTable)
+      .where(eq(portalSessionsTable.isPublic, true)),
+  ]);
+
+  res.json({
+    sessions,
+    totalPublic: statsRow?.totalPublic ?? 0,
+    totalPublicDistanceMiles: Number(statsRow?.totalPublicDistanceMiles ?? 0),
+  });
+});
+
+// ── PATCH /portal/sessions/:id/publish ───────────────────────────────────────
+
+router.patch("/sessions/:id/publish", async (req, res) => {
+  const paramParsed = PublishPortalSessionParams.safeParse({ id: Number(req.params.id) });
+  if (!paramParsed.success) {
+    res.status(400).json({ error: "Invalid session id" });
+    return;
+  }
+
+  const bodyParsed = PublishPortalSessionBody.safeParse(req.body);
+  if (!bodyParsed.success) {
+    res.status(400).json({ error: "Invalid request body — isPublic required" });
+    return;
+  }
+
+  const { isPublic } = bodyParsed.data;
+
+  const [session] = await db
+    .update(portalSessionsTable)
+    .set({
+      isPublic,
+      publishedAt: isPublic ? new Date() : null,
+    })
+    .where(eq(portalSessionsTable.id, paramParsed.data.id))
+    .returning();
+
+  if (!session) {
+    res.status(404).json({ error: "Session not found" });
+    return;
+  }
 
   res.json(session);
 });

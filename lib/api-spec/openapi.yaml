@@ -62,6 +62,83 @@ paths:
 
   # ── Geospector Portal ──────────────────────────────────────────────────────
 
+  /portal/feed:
+    get:
+      operationId: getPortalFeed
+      tags: [portal]
+      summary: Public map discovery feed
+      description: Returns all public sessions ordered by publishedAt descending
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 50
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 0
+      responses:
+        "200":
+          description: Array of public sessions with feed stats
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sessions:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PortalSession"
+                  totalPublic:
+                    type: integer
+                  totalPublicDistanceMiles:
+                    type: number
+                required:
+                  - sessions
+                  - totalPublic
+                  - totalPublicDistanceMiles
+
+  /portal/sessions/{id}/publish:
+    patch:
+      operationId: publishPortalSession
+      tags: [portal]
+      summary: Publish or unpublish a session
+      description: Sets isPublic on a session; sets publishedAt to now() when publishing
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                isPublic:
+                  type: boolean
+              required:
+                - isPublic
+      responses:
+        "200":
+          description: Updated session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PortalSession"
+        "404":
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /portal/stats:
     get:
       operationId: getPortalStats
@@ -437,6 +514,12 @@ components:
         thumbnailUrl:
           type: string
           nullable: true
+        isPublic:
+          type: boolean
+        publishedAt:
+          type: string
+          format: date-time
+          nullable: true
       required:
         - id
         - sessionId
@@ -445,6 +528,7 @@ components:
         - uploadedFrames
         - sourceType
         - status
+        - isPublic
 
     PortalFrame:
       type: object

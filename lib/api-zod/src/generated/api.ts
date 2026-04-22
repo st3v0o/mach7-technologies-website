@@ -31,6 +31,90 @@ export const HealthCheckResponse = zod.object({
 });
 
 /**
+ * Returns all public sessions ordered by publishedAt descending
+ * @summary Public map discovery feed
+ */
+export const getPortalFeedQueryLimitDefault = 50;
+export const getPortalFeedQueryOffsetDefault = 0;
+
+export const GetPortalFeedQueryParams = zod.object({
+  limit: zod.coerce.number().default(getPortalFeedQueryLimitDefault),
+  offset: zod.coerce.number().default(getPortalFeedQueryOffsetDefault),
+});
+
+export const GetPortalFeedResponse = zod.object({
+  sessions: zod.array(
+    zod.object({
+      id: zod.number(),
+      title: zod.string().nullish(),
+      sessionId: zod.string(),
+      createdAt: zod.date(),
+      startedAt: zod.date().nullish(),
+      endedAt: zod.date().nullish(),
+      captureMode: zod.string().nullish(),
+      totalFrames: zod.number(),
+      uploadedFrames: zod.number(),
+      totalDistanceMiles: zod.number().nullish(),
+      durationSeconds: zod.number().nullish(),
+      averageSpeedMph: zod.number().nullish(),
+      maxSpeedMph: zod.number().nullish(),
+      routeGeojson: zod
+        .object({})
+        .passthrough()
+        .nullish()
+        .describe("GeoJSON LineString"),
+      sourceType: zod.string(),
+      publicShareToken: zod.string().nullish(),
+      status: zod.string(),
+      thumbnailUrl: zod.string().nullish(),
+      isPublic: zod.boolean(),
+      publishedAt: zod.date().nullish(),
+    }),
+  ),
+  totalPublic: zod.number(),
+  totalPublicDistanceMiles: zod.number(),
+});
+
+/**
+ * Sets isPublic on a session; sets publishedAt to now() when publishing
+ * @summary Publish or unpublish a session
+ */
+export const PublishPortalSessionParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const PublishPortalSessionBody = zod.object({
+  isPublic: zod.boolean(),
+});
+
+export const PublishPortalSessionResponse = zod.object({
+  id: zod.number(),
+  title: zod.string().nullish(),
+  sessionId: zod.string(),
+  createdAt: zod.date(),
+  startedAt: zod.date().nullish(),
+  endedAt: zod.date().nullish(),
+  captureMode: zod.string().nullish(),
+  totalFrames: zod.number(),
+  uploadedFrames: zod.number(),
+  totalDistanceMiles: zod.number().nullish(),
+  durationSeconds: zod.number().nullish(),
+  averageSpeedMph: zod.number().nullish(),
+  maxSpeedMph: zod.number().nullish(),
+  routeGeojson: zod
+    .object({})
+    .passthrough()
+    .nullish()
+    .describe("GeoJSON LineString"),
+  sourceType: zod.string(),
+  publicShareToken: zod.string().nullish(),
+  status: zod.string(),
+  thumbnailUrl: zod.string().nullish(),
+  isPublic: zod.boolean(),
+  publishedAt: zod.date().nullish(),
+});
+
+/**
  * Returns aggregate counts across all sessions
  * @summary Overall portal statistics
  */
@@ -76,6 +160,8 @@ export const ListPortalSessionsResponseItem = zod.object({
   publicShareToken: zod.string().nullish(),
   status: zod.string(),
   thumbnailUrl: zod.string().nullish(),
+  isPublic: zod.boolean(),
+  publishedAt: zod.date().nullish(),
 });
 export const ListPortalSessionsResponse = zod.array(
   ListPortalSessionsResponseItem,
@@ -111,6 +197,8 @@ export const GetPortalSessionResponse = zod.object({
   publicShareToken: zod.string().nullish(),
   status: zod.string(),
   thumbnailUrl: zod.string().nullish(),
+  isPublic: zod.boolean(),
+  publishedAt: zod.date().nullish(),
 });
 
 /**
@@ -216,6 +304,8 @@ export const GetPortalShareSessionResponse = zod.object({
   publicShareToken: zod.string().nullish(),
   status: zod.string(),
   thumbnailUrl: zod.string().nullish(),
+  isPublic: zod.boolean(),
+  publishedAt: zod.date().nullish(),
 });
 
 /**
@@ -246,6 +336,8 @@ export const ImportMockPortalSessionResponse = zod.object({
   publicShareToken: zod.string().nullish(),
   status: zod.string(),
   thumbnailUrl: zod.string().nullish(),
+  isPublic: zod.boolean(),
+  publishedAt: zod.date().nullish(),
 });
 
 /**
@@ -283,6 +375,8 @@ export const ImportPortalSessionJsonResponse = zod.object({
   publicShareToken: zod.string().nullish(),
   status: zod.string(),
   thumbnailUrl: zod.string().nullish(),
+  isPublic: zod.boolean(),
+  publishedAt: zod.date().nullish(),
 });
 
 /**
@@ -322,4 +416,6 @@ export const ImportPortalGpxResponse = zod.object({
   publicShareToken: zod.string().nullish(),
   status: zod.string(),
   thumbnailUrl: zod.string().nullish(),
+  isPublic: zod.boolean(),
+  publishedAt: zod.date().nullish(),
 });

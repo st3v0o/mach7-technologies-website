@@ -49,6 +49,8 @@ export interface PortalSession {
   publicShareToken?: string | null;
   status: string;
   thumbnailUrl?: string | null;
+  isPublic: boolean;
+  publishedAt?: string | null;
 }
 
 export type PortalFrameMetadata = { [key: string]: unknown } | null;
@@ -112,6 +114,21 @@ export interface ImportGpxRequest {
   /** Optional session title */
   title?: string;
 }
+
+export type GetPortalFeedParams = {
+  limit?: number;
+  offset?: number;
+};
+
+export type GetPortalFeed200 = {
+  sessions: PortalSession[];
+  totalPublic: number;
+  totalPublicDistanceMiles: number;
+};
+
+export type PublishPortalSessionBody = {
+  isPublic: boolean;
+};
 
 export type ListPortalSessionsParams = {
   status?: ListPortalSessionsStatus;
