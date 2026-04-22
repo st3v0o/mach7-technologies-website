@@ -7,7 +7,7 @@ import {
   type InsertPortalSession,
   type InsertPortalFrame,
 } from "@workspace/db";
-import { eq, desc, and, sql, count, isNotNull } from "drizzle-orm";
+import { eq, desc, and, sql, count } from "drizzle-orm";
 import {
   ListPortalSessionsQueryParams,
   GetPortalSessionParams,
@@ -567,8 +567,12 @@ router.post("/import/gpx", async (req, res) => {
 
 router.get("/feed", async (req, res) => {
   const parsed = GetPortalFeedQueryParams.safeParse(req.query);
-  const limit = parsed.success ? (parsed.data.limit ?? 50) : 50;
-  const offset = parsed.success ? (parsed.data.offset ?? 0) : 0;
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid query params" });
+    return;
+  }
+  const limit = parsed.data.limit ?? 50;
+  const offset = parsed.data.offset ?? 0;
 
   const [sessions, [statsRow]] = await Promise.all([
     db

@@ -55,7 +55,7 @@ function SessionCard({ session }: { session: PortalSession }) {
               )}
               <span className={`
                 text-xs px-2 py-0.5 rounded-full font-medium
-                ${session.status === "active" ? "bg-slate-700 text-slate-400" : "bg-slate-700 text-slate-400"}
+                ${session.status === "active" ? "bg-green-900/60 text-green-300" : "bg-slate-700 text-slate-400"}
               `}>
                 {session.status}
               </span>
