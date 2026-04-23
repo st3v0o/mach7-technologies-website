@@ -15,6 +15,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { DetectionProvider } from '@/contexts/DetectionContext';
+import { PortalConfigProvider } from '@/contexts/PortalConfigContext';
 import { SettingsProvider } from '@/contexts/SettingsContext';
 import { StorageConfigProvider } from '@/contexts/StorageConfigContext';
 import { UploadProvider, useUpload } from '@/contexts/UploadContext';
@@ -95,6 +96,7 @@ export default function RootLayout() {
       <ErrorBoundary>
         <QueryClientProvider client={queryClient}>
           <SettingsProvider>
+            <PortalConfigProvider>
             <DetectionProvider>
               <StorageConfigProvider>
                 <UploadProvider>
@@ -110,6 +112,7 @@ export default function RootLayout() {
                 </UploadProvider>
               </StorageConfigProvider>
             </DetectionProvider>
+            </PortalConfigProvider>
           </SettingsProvider>
         </QueryClientProvider>
       </ErrorBoundary>

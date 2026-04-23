@@ -73,6 +73,22 @@ Express 5 API server. Routes live in `src/routes/` and use `@workspace/api-zod` 
 - `pnpm --filter @workspace/api-server run build` — production esbuild bundle (`dist/index.cjs`)
 - Build bundles an allowlist of deps (express, cors, pg, drizzle-orm, zod, etc.) and externalizes the rest
 
+### `artifacts/gps-video-capture` (`@workspace/gps-video-capture`)
+
+Geospector iOS app built with Expo SDK 54. Key contexts:
+
+- `SettingsContext` — frame capture settings, persisted to AsyncStorage at `@gps_capture_settings`
+- `RecordingContext` — live GPS capture, log entries (`LogEntry`), session tracking
+- `StorageConfigContext` — Supabase / webhook cloud storage connection
+- `PortalConfigContext` — Geospector Portal URL (default from `EXPO_PUBLIC_PORTAL_URL` env var, user-overridable via `@portal_url` in AsyncStorage) + published session ID tracking (`@portal_published_ids`). Exposes `publishSession(sessionId, entries, jobName)` which POSTs to `/api/portal/import/session-json`.
+
+Log tab (`app/(tabs)/log.tsx`) features:
+- Per-session **Publish** button in each `SessionHeader` — visible when `portalUrl` is set and session not yet published
+- **Published** badge on already-published sessions
+- **Bulk Select & Publish** mode with time-period chips (Today / This Week / This Month / This Year) and a sticky confirm button
+
+Settings screen (`app/(tabs)/settings.tsx`) features a **GEOSPECTOR PORTAL** section with a Portal URL text input.
+
 ### `artifacts/geospector-portal` (`@workspace/geospector-portal`)
 
 Geospector companion web portal — React + Vite app served at `/geospector-portal/`. Provides session review, map visualization, and metrics for Geospector field capture sessions. The design subagent (Task #38) builds the full frontend UI.

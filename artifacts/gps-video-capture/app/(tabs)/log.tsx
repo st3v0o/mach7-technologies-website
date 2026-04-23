@@ -19,6 +19,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import Colors from '@/constants/colors';
 import { LogEntry, useRecording } from '@/contexts/RecordingContext';
+import { usePortalConfig } from '@/contexts/PortalConfigContext';
+import { useSettings } from '@/contexts/SettingsContext';
 import ExportModal from '@/components/ExportModal';
 import LocalDatabaseSheet from '@/components/LocalDatabaseSheet';
 import LogMapView, { SessionSection } from '@/components/LogMapView';
@@ -276,8 +278,25 @@ function groupEntriesBySessions(entries: LogEntry[]): SessionSection[] {
   return sections.sort((a, b) => b.startMs - a.startMs);
 }
 
-function SessionHeader({ section, onShareGpx }: { section: SessionSection; onShareGpx: () => void }) {
+function SessionHeader({
+  section,
+  onShareGpx,
+  bulkMode = false,
+  isSelected = false,
+  onToggleSelected,
+}: {
+  section: SessionSection;
+  onShareGpx: () => void;
+  bulkMode?: boolean;
+  isSelected?: boolean;
+  onToggleSelected?: () => void;
+}) {
   const [sharing, setSharing] = useState(false);
+  const [publishing, setPublishing] = useState(false);
+  const [publishMsg, setPublishMsg] = useState<string | null>(null);
+  const { isPublished, publishSession, portalUrl } = usePortalConfig();
+  const { settings } = useSettings();
+
   const d = new Date(section.startMs);
   const dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
@@ -288,6 +307,8 @@ function SessionHeader({ section, onShareGpx }: { section: SessionSection; onSha
     section.mode === 'video' ? 'VIDEO' :
     section.mode === 'photo' ? 'PHOTO' : 'MIXED';
 
+  const alreadyPublished = isPublished(section.sessionId);
+
   const handleGpx = async () => {
     if (sharing) return;
     setSharing(true);
@@ -296,42 +317,206 @@ function SessionHeader({ section, onShareGpx }: { section: SessionSection; onSha
     setSharing(false);
   };
 
+  const handlePublish = async () => {
+    if (publishing) return;
+    if (!portalUrl) {
+      Alert.alert('Portal not configured', 'Set your Portal URL in Settings before publishing.');
+      return;
+    }
+    setPublishing(true);
+    try {
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      const { alreadyPublished: wasAlready } = await publishSession(
+        section.sessionId,
+        section.data,
+        settings.jobName || undefined
+      );
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setPublishMsg(wasAlready ? 'Already in portal' : 'Published!');
+    } catch (err: unknown) {
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      const msg = err instanceof Error ? err.message : 'Publish failed';
+      setPublishMsg(`Error: ${msg.slice(0, 60)}`);
+    } finally {
+      setPublishing(false);
+      setTimeout(() => setPublishMsg(null), 3000);
+    }
+  };
+
   return (
-    <View style={sessionStyles.header}>
+    <Pressable
+      onPress={bulkMode ? onToggleSelected : undefined}
+      style={({ pressed }) => [
+        sessionStyles.header,
+        bulkMode && isSelected && sessionStyles.headerSelected,
+        bulkMode && pressed && { opacity: 0.8 },
+      ]}
+    >
+      {bulkMode && (
+        <View style={[sessionStyles.checkbox, isSelected && sessionStyles.checkboxSelected]}>
+          {isSelected && <Ionicons name="checkmark" size={12} color="#fff" />}
+        </View>
+      )}
       <View style={sessionStyles.headerLeft}>
         <View style={[sessionStyles.modeBadge, { borderColor: modeColor }]}>
           <Text style={[sessionStyles.modeText, { color: modeColor }]}>{modeLabel}</Text>
         </View>
         <View>
-          <Text style={sessionStyles.dateText}>{dateStr} · {timeStr}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Text style={sessionStyles.dateText}>{dateStr} · {timeStr}</Text>
+            {alreadyPublished && (
+              <View style={sessionStyles.publishedBadge}>
+                <Ionicons name="cloud-done-outline" size={10} color={Colors.gpsGreen} />
+                <Text style={sessionStyles.publishedBadgeText}>Published</Text>
+              </View>
+            )}
+          </View>
           <Text style={sessionStyles.countText}>{section.data.length} frames</Text>
+          {publishMsg && (
+            <Text style={[
+              sessionStyles.publishMsg,
+              publishMsg.startsWith('Error') ? { color: Colors.accent } : { color: Colors.gpsGreen },
+            ]}>
+              {publishMsg}
+            </Text>
+          )}
         </View>
       </View>
-      <Pressable
-        onPress={handleGpx}
-        disabled={sharing || Platform.OS === 'web'}
-        style={({ pressed }) => [sessionStyles.gpxBtn, pressed && { opacity: 0.7 }]}
-      >
-        <Ionicons name="map-outline" size={13} color={Colors.amber} />
-        <Text style={sessionStyles.gpxBtnText}>{sharing ? 'Sharing…' : 'GPX'}</Text>
-      </Pressable>
-    </View>
+      {!bulkMode && (
+        <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+          {!!portalUrl && !alreadyPublished && (
+            <Pressable
+              onPress={handlePublish}
+              disabled={publishing || Platform.OS === 'web'}
+              style={({ pressed }) => [sessionStyles.publishBtn, pressed && { opacity: 0.7 }]}
+            >
+              {publishing
+                ? <ActivityIndicator size="small" color={Colors.gpsGreen} style={{ width: 13, height: 13 }} />
+                : <Ionicons name="cloud-upload-outline" size={13} color={Colors.gpsGreen} />}
+              <Text style={sessionStyles.publishBtnText}>{publishing ? 'Sending…' : 'Publish'}</Text>
+            </Pressable>
+          )}
+          <Pressable
+            onPress={handleGpx}
+            disabled={sharing || Platform.OS === 'web'}
+            style={({ pressed }) => [sessionStyles.gpxBtn, pressed && { opacity: 0.7 }]}
+          >
+            <Ionicons name="map-outline" size={13} color={Colors.amber} />
+            <Text style={sessionStyles.gpxBtnText}>{sharing ? 'Sharing…' : 'GPX'}</Text>
+          </Pressable>
+        </View>
+      )}
+    </Pressable>
   );
 }
+
+type BulkPeriod = 'today' | 'week' | 'month' | 'year';
+
+function getSessionsForPeriod(sections: SessionSection[], period: BulkPeriod): Set<string> {
+  const now = new Date();
+  let cutoff: Date;
+  if (period === 'today') {
+    cutoff = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  } else if (period === 'week') {
+    cutoff = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  } else if (period === 'month') {
+    cutoff = new Date(now.getFullYear(), now.getMonth(), 1);
+  } else {
+    cutoff = new Date(now.getFullYear(), 0, 1);
+  }
+  const cutoffMs = cutoff.getTime();
+  return new Set(sections.filter((s) => s.startMs >= cutoffMs).map((s) => s.sessionId));
+}
+
+const PERIOD_LABELS: { key: BulkPeriod; label: string }[] = [
+  { key: 'today', label: 'Today' },
+  { key: 'week', label: 'This Week' },
+  { key: 'month', label: 'This Month' },
+  { key: 'year', label: 'This Year' },
+];
 
 export default function LogScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const { logEntries, shareGpx, clearLog, processingStatus, totalFrames, segmentCount } = useRecording();
+  const { publishSession, portalUrl } = usePortalConfig();
+  const { settings } = useSettings();
   const [selectedEntry, setSelectedEntry] = useState<LogEntry | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'map' | 'table'>('list');
   const [isDemoMode, setIsDemoMode] = useState(false);
   const [mapSheetOpen, setMapSheetOpen] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
+  const [isBulkMode, setIsBulkMode] = useState(false);
+  const [selectedSessionIds, setSelectedSessionIds] = useState<Set<string>>(new Set());
+  const [activePeriod, setActivePeriod] = useState<BulkPeriod | null>(null);
+  const [bulkPublishing, setBulkPublishing] = useState(false);
 
   const sections = useMemo(() => groupEntriesBySessions(logEntries), [logEntries]);
   const mapSections = isDemoMode ? DEMO_SECTIONS : sections;
   const sessionIds = useMemo(() => sections.map((s) => s.sessionId), [sections]);
+
+  const toggleBulkMode = () => {
+    setIsBulkMode((v) => {
+      if (v) {
+        setSelectedSessionIds(new Set());
+        setActivePeriod(null);
+      }
+      return !v;
+    });
+  };
+
+  const togglePeriod = (period: BulkPeriod) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (activePeriod === period) {
+      setActivePeriod(null);
+      setSelectedSessionIds(new Set());
+    } else {
+      setActivePeriod(period);
+      setSelectedSessionIds(getSessionsForPeriod(sections, period));
+    }
+  };
+
+  const toggleSession = (sessionId: string) => {
+    setActivePeriod(null);
+    setSelectedSessionIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(sessionId)) next.delete(sessionId);
+      else next.add(sessionId);
+      return next;
+    });
+  };
+
+  const handleBulkPublish = async () => {
+    if (!portalUrl) {
+      Alert.alert('Portal not configured', 'Set your Portal URL in Settings before publishing.');
+      return;
+    }
+    if (selectedSessionIds.size === 0) return;
+    setBulkPublishing(true);
+    let successCount = 0;
+    let errorCount = 0;
+    for (const sid of selectedSessionIds) {
+      const section = sections.find((s) => s.sessionId === sid);
+      if (!section) continue;
+      try {
+        await publishSession(sid, section.data, settings.jobName || undefined);
+        successCount++;
+      } catch {
+        errorCount++;
+      }
+    }
+    setBulkPublishing(false);
+    setIsBulkMode(false);
+    setSelectedSessionIds(new Set());
+    setActivePeriod(null);
+    await Haptics.notificationAsync(
+      errorCount > 0 ? Haptics.NotificationFeedbackType.Error : Haptics.NotificationFeedbackType.Success
+    );
+    const msg = errorCount > 0
+      ? `Published ${successCount} sessions. ${errorCount} failed.`
+      : `Published ${successCount} session${successCount !== 1 ? 's' : ''} to portal.`;
+    Alert.alert('Bulk Publish', msg);
+  };
 
   // Hide the tab bar while the frame preview sheet is open
   useEffect(() => {
@@ -397,8 +582,32 @@ export default function LogScreen() {
             </Pressable>
           )}
 
-          {/* Export + clear — only on list */}
-          {logEntries.length > 0 && viewMode === 'list' && (
+          {/* Select & Publish — only on list with portal configured */}
+          {logEntries.length > 0 && viewMode === 'list' && !!portalUrl && (
+            <Pressable
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                toggleBulkMode();
+              }}
+              style={({ pressed }) => [
+                styles.actionBtn,
+                isBulkMode ? styles.bulkModeActiveBtn : styles.bulkModeBtn,
+                pressed && { opacity: 0.7 },
+              ]}
+            >
+              <Ionicons
+                name={isBulkMode ? 'close-outline' : 'cloud-upload-outline'}
+                size={16}
+                color={isBulkMode ? Colors.text : Colors.gpsGreen}
+              />
+              {isBulkMode && (
+                <Text style={[styles.actionBtnText, { color: Colors.text, fontSize: 12 }]}>Cancel</Text>
+              )}
+            </Pressable>
+          )}
+
+          {/* Export + clear — only on list and not in bulk mode */}
+          {logEntries.length > 0 && viewMode === 'list' && !isBulkMode && (
             <Pressable
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -415,7 +624,7 @@ export default function LogScreen() {
               <Text style={[styles.actionBtnText, { color: Colors.blue }]}>Export</Text>
             </Pressable>
           )}
-          {logEntries.length > 0 && viewMode === 'list' && (
+          {logEntries.length > 0 && viewMode === 'list' && !isBulkMode && (
             <Pressable
               onPress={handleClear}
               style={({ pressed }) => [
@@ -429,6 +638,31 @@ export default function LogScreen() {
           )}
         </View>
       </View>
+
+      {/* Bulk mode period chips */}
+      {isBulkMode && viewMode === 'list' && (
+        <View style={styles.bulkChipsRow}>
+          <Text style={styles.bulkChipsLabel}>Quick Select:</Text>
+          {PERIOD_LABELS.map(({ key, label }) => (
+            <Pressable
+              key={key}
+              onPress={() => togglePeriod(key)}
+              style={({ pressed }) => [
+                styles.bulkChip,
+                activePeriod === key && styles.bulkChipActive,
+                pressed && { opacity: 0.7 },
+              ]}
+            >
+              <Text style={[
+                styles.bulkChipText,
+                activePeriod === key && styles.bulkChipTextActive,
+              ]}>
+                {label}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      )}
 
       {/* View mode segmented control */}
       <View style={styles.segControl}>
@@ -547,6 +781,9 @@ export default function LogScreen() {
             <SessionHeader
               section={section}
               onShareGpx={() => shareGpx(section.sessionId)}
+              bulkMode={isBulkMode}
+              isSelected={selectedSessionIds.has(section.sessionId)}
+              onToggleSelected={() => toggleSession(section.sessionId)}
             />
           )}
           SectionSeparatorComponent={() => <View style={styles.sectionSeparator} />}
@@ -558,6 +795,32 @@ export default function LogScreen() {
           showsVerticalScrollIndicator={false}
           stickySectionHeadersEnabled={false}
         />
+      )}
+
+      {/* Sticky bulk publish button */}
+      {isBulkMode && viewMode === 'list' && (
+        <View style={[styles.bulkFooter, { paddingBottom: insets.bottom + 12 }]}>
+          <Pressable
+            onPress={handleBulkPublish}
+            disabled={bulkPublishing || selectedSessionIds.size === 0}
+            style={({ pressed }) => [
+              styles.bulkPublishBtn,
+              (bulkPublishing || selectedSessionIds.size === 0) && styles.bulkPublishBtnDisabled,
+              pressed && { opacity: 0.8 },
+            ]}
+          >
+            {bulkPublishing
+              ? <ActivityIndicator size="small" color="#fff" />
+              : <Ionicons name="cloud-upload-outline" size={18} color="#fff" />}
+            <Text style={styles.bulkPublishBtnText}>
+              {bulkPublishing
+                ? 'Publishing…'
+                : selectedSessionIds.size === 0
+                  ? 'Select sessions above'
+                  : `Publish ${selectedSessionIds.size} session${selectedSessionIds.size !== 1 ? 's' : ''}`}
+            </Text>
+          </Pressable>
+        </View>
       )}
 
       {selectedEntry && (
@@ -624,6 +887,81 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 59, 48, 0.25)',
     backgroundColor: 'rgba(255, 59, 48, 0.06)',
     paddingHorizontal: 10,
+  },
+  bulkModeBtn: {
+    borderColor: 'rgba(48, 209, 88, 0.3)',
+    backgroundColor: 'rgba(48, 209, 88, 0.07)',
+    paddingHorizontal: 10,
+  },
+  bulkModeActiveBtn: {
+    borderColor: Colors.border,
+    backgroundColor: Colors.card,
+    paddingHorizontal: 10,
+  },
+  bulkChipsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: 'rgba(48, 209, 88, 0.04)',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(48, 209, 88, 0.1)',
+  },
+  bulkChipsLabel: {
+    color: Colors.textTertiary,
+    fontFamily: 'Inter_500Medium',
+    fontSize: 11,
+    marginRight: 2,
+  },
+  bulkChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.card,
+  },
+  bulkChipActive: {
+    borderColor: Colors.gpsGreen,
+    backgroundColor: 'rgba(48, 209, 88, 0.12)',
+  },
+  bulkChipText: {
+    color: Colors.textSecondary,
+    fontFamily: 'Inter_500Medium',
+    fontSize: 12,
+  },
+  bulkChipTextActive: {
+    color: Colors.gpsGreen,
+  },
+  bulkFooter: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    backgroundColor: Colors.background,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+  },
+  bulkPublishBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: Colors.gpsGreen,
+    borderRadius: 14,
+    paddingVertical: 14,
+  },
+  bulkPublishBtnDisabled: {
+    opacity: 0.4,
+  },
+  bulkPublishBtnText: {
+    color: '#fff',
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 15,
   },
   mapBtn: {
     borderColor: 'rgba(255, 184, 0, 0.3)',
@@ -984,6 +1322,63 @@ const sessionStyles = StyleSheet.create({
     color: Colors.amber,
     fontFamily: 'Inter_600SemiBold',
     fontSize: 12,
+  },
+  headerSelected: {
+    backgroundColor: 'rgba(48, 209, 88, 0.07)',
+    borderColor: 'rgba(48, 209, 88, 0.3)',
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    backgroundColor: Colors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+  checkboxSelected: {
+    backgroundColor: Colors.gpsGreen,
+    borderColor: Colors.gpsGreen,
+  },
+  publishedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 5,
+    borderWidth: 1,
+    borderColor: 'rgba(48, 209, 88, 0.3)',
+    backgroundColor: 'rgba(48, 209, 88, 0.08)',
+  },
+  publishedBadgeText: {
+    color: Colors.gpsGreen,
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 9,
+    letterSpacing: 0.3,
+  },
+  publishBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(48, 209, 88, 0.35)',
+    backgroundColor: 'rgba(48, 209, 88, 0.07)',
+  },
+  publishBtnText: {
+    color: Colors.gpsGreen,
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 12,
+  },
+  publishMsg: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 11,
+    marginTop: 2,
   },
 });
 

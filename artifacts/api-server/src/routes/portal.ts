@@ -364,6 +364,20 @@ router.post("/import/session-json", async (req, res) => {
   }
 
   const { session: rawSession, frames: rawFrames } = parsed.data;
+  const s0 = rawSession as Record<string, unknown>;
+  const incomingSessionId = s0["session_id"] ?? s0["sessionId"];
+
+  // Deduplication: if we already have a session with this sessionId, return it
+  if (incomingSessionId) {
+    const [existing] = await db
+      .select()
+      .from(portalSessionsTable)
+      .where(eq(portalSessionsTable.sessionId, String(incomingSessionId)));
+    if (existing) {
+      res.status(200).json({ ...existing, alreadyPublished: true });
+      return;
+    }
+  }
 
   // Map raw frame objects to typed frames
   const mappedFrames = (rawFrames as Array<Record<string, unknown>>).map((f, i) => ({
@@ -393,6 +407,7 @@ router.post("/import/session-json", async (req, res) => {
   const s = rawSession as Record<string, unknown>;
   const sessionId = String(s["session_id"] ?? s["sessionId"] ?? randomUUID());
   const shareToken = randomUUID();
+  const makePublic = s["isPublic"] === true || s["is_public"] === true;
 
   const [session] = await db
     .insert(portalSessionsTable)
@@ -410,6 +425,8 @@ router.post("/import/session-json", async (req, res) => {
       publicShareToken: shareToken,
       status: "active",
       thumbnailUrl: mappedFrames[0]?.imageUrl ?? null,
+      isPublic: makePublic,
+      publishedAt: makePublic ? new Date() : null,
     } satisfies InsertPortalSession)
     .returning();
 

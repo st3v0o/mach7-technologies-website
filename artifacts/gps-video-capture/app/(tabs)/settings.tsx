@@ -24,6 +24,7 @@ import {
   metersToFeet,
   useSettings,
 } from '@/contexts/SettingsContext';
+import { usePortalConfig } from '@/contexts/PortalConfigContext';
 import { useStorageConfig } from '@/contexts/StorageConfigContext';
 import StorageWizard from '@/components/StorageWizard';
 import SuccessToast from '@/components/SuccessToast';
@@ -114,10 +115,12 @@ export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const { settings, updateSettings } = useSettings();
   const { providerType, providerLabel, isCloudConfigured, lastTestResult, testConnection, reloadConfig, clearConfig, isEnvPreconfigured } = useStorageConfig();
+  const { portalUrl, setPortalUrl } = usePortalConfig();
   const [wizardVisible, setWizardVisible] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [showSuccessToast, setShowSuccessToast] = useState(false);
   const [jobNameDraft, setJobNameDraft] = useState(settings.jobName);
+  const [portalUrlDraft, setPortalUrlDraft] = useState(portalUrl);
 
   const currentFeet = Math.round(metersToFeet(settings.dynamicMeters));
 
@@ -522,6 +525,34 @@ export default function SettingsScreen() {
           </View>
         </View>
 
+        {/* ── Geospector Portal ─────────────────────────────────────────── */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>GEOSPECTOR PORTAL</Text>
+          <View style={styles.card}>
+            <View style={styles.portalIconRow}>
+              <Ionicons name="globe-outline" size={18} color={Colors.blue} />
+              <Text style={styles.portalTitle}>Portal URL</Text>
+            </View>
+            <TextInput
+              style={styles.settingsInput}
+              value={portalUrlDraft}
+              onChangeText={setPortalUrlDraft}
+              onEndEditing={() => setPortalUrl(portalUrlDraft)}
+              onSubmitEditing={() => setPortalUrl(portalUrlDraft)}
+              placeholder="https://your-portal.replit.app"
+              placeholderTextColor={Colors.textTertiary}
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="url"
+              returnKeyType="done"
+            />
+            <Text style={styles.inputHint}>
+              Point the app at your Geospector Portal to publish sessions directly from the Log tab.
+              Leave blank if you are not using a portal.
+            </Text>
+          </View>
+        </View>
+
         <View style={styles.section}>
           <View style={styles.infoCard}>
             <View style={styles.infoHeader}>
@@ -653,6 +684,21 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
     overflow: 'hidden',
+  },
+  // ── Portal styles ────────────────────────────────────────────────────────────
+  portalIconRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingTop: 14,
+    marginBottom: 6,
+  },
+  portalTitle: {
+    color: Colors.textSecondary,
+    fontFamily: 'Inter_500Medium',
+    fontSize: 12,
+    letterSpacing: 0.4,
   },
   // ── Job / Active Job styles ─────────────────────────────────────────────────
   inputLabel: {
