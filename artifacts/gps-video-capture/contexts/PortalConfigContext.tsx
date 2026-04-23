@@ -14,6 +14,8 @@ const PORTAL_PUBLISHED_IDS_KEY = '@portal_published_ids';
 
 const DEFAULT_PORTAL_URL: string = (() => {
   if (process.env.EXPO_PUBLIC_PORTAL_URL) return process.env.EXPO_PUBLIC_PORTAL_URL;
+  if (process.env.EXPO_PUBLIC_EXPO_DEV_DOMAIN)
+    return `https://${process.env.EXPO_PUBLIC_EXPO_DEV_DOMAIN}`;
   if (process.env.EXPO_PUBLIC_DOMAIN) return `https://${process.env.EXPO_PUBLIC_DOMAIN}`;
   return '';
 })();

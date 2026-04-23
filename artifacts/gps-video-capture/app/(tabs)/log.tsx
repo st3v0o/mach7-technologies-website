@@ -802,7 +802,7 @@ export default function LogScreen() {
 
       {/* Sticky bulk publish button */}
       {isBulkMode && viewMode === 'list' && (
-        <View style={[styles.bulkFooter, { paddingBottom: insets.bottom + 12 }]}>
+        <View style={[styles.bulkFooter, { bottom: insets.bottom + 49 + 8 }]}>
           <Pressable
             onPress={handleBulkPublish}
             disabled={bulkPublishing || selectedSessionIds.size === 0}
@@ -940,7 +940,6 @@ const styles = StyleSheet.create({
   },
   bulkFooter: {
     position: 'absolute',
-    bottom: 0,
     left: 0,
     right: 0,
     paddingHorizontal: 16,
