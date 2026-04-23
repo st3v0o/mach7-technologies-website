@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Platform,
