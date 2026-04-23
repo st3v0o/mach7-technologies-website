@@ -118,12 +118,15 @@ export default function CaptureScreen() {
   const { envTestError, testConnection } = useStorageConfig();
   const [dismissedEnvError, setDismissedEnvError] = useState(false);
   const [retryingEnvTest, setRetryingEnvTest] = useState(false);
+  const retryingEnvTestRef = useRef(false);
   const [showRetrySuccess, setShowRetrySuccess] = useState(false);
   const retryToastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autoRetryIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     return () => {
       if (retryToastTimer.current) clearTimeout(retryToastTimer.current);
+      if (autoRetryIntervalRef.current) clearInterval(autoRetryIntervalRef.current);
     };
   }, []);
 
@@ -134,16 +137,36 @@ export default function CaptureScreen() {
   }, [envTestError]);
 
   const handleRetryConnection = useCallback(async () => {
-    if (retryingEnvTest) return;
+    if (retryingEnvTestRef.current) return;
+    retryingEnvTestRef.current = true;
     setRetryingEnvTest(true);
     const result = await testConnection();
+    retryingEnvTestRef.current = false;
     setRetryingEnvTest(false);
     if (result.success) {
       if (retryToastTimer.current) clearTimeout(retryToastTimer.current);
       setShowRetrySuccess(true);
       retryToastTimer.current = setTimeout(() => setShowRetrySuccess(false), 2500);
     }
-  }, [retryingEnvTest, testConnection]);
+  }, [testConnection]);
+
+  useEffect(() => {
+    if (autoRetryIntervalRef.current) {
+      clearInterval(autoRetryIntervalRef.current);
+      autoRetryIntervalRef.current = null;
+    }
+    if (envTestError && !dismissedEnvError) {
+      autoRetryIntervalRef.current = setInterval(() => {
+        handleRetryConnection();
+      }, 30_000);
+    }
+    return () => {
+      if (autoRetryIntervalRef.current) {
+        clearInterval(autoRetryIntervalRef.current);
+        autoRetryIntervalRef.current = null;
+      }
+    };
+  }, [envTestError, dismissedEnvError, handleRetryConnection]);
 
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showJobNameModal, setShowJobNameModal] = useState(false);
