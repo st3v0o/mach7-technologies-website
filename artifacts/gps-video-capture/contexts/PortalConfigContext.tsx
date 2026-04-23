@@ -12,8 +12,11 @@ import { LogEntry } from '@/contexts/RecordingContext';
 const PORTAL_URL_KEY = '@portal_url';
 const PORTAL_PUBLISHED_IDS_KEY = '@portal_published_ids';
 
-const DEFAULT_PORTAL_URL: string =
-  (process.env.EXPO_PUBLIC_PORTAL_URL as string | undefined) ?? '';
+const DEFAULT_PORTAL_URL: string = (() => {
+  if (process.env.EXPO_PUBLIC_PORTAL_URL) return process.env.EXPO_PUBLIC_PORTAL_URL;
+  if (process.env.EXPO_PUBLIC_DOMAIN) return `https://${process.env.EXPO_PUBLIC_DOMAIN}`;
+  return '';
+})();
 
 interface PortalConfigContextType {
   portalUrl: string;
