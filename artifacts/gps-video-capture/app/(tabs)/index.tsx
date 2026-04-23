@@ -22,6 +22,7 @@ import { runOnJS } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import Colors from '@/constants/colors';
+import SuccessToast from '@/components/SuccessToast';
 import UploadProgressModal from '@/components/UploadProgressModal';
 import { useRecording } from '@/contexts/RecordingContext';
 import { FEET_PER_METER, MPH_PER_MPS, useSettings } from '@/contexts/SettingsContext';
@@ -117,6 +118,14 @@ export default function CaptureScreen() {
   const { envTestError, testConnection } = useStorageConfig();
   const [dismissedEnvError, setDismissedEnvError] = useState(false);
   const [retryingEnvTest, setRetryingEnvTest] = useState(false);
+  const [showRetrySuccess, setShowRetrySuccess] = useState(false);
+  const retryToastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (retryToastTimer.current) clearTimeout(retryToastTimer.current);
+    };
+  }, []);
 
   useEffect(() => {
     if (envTestError) {
@@ -127,8 +136,13 @@ export default function CaptureScreen() {
   const handleRetryConnection = useCallback(async () => {
     if (retryingEnvTest) return;
     setRetryingEnvTest(true);
-    await testConnection();
+    const result = await testConnection();
     setRetryingEnvTest(false);
+    if (result.success) {
+      if (retryToastTimer.current) clearTimeout(retryToastTimer.current);
+      setShowRetrySuccess(true);
+      retryToastTimer.current = setTimeout(() => setShowRetrySuccess(false), 2500);
+    }
   }, [retryingEnvTest, testConnection]);
 
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -1118,6 +1132,9 @@ export default function CaptureScreen() {
         sessionId={sessionId}
         onClose={() => setShowUploadModal(false)}
       />
+
+      {/* Connection retry success toast */}
+      <SuccessToast visible={showRetrySuccess} message="Connection successful" />
     </View>
     </GestureDetector>
   );

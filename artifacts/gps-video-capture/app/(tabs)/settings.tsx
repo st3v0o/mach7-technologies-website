@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Platform,
@@ -26,6 +26,7 @@ import {
 } from '@/contexts/SettingsContext';
 import { useStorageConfig } from '@/contexts/StorageConfigContext';
 import StorageWizard from '@/components/StorageWizard';
+import SuccessToast from '@/components/SuccessToast';
 
 function fpsLabel(fps: number): string {
   if (fps < 1) return `1 / ${Math.round(1 / fps)}s`;
@@ -115,6 +116,7 @@ export default function SettingsScreen() {
   const { providerType, providerLabel, isCloudConfigured, lastTestResult, testConnection, reloadConfig, clearConfig, isEnvPreconfigured } = useStorageConfig();
   const [wizardVisible, setWizardVisible] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
+  const [showSuccessToast, setShowSuccessToast] = useState(false);
   const [jobNameDraft, setJobNameDraft] = useState(settings.jobName);
 
   const currentFeet = Math.round(metersToFeet(settings.dynamicMeters));
@@ -137,10 +139,23 @@ export default function SettingsScreen() {
   const providerColor = PROVIDER_COLORS[providerType] ?? Colors.textSecondary;
   const providerIcon = PROVIDER_ICONS[providerType] ?? 'cloud-outline';
 
+  const successToastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (successToastTimer.current) clearTimeout(successToastTimer.current);
+    };
+  }, []);
+
   const handleTestNow = async () => {
     setIsTesting(true);
     try {
-      await testConnection();
+      const result = await testConnection();
+      if (result.success) {
+        if (successToastTimer.current) clearTimeout(successToastTimer.current);
+        setShowSuccessToast(true);
+        successToastTimer.current = setTimeout(() => setShowSuccessToast(false), 2500);
+      }
     } finally {
       setIsTesting(false);
     }
@@ -181,7 +196,7 @@ export default function SettingsScreen() {
   };
 
   return (
-    <>
+    <View style={{ flex: 1 }}>
       <ScrollView
         style={styles.container}
         contentContainerStyle={[
@@ -543,7 +558,8 @@ export default function SettingsScreen() {
         onClose={() => setWizardVisible(false)}
         onSaved={reloadConfig}
       />
-    </>
+      <SuccessToast visible={showSuccessToast} message="Connection successful" />
+    </View>
   );
 }
 
