@@ -600,9 +600,12 @@ export default function LogScreen() {
                 size={16}
                 color={isBulkMode ? Colors.text : Colors.gpsGreen}
               />
-              {isBulkMode && (
-                <Text style={[styles.actionBtnText, { color: Colors.text, fontSize: 12 }]}>Cancel</Text>
-              )}
+              <Text style={[
+                styles.actionBtnText,
+                { color: isBulkMode ? Colors.text : Colors.gpsGreen, fontSize: 12 },
+              ]}>
+                {isBulkMode ? 'Cancel' : 'Publish'}
+              </Text>
             </Pressable>
           )}
 

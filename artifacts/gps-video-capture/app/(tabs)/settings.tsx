@@ -122,6 +122,10 @@ export default function SettingsScreen() {
   const [jobNameDraft, setJobNameDraft] = useState(settings.jobName);
   const [portalUrlDraft, setPortalUrlDraft] = useState(portalUrl);
 
+  useEffect(() => {
+    setPortalUrlDraft(portalUrl);
+  }, [portalUrl]);
+
   const currentFeet = Math.round(metersToFeet(settings.dynamicMeters));
 
   const fixedDesc =
