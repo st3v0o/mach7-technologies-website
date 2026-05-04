@@ -69,6 +69,13 @@
           "savePhotosPermission": "Geospector saves GPS-tagged photos to your Camera Roll.",
           "isAccessMediaLocationEnabled": true
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#00FF88"
+        }
       ]
     ],
     "experiments": {

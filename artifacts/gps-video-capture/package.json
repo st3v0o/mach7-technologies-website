@@ -65,6 +65,7 @@
     "expo-file-system": "^19.0.21",
     "expo-media-library": "^18.2.1",
     "expo-modules-core": "^3.0.29",
+    "expo-notifications": "^55.0.22",
     "expo-sharing": "^14.0.8",
     "expo-video-thumbnails": "^10.0.8",
     "jszip": "^3.10.1",
