@@ -176,11 +176,10 @@ export default function SessionDetail() {
     setDeleteLoading(true);
     setDeleteError(null);
     try {
-      const base = window.location.origin + import.meta.env.BASE_URL;
       const res = await fetch(`/api/portal/sessions/${sessionId}/request-delete`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, portalBaseUrl: base }),
+        body: JSON.stringify({ email }),
       });
       if (!res.ok) {
         setDeleteError(`Request failed (${res.status}). Please try again.`);

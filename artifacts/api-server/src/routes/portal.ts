@@ -710,8 +710,22 @@ router.patch("/sessions/:id/publish", async (req, res) => {
 
 const RequestDeleteBody = z.object({
   email: z.string().email(),
-  portalBaseUrl: z.string().url(),
 });
+
+/**
+ * Returns the trusted portal base URL, derived entirely from server-side
+ * environment variables. Never uses client-supplied data.
+ */
+function getPortalBaseUrl(): string {
+  if (process.env.PORTAL_BASE_URL) {
+    return process.env.PORTAL_BASE_URL.replace(/\/$/, "");
+  }
+  const replitDomain = process.env.REPLIT_DEV_DOMAIN;
+  if (replitDomain) {
+    return `https://${replitDomain}/geospector-portal`;
+  }
+  return "https://geospector.mach7technologies.com";
+}
 
 router.post("/sessions/:id/request-delete", async (req, res) => {
   const paramParsed = GetPortalSessionParams.safeParse({ id: Number(req.params.id) });
@@ -722,11 +736,12 @@ router.post("/sessions/:id/request-delete", async (req, res) => {
 
   const bodyParsed = RequestDeleteBody.safeParse(req.body);
   if (!bodyParsed.success) {
-    res.status(400).json({ error: "email and portalBaseUrl are required" });
+    res.status(400).json({ error: "email is required" });
     return;
   }
 
-  const { email, portalBaseUrl } = bodyParsed.data;
+  const { email } = bodyParsed.data;
+  const portalBaseUrl = getPortalBaseUrl();
   const genericOk = { sent: true, message: "If that email matches our records, you'll receive a delete link shortly." };
 
   const [session] = await db
