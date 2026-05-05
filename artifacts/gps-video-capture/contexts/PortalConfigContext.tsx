@@ -109,7 +109,7 @@ export function PortalConfigProvider({ children }: { children: React.ReactNode }
       entries: LogEntry[],
       jobName?: string,
       submitterEmail?: string
-    ): Promise<{ alreadyPublished: boolean }> => {
+    ): Promise<{ alreadyPublished: boolean; claimToken?: string; atlasId?: number }> => {
       const baseUrl = portalUrl.replace(/\/+$/, '');
       if (!baseUrl) throw new Error('Portal URL is not configured. Set it in Settings.');
 

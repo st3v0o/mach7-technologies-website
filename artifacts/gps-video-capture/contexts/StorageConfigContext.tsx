@@ -1,6 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 
+import { LogEntry } from '@/contexts/RecordingContext';
+
 export type StorageProviderType = 'none' | 'supabase' | 'webhook';
 
 export const PROVIDER_LABELS: Record<StorageProviderType, string> = {
@@ -35,6 +37,11 @@ interface StorageConfigContextType {
   isEnvPreconfigured: boolean;
   envTestError: string | null;
   uploadFrame: (params: UploadFrameParams) => Promise<string>;
+  shareProject: (
+    mapHtml: string,
+    entries: LogEntry[],
+    sessionIds: string[]
+  ) => Promise<string | null>;
   testConnection: () => Promise<{ success: boolean; error?: string }>;
   reloadConfig: () => Promise<void>;
   clearConfig: () => void;
@@ -216,6 +223,65 @@ export function StorageConfigProvider({ children }: { children: React.ReactNode 
     [config, isCloudConfigured]
   );
 
+  const shareProject = useCallback(
+    async (
+      mapHtml: string,
+      entries: LogEntry[],
+      sessionIds: string[]
+    ): Promise<string | null> => {
+      if (config.providerType === 'supabase') {
+        if (!config.supabaseUrl || !config.supabaseKey || !config.supabaseBucket) {
+          throw new Error('Supabase not configured');
+        }
+        const { createClient } = await import('@supabase/supabase-js');
+        const supabase = createClient(config.supabaseUrl, config.supabaseKey);
+        const path = `_shared/map_${Date.now()}.html`;
+        const htmlBytes = new TextEncoder().encode(mapHtml);
+        const { error } = await supabase.storage
+          .from(config.supabaseBucket)
+          .upload(path, htmlBytes, { contentType: 'text/html; charset=utf-8', upsert: false });
+        if (error) throw error;
+        const { data } = supabase.storage.from(config.supabaseBucket).getPublicUrl(path);
+        return data.publicUrl;
+      }
+
+      if (config.providerType === 'webhook') {
+        if (!config.webhookUrl) throw new Error('Webhook URL not configured');
+        const geoFeatures = entries
+          .filter((e) => e.latitude !== 0 || e.longitude !== 0)
+          .map((e) => ({
+            type: 'Feature',
+            geometry: { type: 'Point', coordinates: [e.longitude, e.latitude] },
+            properties: {
+              filename: e.filename,
+              timestamp: new Date(e.timestamp).toISOString(),
+              session_id: e.sessionId,
+              job_name: e.jobName ?? '',
+              image_url: e.supabaseUrl ?? null,
+            },
+          }));
+        const body = JSON.stringify({
+          event: 'share',
+          exportedAt: new Date().toISOString(),
+          sessionIds,
+          totalFrames: entries.length,
+          geotaggedFrames: geoFeatures.length,
+          mapHtml,
+          geojson: { type: 'FeatureCollection', features: geoFeatures },
+        });
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (config.webhookSecret) headers['x-webhook-secret'] = config.webhookSecret;
+        const res = await fetch(config.webhookUrl, { method: 'POST', headers, body });
+        if (!res.ok) throw new Error(`Webhook returned ${res.status}`);
+        const json = await res.json().catch(() => ({}));
+        return typeof json?.url === 'string' ? json.url : null;
+      }
+
+      return null;
+    },
+    [config]
+  );
+
   const reloadConfig = useCallback(async () => {
     try {
       const raw = await AsyncStorage.getItem(CONFIG_STORAGE_KEY);
@@ -264,6 +330,7 @@ export function StorageConfigProvider({ children }: { children: React.ReactNode 
         isEnvPreconfigured,
         envTestError,
         uploadFrame,
+        shareProject,
         testConnection,
         reloadConfig,
         clearConfig,
