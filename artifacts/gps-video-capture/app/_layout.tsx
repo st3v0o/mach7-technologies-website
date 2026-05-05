@@ -8,10 +8,13 @@ import {
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import React, { useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+import OnboardingModal, { ONBOARDING_KEY } from '@/components/OnboardingModal';
 
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { DetectionProvider } from '@/contexts/DetectionContext';
@@ -83,11 +86,27 @@ export default function RootLayout() {
     Inter_700Bold,
   });
 
+  const [showOnboarding, setShowOnboarding] = useState(false);
+
   useEffect(() => {
     if (fontsLoaded || fontError) {
       SplashScreen.hideAsync();
+      AsyncStorage.getItem(ONBOARDING_KEY).then((value) => {
+        if (value === null) {
+          setShowOnboarding(true);
+        }
+      });
     }
   }, [fontsLoaded, fontError]);
+
+  const handleDismiss = useCallback(async () => {
+    try {
+      await AsyncStorage.setItem(ONBOARDING_KEY, '1');
+    } catch {
+    } finally {
+      setShowOnboarding(false);
+    }
+  }, []);
 
   if (!fontsLoaded && !fontError) return null;
 
@@ -108,6 +127,7 @@ export default function RootLayout() {
                         <RootLayoutNav />
                       </KeyboardProvider>
                     </GestureHandlerRootView>
+                    <OnboardingModal visible={showOnboarding} onDismiss={handleDismiss} />
                   </RecordingProvider>
                 </UploadProvider>
               </StorageConfigProvider>
