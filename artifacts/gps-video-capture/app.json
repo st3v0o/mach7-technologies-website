@@ -22,9 +22,9 @@
         "NSCameraUsageDescription": "Geospector uses the camera to record GPS-tagged video and capture photos.",
         "NSLocationWhenInUseUsageDescription": "Geospector uses your location to tag each video frame and photo with precise GPS coordinates.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "Geospector uses your location to continuously tag video frames with GPS coordinates, even when the screen is locked.",
-        "NSPhotoLibraryAddUsageDescription": "Geospector saves GPS-tagged photos to your Camera Roll.",
+        "NSPhotoLibraryUsageDescription": "Geospector reads photos and videos from your library to display and export GPS-tagged media.",
+        "NSPhotoLibraryAddUsageDescription": "Geospector saves GPS-tagged photos and videos to your Camera Roll.",
         "UIBackgroundModes": [
-          "location",
           "location"
         ],
         "UIFileSharingEnabled": true,
@@ -73,8 +73,8 @@
       [
         "expo-media-library",
         {
-          "photosPermission": "Geospector saves GPS-tagged photos to your Camera Roll.",
-          "savePhotosPermission": "Geospector saves GPS-tagged photos to your Camera Roll.",
+          "photosPermission": "Geospector reads photos and videos from your library to display and export GPS-tagged media.",
+          "savePhotosPermission": "Geospector saves GPS-tagged photos and videos to your Camera Roll.",
           "isAccessMediaLocationEnabled": true
         }
       ],
