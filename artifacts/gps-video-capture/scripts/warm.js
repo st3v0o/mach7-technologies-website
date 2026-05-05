@@ -8,7 +8,7 @@
 const http = require('http');
 const path = require('path');
 
-const PORT = process.env.PORT || '8080';
+const PORT = process.env.PORT || '8099';
 
 // Dynamically resolve the expo-router entry module so the path stays correct
 // across pnpm content-addressable installs.

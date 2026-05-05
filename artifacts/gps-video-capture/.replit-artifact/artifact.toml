@@ -12,7 +12,7 @@ version = "1.0.0"
 [[services]]
 name = "expo"
 paths = [ "/" ]
-localPort = 8080
+localPort = 8099
 
 [services.development]
 run = "pnpm --filter @workspace/gps-video-capture run dev"
@@ -22,5 +22,5 @@ build = [ "pnpm", "--filter", "@workspace/gps-video-capture", "run", "build" ]
 run = [ "pnpm", "--filter", "@workspace/gps-video-capture", "run", "serve" ]
 
 [services.env]
-PORT = "8080"
+PORT = "8099"
 BASE_PATH = "/"
