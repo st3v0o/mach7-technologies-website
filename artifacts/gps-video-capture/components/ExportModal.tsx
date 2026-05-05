@@ -715,7 +715,7 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
                   )}
                 </Pressable>
 
-                {opt.id === 'atlas' && atlasConfirmOpen && (
+                {opt.id === 'atlas' && atlasConfirmOpen && activeId !== 'atlas' && (
                   <Animated.View
                     style={[
                       styles.atlasConfirmPanel,
@@ -752,7 +752,8 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
                           closeAtlasConfirm();
                           run(opt.id, opt.handler);
                         }}
-                        style={({ pressed }) => [styles.atlasConfirmSubmit, pressed && { opacity: 0.85 }]}
+                        disabled={!!activeId}
+                        style={({ pressed }) => [styles.atlasConfirmSubmit, pressed && !activeId && { opacity: 0.85 }, !!activeId && { opacity: 0.5 }]}
                       >
                         <Ionicons name="globe-outline" size={15} color="#fff" />
                         <Text style={styles.atlasConfirmSubmitText}>Submit to Atlas</Text>
