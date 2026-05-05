@@ -2,6 +2,14 @@ import { useState } from "react";
 import { SettingsMockup } from "@/components/SettingsMockup";
 import { FieldCaptureMockup } from "@/components/FieldCaptureMockup";
 
+// Image audit (2026-05-05): All public/screenshots/ assets reviewed for
+// inappropriate content (feet/shoes). All confirmed appropriate:
+// field-pavement.jpg — cracked sidewalk texture (no feet)
+// field-trail.jpg    — park path through trees (no feet)
+// field-aerial.jpg, field-road.jpg, field-tree.jpg, field-bench.jpg,
+// field-birds.jpg, field-drain.jpg, field-sign.jpg, field-coast.jpg — all clean
+// photo-school.jpg, photo-yield.jpg — in-app dashboard captures (clean)
+
 const ACCENT = {
   orange: { border: "#ff5500", glow: "rgba(255,85,0,0.32)" },
   green:  { border: "#00e87a", glow: "rgba(0,232,122,0.28)" },
