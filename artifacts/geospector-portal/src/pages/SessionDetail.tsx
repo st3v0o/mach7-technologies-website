@@ -267,7 +267,7 @@ export default function SessionDetail() {
           <MetricsBar metrics={session} />
 
           {showFilters && (
-            <div className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl p-4 flex flex-wrap items-end gap-4 shadow-sm">
+            <div className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg p-4 flex flex-wrap items-end gap-4">
               <div className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-slate-300">
                 <SlidersHorizontal className="h-4 w-4 text-blue-500" />
                 Filter Frames
@@ -333,7 +333,7 @@ export default function SessionDetail() {
           )}
 
           <div
-            className="rounded-2xl overflow-hidden border border-gray-200 dark:border-slate-700 shadow-sm relative"
+            className="rounded-lg overflow-hidden border border-gray-200 dark:border-slate-700 shadow-sm relative"
             style={{ height: "calc(100vh - 420px)", minHeight: 320 }}
           >
             {!framesLoading ? (
@@ -432,7 +432,7 @@ export default function SessionDetail() {
               </button>
 
               {showRemovePanel && (
-                <div className="mt-3 bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800/50 rounded-xl p-4 flex flex-col gap-3">
+                <div className="mt-3 bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800/50 rounded-lg p-4 flex flex-col gap-3">
                   <p className="text-sm text-gray-600 dark:text-slate-300">
                     Enter the delete code you received when you submitted this session from the app. You can find it by tapping the <span className="font-medium text-violet-600 dark:text-violet-400">Atlas</span> badge in your Frame Log and choosing "Copy delete code".
                   </p>
@@ -471,7 +471,7 @@ export default function SessionDetail() {
               <h2 className="text-sm font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider mb-2">
                 Frame Metadata
               </h2>
-              <div className="rounded-xl border border-gray-200 dark:border-slate-700 overflow-auto bg-white dark:bg-slate-800 shadow-sm">
+              <div className="rounded-lg border border-gray-200 dark:border-slate-700 overflow-auto bg-white dark:bg-slate-800">
                 <table className="w-full text-xs text-left">
                   <thead>
                     <tr className="bg-gray-50 dark:bg-slate-800/80 text-gray-500 dark:text-slate-400 border-b border-gray-100 dark:border-slate-700">
