@@ -5,7 +5,7 @@ import {
   useImportMockPortalSession,
   getGetPortalFeedQueryKey,
 } from "@workspace/api-client-react";
-import { MapPin, Route, Clock, Plus, Globe, ArrowRight, Layers, Search, Map, AlertCircle } from "lucide-react";
+import { MapPin, Route, Clock, Plus, Globe, ArrowRight, Layers, Search, Map, AlertCircle, Smartphone } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { PortalSession } from "@workspace/api-client-react";
 import Layout from "@/components/Layout";
@@ -44,11 +44,17 @@ function FeedCard({ session }: { session: PortalSession }) {
             <span className="text-xs text-gray-400 dark:text-slate-500">No preview</span>
           </div>
         )}
-        <div className="absolute top-2 left-2">
+        <div className="absolute top-2 left-2 flex flex-col gap-1">
           <span className="flex items-center gap-1 bg-green-500/90 text-white text-xs px-2 py-0.5 rounded-full font-medium backdrop-blur shadow-sm">
             <Globe className="h-3 w-3" />
             Public
           </span>
+          {session.sourceType === "atlas" && (
+            <span className="flex items-center gap-1 bg-violet-600/90 text-white text-xs px-2 py-0.5 rounded-full font-medium backdrop-blur shadow-sm">
+              <Smartphone className="h-3 w-3" />
+              Atlas
+            </span>
+          )}
         </div>
       </div>
 
@@ -93,11 +99,18 @@ function FeedCard({ session }: { session: PortalSession }) {
   );
 }
 
+type SourceFilter = "all" | "atlas" | "import" | "supabase";
+const KNOWN_SOURCE_TYPES: SourceFilter[] = ["atlas", "import", "supabase"];
+function toSourceFilter(raw: string): SourceFilter {
+  return (KNOWN_SOURCE_TYPES as string[]).includes(raw) ? (raw as SourceFilter) : "import";
+}
+
 export default function FeedPage() {
   const { data, isLoading, error } = useGetPortalFeed();
   const qc = useQueryClient();
   const [, navigate] = useLocation();
   const [search, setSearch] = useState("");
+  const [sourceFilter, setSourceFilter] = useState<SourceFilter>("all");
 
   const { mutate: importMock, isPending: importing } = useImportMockPortalSession({
     mutation: {
@@ -112,11 +125,16 @@ export default function FeedPage() {
   const totalPublic = data?.totalPublic ?? 0;
   const totalMiles = data?.totalPublicDistanceMiles ?? 0;
 
-  const filtered = search.trim()
-    ? sessions.filter((s) =>
-        (s.title ?? s.sessionId).toLowerCase().includes(search.trim().toLowerCase())
-      )
-    : sessions;
+  const filtered = sessions.filter((s) => {
+    const matchesSearch = search.trim()
+      ? (s.title ?? s.sessionId).toLowerCase().includes(search.trim().toLowerCase())
+      : true;
+    const matchesSource = sourceFilter === "all" ? true : s.sourceType === sourceFilter;
+    return matchesSearch && matchesSource;
+  });
+
+  const sourceTypes = Array.from(new Set(sessions.map((s) => toSourceFilter(s.sourceType))));
+  const showSourceFilter = sourceTypes.length > 1 || sourceFilter !== "all";
 
   return (
     <Layout showDemoButton={false}>
@@ -169,15 +187,36 @@ export default function FeedPage() {
         )}
 
         {!isLoading && !error && sessions.length > 0 && (
-          <div className="relative mb-6">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-slate-500" />
-            <input
-              type="search"
-              placeholder="Search by project name…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm shadow-sm"
-            />
+          <div className="flex flex-col sm:flex-row gap-3 mb-6">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-slate-500" />
+              <input
+                type="search"
+                placeholder="Search by project name…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm shadow-sm"
+              />
+            </div>
+            {showSourceFilter && (
+              <div className="flex items-center gap-1 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl p-1 shadow-sm flex-none">
+                {(["all", ...sourceTypes] as SourceFilter[]).map((type) => (
+                  <button
+                    key={type}
+                    onClick={() => setSourceFilter(type)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors capitalize ${
+                      sourceFilter === type
+                        ? type === "atlas"
+                          ? "bg-violet-600 text-white"
+                          : "bg-blue-600 text-white"
+                        : "text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white"
+                    }`}
+                  >
+                    {type === "all" ? "All" : type.charAt(0).toUpperCase() + type.slice(1)}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -223,9 +262,16 @@ export default function FeedPage() {
         {!isLoading && !error && sessions.length > 0 && filtered.length === 0 && (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <Search className="h-10 w-10 text-gray-300 dark:text-slate-600 mb-3" />
-            <p className="text-gray-500 dark:text-slate-400">No sessions match "{search}"</p>
-            <button onClick={() => setSearch("")} className="mt-3 text-blue-500 text-sm hover:underline">
-              Clear search
+            <p className="text-gray-500 dark:text-slate-400">
+              No sessions match
+              {search.trim() ? ` "${search}"` : ""}
+              {sourceFilter !== "all" ? ` in "${sourceFilter}"` : ""}
+            </p>
+            <button
+              onClick={() => { setSearch(""); setSourceFilter("all"); }}
+              className="mt-3 text-blue-500 text-sm hover:underline"
+            >
+              Reset filters
             </button>
           </div>
         )}

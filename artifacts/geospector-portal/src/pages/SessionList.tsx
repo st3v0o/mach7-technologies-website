@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { useListPortalSessions, useGetPortalStats, useImportMockPortalSession, getListPortalSessionsQueryKey } from "@workspace/api-client-react";
-import { MapPin, Clock, Gauge, Upload, Plus, BarChart2, Route, Globe } from "lucide-react";
+import { MapPin, Clock, Gauge, Upload, Plus, BarChart2, Route, Globe, Smartphone } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { PortalSession } from "@workspace/api-client-react";
 
@@ -46,7 +46,13 @@ function SessionCard({ session }: { session: PortalSession }) {
               </h3>
               <p className="text-xs text-slate-400 mt-0.5">{formatDate(session.createdAt)}</p>
             </div>
-            <div className="flex items-center gap-1.5 flex-none">
+            <div className="flex items-center gap-1.5 flex-none flex-wrap justify-end">
+              {session.sourceType === "atlas" && (
+                <span className="flex items-center gap-1 bg-violet-900/60 text-violet-300 text-xs px-2 py-0.5 rounded-full font-medium">
+                  <Smartphone className="h-3 w-3" />
+                  Atlas
+                </span>
+              )}
               {session.isPublic && (
                 <span className="flex items-center gap-1 bg-green-900/60 text-green-300 text-xs px-2 py-0.5 rounded-full font-medium">
                   <Globe className="h-3 w-3" />
