@@ -16,7 +16,7 @@ import FrameFilmstrip from "@/components/FrameFilmstrip";
 import Layout from "@/components/Layout";
 import {
   ArrowLeft, Share2, MapPin, Globe, EyeOff, Map as MapIcon,
-  Layers, Route, SlidersHorizontal, X, CheckCircle,
+  Layers, Route, SlidersHorizontal, X, CheckCircle, Smartphone,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
@@ -171,6 +171,12 @@ export default function SessionDetail() {
               {session.startedAt && (
                 <span className="hidden sm:inline text-xs text-gray-400 dark:text-slate-500 whitespace-nowrap">
                   {new Date(session.startedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                </span>
+              )}
+              {session.sourceType === "atlas" && (
+                <span className="flex-none flex items-center gap-1 bg-violet-100 dark:bg-violet-900/60 text-violet-700 dark:text-violet-300 text-xs px-2 py-0.5 rounded-full font-medium border border-violet-200 dark:border-violet-700/50">
+                  <Smartphone className="h-3 w-3" />
+                  Atlas
                 </span>
               )}
               {session.isPublic && (
