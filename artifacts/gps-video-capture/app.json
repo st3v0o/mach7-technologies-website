@@ -20,7 +20,6 @@
       "deploymentTarget": "17.0",
       "infoPlist": {
         "NSCameraUsageDescription": "Geospector uses the camera to record GPS-tagged video and capture photos.",
-        "NSMicrophoneUsageDescription": "Geospector uses the microphone to record audio with your GPS-tagged video.",
         "NSLocationWhenInUseUsageDescription": "Geospector uses your location to tag each video frame and photo with precise GPS coordinates.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "Geospector uses your location to continuously tag video frames with GPS coordinates, even when the screen is locked.",
         "NSPhotoLibraryAddUsageDescription": "Geospector saves GPS-tagged photos to your Camera Roll.",
@@ -42,14 +41,12 @@
       },
       "permissions": [
         "CAMERA",
-        "RECORD_AUDIO",
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
         "ACCESS_BACKGROUND_LOCATION",
         "FOREGROUND_SERVICE",
         "FOREGROUND_SERVICE_LOCATION",
         "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO",
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.ACCESS_BACKGROUND_LOCATION",

@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
-import { CameraView, useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
@@ -97,7 +97,6 @@ export default function CaptureScreen() {
   // iOS tab bar is 49pt; add the safe-area bottom inset (home indicator) on top
   const tabBarHeight = 49 + insets.bottom;
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
-  const [micPermission, requestMicPermission] = useMicrophonePermissions();
   const {
     gpsStatus,
     currentGps,
@@ -279,8 +278,6 @@ export default function CaptureScreen() {
   const elapsedIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const currentSegNumRef = useRef(0);
   const segmentDurationMsRef = useRef(DEFAULT_SEGMENT_MS);
-  const micGrantedRef = useRef(micPermission?.granted ?? false);
-
   // ── Pause / resume ────────────────────────────────────────────────────────
   const [isPaused, setIsPaused] = useState(false);
   const isPausedRef = useRef(false);
@@ -397,12 +394,6 @@ export default function CaptureScreen() {
       requestCameraPermission();
     }
   }, [cameraPermission?.status]);
-
-  useEffect(() => {
-    if (micPermission && !micPermission.granted && micPermission.status !== 'denied') {
-      requestMicPermission();
-    }
-  }, [micPermission?.status]);
 
   const [isRecording, setIsRecording] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -558,7 +549,7 @@ export default function CaptureScreen() {
 
       let result: { uri: string } | undefined;
       try {
-        result = await (cameraRef.current as any)?.recordAsync({ mute: !micGrantedRef.current });
+        result = await (cameraRef.current as any)?.recordAsync({ mute: true });
       } catch {
         clearTimers();
         break;
@@ -604,16 +595,10 @@ export default function CaptureScreen() {
       }, 1000);
       startPhotoLoop();
     } else {
-      if (!micPermission?.granted) {
-        const result = await requestMicPermission();
-        micGrantedRef.current = result.granted;
-      } else {
-        micGrantedRef.current = true;
-      }
       currentSegNumRef.current = segmentCount;
       runRecordingLoop();
     }
-  }, [micPermission, requestMicPermission, startGps, runRecordingLoop, startPhotoLoop, segmentCount]);
+  }, [startGps, runRecordingLoop, startPhotoLoop, segmentCount]);
 
   const handleStopRecording = useCallback(async () => {
     await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
@@ -682,7 +667,7 @@ export default function CaptureScreen() {
   // fraction of segment elapsed × 250 MB target
   const estimatedMB = Math.round((elapsedSeconds / (currentSegmentMs / 1000)) * 250);
 
-  if (!cameraPermission || !micPermission) {
+  if (!cameraPermission) {
     return (
       <View style={[styles.permContainer, { paddingTop: insets.top + 20 }]}>
         <Text style={styles.permText}>{t('capture.loading')}</Text>
@@ -702,7 +687,6 @@ export default function CaptureScreen() {
           style={({ pressed }) => [styles.permButton, pressed && { opacity: 0.8 }]}
           onPress={async () => {
             await requestCameraPermission();
-            if (!micPermission.granted) await requestMicPermission();
           }}
         >
           <Text style={styles.permButtonText}>{t('capture.enableCamera')}</Text>
