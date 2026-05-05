@@ -1,10 +1,11 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import JSZip from 'jszip';
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
@@ -240,6 +241,14 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
   const [atlasConfirmOpen, setAtlasConfirmOpen] = useState(false);
   const confirmAnim = useRef(new Animated.Value(0)).current;
 
+  useEffect(() => {
+    if (visible) {
+      AsyncStorage.getItem('atlas_email').then((saved) => {
+        setAtlasEmail(saved ?? '');
+      }).catch(() => {});
+    }
+  }, [visible]);
+
   function openAtlasConfirm() {
     setAtlasConfirmOpen(true);
     Animated.spring(confirmAnim, {
@@ -338,6 +347,14 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
         if (errors.length > 0 && successCount === 0 && alreadyCount === 0) {
           throw new Error(errors[0]!);
         }
+        const trimmedEmail = atlasEmail.trim();
+        try {
+          if (trimmedEmail) {
+            await AsyncStorage.setItem('atlas_email', trimmedEmail);
+          } else {
+            await AsyncStorage.removeItem('atlas_email');
+          }
+        } catch {}
         const parts: string[] = [];
         if (successCount > 0) parts.push(`${successCount} submitted`);
         if (alreadyCount > 0) parts.push(`${alreadyCount} already in Atlas`);
