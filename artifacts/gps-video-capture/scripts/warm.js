@@ -8,7 +8,7 @@
 const http = require('http');
 const path = require('path');
 
-const PORT = process.env.PORT || '8099';
+const PORT = process.env.PORT || '23739';
 
 // Dynamically resolve the expo-router entry module so the path stays correct
 // across pnpm content-addressable installs.
@@ -25,7 +25,7 @@ try {
 const workspaceRoot = path.resolve(__dirname, '..', '..', '..');
 const entryUrlPath = '/' + path.relative(workspaceRoot, entryAbsolute).replace(/\\/g, '/');
 
-const bundleQuery = new URLSearchParams({
+const iosBundleQuery = new URLSearchParams({
   platform: 'ios',
   dev: 'true',
   hot: 'false',
@@ -37,7 +37,19 @@ const bundleQuery = new URLSearchParams({
   'unstable_transformProfile': 'hermes-stable',
 }).toString();
 
-const bundlePath = entryUrlPath.replace(/\.(tsx?|js)$/, '.bundle') + '?' + bundleQuery;
+const webBundleQuery = new URLSearchParams({
+  platform: 'web',
+  dev: 'true',
+  hot: 'false',
+  lazy: 'true',
+  'transform.engine': 'hermes',
+  'transform.routerRoot': 'app',
+  'transform.reactCompiler': 'true',
+  'unstable_transformProfile': 'hermes-stable',
+}).toString();
+
+const bundlePath = entryUrlPath.replace(/\.(tsx?|js)$/, '.bundle') + '?' + iosBundleQuery;
+const webBundlePath = entryUrlPath.replace(/\.(tsx?|js)$/, '.bundle') + '?' + webBundleQuery;
 
 function tryRequest(urlPath, label) {
   return new Promise((resolve, reject) => {
@@ -84,11 +96,18 @@ async function waitForMetro(maxMs = 90_000) {
     console.log('[warm] Metro did not respond in time — skipping warm-up');
     return;
   }
-  console.log('[warm] Metro up. Pre-compiling iOS bundle…');
+  console.log('[warm] Metro up. Pre-compiling web + iOS bundles…');
   console.log('[warm] Entry:', bundlePath.slice(0, 120) + '…');
+  // Web bundle first — the Replit metro-proxy checks the web route at startup;
+  // having it pre-compiled ensures the proxy health-check always succeeds.
+  try {
+    await tryRequest(webBundlePath, 'Web bundle');
+  } catch (e) {
+    console.log('[warm] Web warm-up error (non-fatal):', e.message);
+  }
   try {
     await tryRequest(bundlePath, 'iOS bundle');
   } catch (e) {
-    console.log('[warm] Warm-up error (non-fatal):', e.message);
+    console.log('[warm] iOS warm-up error (non-fatal):', e.message);
   }
 })();
