@@ -371,6 +371,9 @@
     "filterMonth": "This Month",
     "filterBadge": "{{selected}} of {{total}} sessions",
     "filterAllSessions": "All {{total}} sessions",
-    "noResults": "No frames match the current filter"
+    "noResults": "No frames match the current filter",
+    "filterReset": "Reset filter",
+    "generatingMap": "Generating map\u2026",
+    "done": "Done"
   }
 }

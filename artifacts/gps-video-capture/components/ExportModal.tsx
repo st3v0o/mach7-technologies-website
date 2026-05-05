@@ -294,8 +294,10 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
           .filter((e) => e.localPath)
           .sort((a, b) => b.timestamp - a.timestamp);
 
+        const baseHtml = generateMapHtml(filteredEntries, { mode: 'local', embedPhotos: new Map() });
+        const baseBytes = new TextEncoder().encode(baseHtml).length;
+        const maxBytes = Math.max(0, MAX_MAP_KB * 1024 - baseBytes);
         let totalBytes = 0;
-        const maxBytes = MAX_MAP_KB * 1024;
 
         for (const entry of withPhotos) {
           try {
@@ -960,7 +962,7 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
                       style={({ pressed }) => [styles.resetBtn, pressed && { opacity: 0.6 }]}
                     >
                       <Ionicons name="close-circle-outline" size={14} color={Colors.textTertiary} />
-                      <Text style={styles.resetBtnText}>Reset filter</Text>
+                      <Text style={styles.resetBtnText}>{t('shareMap.filterReset')}</Text>
                     </Pressable>
                   )}
                 </View>
@@ -1146,7 +1148,7 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
                     {shareMapWorking ? (
                       <View style={styles.shareMapWorking}>
                         <ActivityIndicator size="small" color="#4FC3F7" />
-                        <Text style={styles.shareMapWorkingText}>Generating map…</Text>
+                        <Text style={styles.shareMapWorkingText}>{t('shareMap.generatingMap')}</Text>
                       </View>
                     ) : shareMapResult ? (
                       <ShareMapResultPanel
@@ -1306,7 +1308,7 @@ function ShareMapResultPanel({
           onPress={onClose}
           style={({ pressed }) => [styles.resultDismiss, pressed && { opacity: 0.6 }]}
         >
-          <Text style={styles.resultDismissText}>Done</Text>
+          <Text style={styles.resultDismissText}>{t('shareMap.done')}</Text>
         </Pressable>
       </View>
     );
@@ -1348,7 +1350,7 @@ function ShareMapResultPanel({
             onPress={onClose}
             style={({ pressed }) => [styles.resultDismiss, pressed && { opacity: 0.6 }]}
           >
-            <Text style={styles.resultDismissText}>Done</Text>
+            <Text style={styles.resultDismissText}>{t('shareMap.done')}</Text>
           </Pressable>
         </View>
       </View>
@@ -1366,7 +1368,7 @@ function ShareMapResultPanel({
         onPress={onClose}
         style={({ pressed }) => [styles.resultDismiss, pressed && { opacity: 0.6 }]}
       >
-        <Text style={styles.resultDismissText}>Done</Text>
+        <Text style={styles.resultDismissText}>{t('shareMap.done')}</Text>
       </Pressable>
     </View>
   );
