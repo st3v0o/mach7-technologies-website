@@ -79,7 +79,7 @@ interface RecordingContextType {
 
 const RecordingContext = createContext<RecordingContextType | null>(null);
 const STORAGE_KEY = '@gps_capture_log';
-const CSV_HEADER = 'filename,timestamp,latitude,longitude,video_segment,local_path,video_path,session_id,supabase_url\n';
+const CSV_HEADER = 'filename,timestamp,latitude,longitude,video_segment,local_path,video_path,session_id,supabase_url,job_name\n';
 
 function findNearestGps(timestamp: number, points: GpsPoint[]): GpsPoint | null {
   if (points.length === 0) return null;
@@ -421,6 +421,10 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
       const snapshotPoints = [...gpsPointsRef.current];
       const segmentName = `seg_${String(segmentNum).padStart(3, '0')}`;
       const currentSession = sessionIdRef.current;
+      if (!sessionJobNameMapRef.current.has(currentSession)) {
+        sessionJobNameMapRef.current.set(currentSession, frameSettings.jobName || undefined);
+      }
+      const snapshotJobName = sessionJobNameMapRef.current.get(currentSession);
       const newEntries: LogEntry[] = [];
 
       try {
@@ -499,14 +503,14 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
               localPath: destPath,
               videoPath: videoDestPath,
               sessionId: currentSession,
-              jobName: frameSettings.jobName || undefined,
+              jobName: snapshotJobName,
             };
             newEntries.push(entry);
 
             const lat = gpsLat.toFixed(7);
             const lon = gpsLon.toFixed(7);
             const ts = new Date(absTimestamp).toISOString();
-            csvAppend += `${filename},${ts},${lat},${lon},${segmentName},${destPath},${videoDestPath},${currentSession},\n`;
+            csvAppend += `${filename},${ts},${lat},${lon},${segmentName},${destPath},${videoDestPath},${currentSession},,${snapshotJobName ?? ''}\n`;
 
             frameIndex++;
             setProcessingProgress(Math.min((t / durationMs) * 100, 99));
@@ -543,6 +547,7 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
   );
 
   const photoIndexRef = useRef(0);
+  const sessionJobNameMapRef = useRef<Map<string, string | undefined>>(new Map());
 
   const savePhoto = useCallback(
     async (
@@ -587,6 +592,11 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
 
         const gpsLat = nearest?.latitude ?? 0;
         const gpsLon = nearest?.longitude ?? 0;
+        const currentPhotoSession = sessionIdRef.current;
+        if (!sessionJobNameMapRef.current.has(currentPhotoSession)) {
+          sessionJobNameMapRef.current.set(currentPhotoSession, jobName || undefined);
+        }
+        const snapshotPhotoJobName = sessionJobNameMapRef.current.get(currentPhotoSession);
 
         const entry: LogEntry = {
           id: Date.now().toString() + Math.random().toString(36).substr(2, 6),
@@ -597,14 +607,14 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
           videoSegment: 'photo',
           localPath: destPath,
           videoPath: '',
-          sessionId: sessionIdRef.current,
-          jobName: jobName || undefined,
+          sessionId: currentPhotoSession,
+          jobName: snapshotPhotoJobName,
         };
 
         const lat = gpsLat.toFixed(7);
         const lon = gpsLon.toFixed(7);
         const ts = new Date(timestamp).toISOString();
-        const csvRow = `${filename},${ts},${lat},${lon},photo,${destPath},,${sessionIdRef.current},,\n`;
+        const csvRow = `${filename},${ts},${lat},${lon},photo,${destPath},,${currentPhotoSession},,${snapshotPhotoJobName ?? ''}\n`;
 
         const existing = await FileSystem.readAsStringAsync(csvPath).catch(() => CSV_HEADER);
         await FileSystem.writeAsStringAsync(csvPath, existing + csvRow);
@@ -655,6 +665,7 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const renameSessionJobName = useCallback(async (sessionId: string, newName: string) => {
+    sessionJobNameMapRef.current.set(sessionId, newName || undefined);
     setLogEntries((prev) => {
       const updated = prev.map((e) =>
         e.sessionId === sessionId ? { ...e, jobName: newName || undefined } : e
@@ -686,6 +697,7 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
     setTotalFrames(0);
     setSegmentCount(0);
     photoIndexRef.current = 0;
+    sessionJobNameMapRef.current.clear();
     await AsyncStorage.removeItem(STORAGE_KEY);
     if (Platform.OS !== 'web') {
       try {

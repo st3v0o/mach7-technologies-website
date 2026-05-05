@@ -259,6 +259,103 @@ function UploadStatusBanner() {
   );
 }
 
+type GroupMode = 'session' | 'job' | 'date';
+
+function formatDateLabel(ms: number): string {
+  return new Date(ms).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function groupByJobName(sessions: SessionSection[]): SessionSection[] {
+  const map = new Map<string, SessionSection & { _sessionIds: string[] }>();
+  for (const s of sessions) {
+    const key = s.jobName || '__unlabeled__';
+    if (!map.has(key)) {
+      map.set(key, { ...s, sessionId: key + '_group', data: [...s.data], _sessionIds: [s.sessionId] });
+    } else {
+      const g = map.get(key)!;
+      g.data = [...g.data, ...s.data].sort((a, b) => a.timestamp - b.timestamp);
+      g._sessionIds.push(s.sessionId);
+      g.sessionCount = g._sessionIds.length;
+      if (s.startMs < g.startMs) g.startMs = s.startMs;
+      const hasVideo = g.data.some((f) => f.videoSegment !== 'photo' && f.videoSegment !== 'detection');
+      const hasPhoto = g.data.some((f) => f.videoSegment === 'photo');
+      g.mode = hasVideo && hasPhoto ? 'mixed' : hasPhoto ? 'photo' : 'video';
+    }
+  }
+  return [...map.values()]
+    .map(({ _sessionIds: _s, ...rest }) => ({ ...rest, sessionCount: _s.length }))
+    .sort((a, b) => {
+      if (!a.jobName) return 1;
+      if (!b.jobName) return -1;
+      return a.jobName.localeCompare(b.jobName);
+    });
+}
+
+function groupByDate(sessions: SessionSection[]): SessionSection[] {
+  const map = new Map<string, SessionSection & { _sessionIds: string[] }>();
+  for (const s of sessions) {
+    const key = formatDateLabel(s.startMs);
+    if (!map.has(key)) {
+      map.set(key, { ...s, sessionId: key + '_group', jobName: key, data: [...s.data], _sessionIds: [s.sessionId] });
+    } else {
+      const g = map.get(key)!;
+      g.data = [...g.data, ...s.data].sort((a, b) => a.timestamp - b.timestamp);
+      g._sessionIds.push(s.sessionId);
+      g.sessionCount = g._sessionIds.length;
+      if (s.startMs > g.startMs) g.startMs = s.startMs;
+      const hasVideo = g.data.some((f) => f.videoSegment !== 'photo' && f.videoSegment !== 'detection');
+      const hasPhoto = g.data.some((f) => f.videoSegment === 'photo');
+      g.mode = hasVideo && hasPhoto ? 'mixed' : hasPhoto ? 'photo' : 'video';
+    }
+  }
+  return [...map.values()]
+    .map(({ _sessionIds: _s, ...rest }) => ({ ...rest, sessionCount: _s.length }))
+    .sort((a, b) => b.startMs - a.startMs);
+}
+
+function GroupHeader({
+  section,
+  mode,
+  isCollapsed,
+  onToggleCollapse,
+}: {
+  section: SessionSection;
+  mode: GroupMode;
+  isCollapsed: boolean;
+  onToggleCollapse: () => void;
+}) {
+  const label = mode === 'job'
+    ? (section.jobName || 'Unlabeled')
+    : section.jobName || formatDateLabel(section.startMs);
+  const sessionCount = section.sessionCount ?? 1;
+  const modeColor = section.mode === 'video' ? Colors.blue : section.mode === 'photo' ? Colors.gpsGreen : Colors.amber;
+  return (
+    <Pressable
+      onPress={onToggleCollapse}
+      style={({ pressed }) => [groupHeaderStyles.container, pressed && { opacity: 0.8 }]}
+    >
+      <View style={[groupHeaderStyles.accent, { backgroundColor: modeColor }]} />
+      <Ionicons
+        name={isCollapsed ? 'chevron-forward' : 'chevron-down'}
+        size={14}
+        color={Colors.textTertiary}
+        style={{ marginRight: 8 }}
+      />
+      <View style={{ flex: 1 }}>
+        <Text style={groupHeaderStyles.label}>{label}</Text>
+        <Text style={groupHeaderStyles.meta}>
+          {sessionCount} session{sessionCount !== 1 ? 's' : ''} · {section.data.length} frames
+        </Text>
+      </View>
+      <View style={[groupHeaderStyles.modeBadge, { borderColor: modeColor }]}>
+        <Text style={[groupHeaderStyles.modeText, { color: modeColor }]}>
+          {section.mode.toUpperCase()}
+        </Text>
+      </View>
+    </Pressable>
+  );
+}
+
 function groupEntriesBySessions(entries: LogEntry[]): SessionSection[] {
   const map = new Map<string, LogEntry[]>();
   for (const e of entries) {
@@ -280,6 +377,7 @@ function groupEntriesBySessions(entries: LogEntry[]): SessionSection[] {
 
 function SessionHeader({
   section,
+  fullData,
   onShareGpx,
   bulkMode = false,
   isSelected = false,
@@ -289,6 +387,7 @@ function SessionHeader({
   isCollapsed = false,
 }: {
   section: SessionSection;
+  fullData: LogEntry[];
   onShareGpx: () => void;
   bulkMode?: boolean;
   isSelected?: boolean;
@@ -333,7 +432,7 @@ function SessionHeader({
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       const { alreadyPublished: wasAlready } = await publishSession(
         section.sessionId,
-        section.data,
+        fullData,
         section.jobName || undefined
       );
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -481,13 +580,29 @@ export default function LogScreen() {
   const [editingJobSession, setEditingJobSession] = useState<{ sessionId: string; currentName: string } | null>(null);
   const [jobEditDraft, setJobEditDraft] = useState('');
 
+  const [groupMode, setGroupMode] = useState<GroupMode>('session');
+
   const sections = useMemo(() => groupEntriesBySessions(logEntries), [logEntries]);
+  const groupedSections = useMemo(() => {
+    if (groupMode === 'job') return groupByJobName(sections);
+    if (groupMode === 'date') return groupByDate(sections);
+    return sections;
+  }, [sections, groupMode]);
   const displaySections = useMemo(
-    () => sections.map((s) => ({ ...s, data: collapsedSessions.has(s.sessionId) ? [] : s.data })),
-    [sections, collapsedSessions]
+    () => groupedSections.map((s) => ({ ...s, data: collapsedSessions.has(s.sessionId) ? [] : s.data })),
+    [groupedSections, collapsedSessions]
   );
   const mapSections = isDemoMode ? DEMO_SECTIONS : sections;
   const sessionIds = useMemo(() => sections.map((s) => s.sessionId), [sections]);
+
+  useEffect(() => {
+    setCollapsedSessions(new Set());
+    if (groupMode !== 'session') {
+      setIsBulkMode(false);
+      setSelectedSessionIds(new Set());
+      setActivePeriod(null);
+    }
+  }, [groupMode]);
 
   const toggleCollapse = (sessionId: string) => {
     setCollapsedSessions((prev) => {
@@ -765,6 +880,34 @@ export default function LogScreen() {
         ))}
       </View>
 
+      {viewMode === 'list' && (
+        <View style={styles.groupByControl}>
+          <Text style={styles.groupByLabel}>Group by</Text>
+          {([
+            { mode: 'session' as GroupMode, label: 'Session' },
+            { mode: 'job' as GroupMode, label: 'Job' },
+            { mode: 'date' as GroupMode, label: 'Date' },
+          ]).map(({ mode, label }) => (
+            <Pressable
+              key={mode}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setGroupMode(mode);
+              }}
+              style={({ pressed }) => [
+                styles.groupByBtn,
+                groupMode === mode && styles.groupByBtnActive,
+                pressed && { opacity: 0.75 },
+              ]}
+            >
+              <Text style={[styles.groupByBtnText, groupMode === mode && styles.groupByBtnTextActive]}>
+                {label}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      )}
+
       <UploadStatusBanner />
 
       {processingStatus === 'processing' && (
@@ -834,18 +977,33 @@ export default function LogScreen() {
               />
             );
           }}
-          renderSectionHeader={({ section }) => (
-            <SessionHeader
-              section={section}
-              onShareGpx={() => shareGpx(section.sessionId)}
-              bulkMode={isBulkMode}
-              isSelected={selectedSessionIds.has(section.sessionId)}
-              onToggleSelected={() => toggleSession(section.sessionId)}
-              onEditJobName={() => openJobEdit(section.sessionId, section.jobName || '')}
-              onToggleCollapse={() => toggleCollapse(section.sessionId)}
-              isCollapsed={collapsedSessions.has(section.sessionId)}
-            />
-          )}
+          renderSectionHeader={({ section }) => {
+            const originalSection = groupedSections.find(s => s.sessionId === section.sessionId);
+            const fullData = originalSection?.data ?? section.data;
+            if (groupMode !== 'session') {
+              return (
+                <GroupHeader
+                  section={{ ...section, data: fullData }}
+                  mode={groupMode}
+                  isCollapsed={collapsedSessions.has(section.sessionId)}
+                  onToggleCollapse={() => toggleCollapse(section.sessionId)}
+                />
+              );
+            }
+            return (
+              <SessionHeader
+                section={section}
+                fullData={fullData}
+                onShareGpx={() => shareGpx(section.sessionId)}
+                bulkMode={isBulkMode}
+                isSelected={selectedSessionIds.has(section.sessionId)}
+                onToggleSelected={() => toggleSession(section.sessionId)}
+                onEditJobName={() => openJobEdit(section.sessionId, section.jobName || '')}
+                onToggleCollapse={() => toggleCollapse(section.sessionId)}
+                isCollapsed={collapsedSessions.has(section.sessionId)}
+              />
+            );
+          }}
           SectionSeparatorComponent={() => <View style={styles.sectionSeparator} />}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           contentContainerStyle={[
@@ -1103,6 +1261,41 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
     padding: 3,
     gap: 2,
+  },
+  groupByControl: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 16,
+    marginTop: 6,
+    marginBottom: 2,
+    gap: 6,
+  },
+  groupByLabel: {
+    color: Colors.textTertiary,
+    fontFamily: 'Inter_400Regular',
+    fontSize: 12,
+    marginRight: 2,
+  },
+  groupByBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 8,
+    backgroundColor: Colors.card,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  groupByBtnActive: {
+    backgroundColor: Colors.blue + '22',
+    borderColor: Colors.blue,
+  },
+  groupByBtnText: {
+    color: Colors.textTertiary,
+    fontFamily: 'Inter_500Medium',
+    fontSize: 12,
+  },
+  groupByBtnTextActive: {
+    color: Colors.blue,
+    fontFamily: 'Inter_600SemiBold',
   },
   segBtn: {
     flex: 1,
@@ -1490,6 +1683,47 @@ const sessionStyles = StyleSheet.create({
     fontFamily: 'Inter_400Regular',
     fontSize: 12,
     fontStyle: 'italic',
+  },
+});
+
+const groupHeaderStyles = StyleSheet.create({
+  container: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    backgroundColor: Colors.card,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  accent: {
+    width: 3,
+    height: 28,
+    borderRadius: 2,
+    marginRight: 10,
+  },
+  label: {
+    color: Colors.text,
+    fontFamily: 'Inter_700Bold',
+    fontSize: 14,
+  },
+  meta: {
+    color: Colors.textTertiary,
+    fontFamily: 'Inter_400Regular',
+    fontSize: 11,
+    marginTop: 1,
+  },
+  modeBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    borderWidth: 1,
+    marginLeft: 8,
+  },
+  modeText: {
+    fontFamily: 'Inter_700Bold',
+    fontSize: 9,
+    letterSpacing: 0.5,
   },
 });
 

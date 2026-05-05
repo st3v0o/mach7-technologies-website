@@ -17,6 +17,7 @@ export interface SessionSection {
   startMs: number;
   data: LogEntry[];
   jobName?: string;
+  sessionCount?: number;
 }
 
 interface Props {
