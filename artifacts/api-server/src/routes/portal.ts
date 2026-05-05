@@ -383,7 +383,7 @@ router.post("/import/session-json", async (req, res) => {
       .from(portalSessionsTable)
       .where(eq(portalSessionsTable.sessionId, String(incomingSessionId)));
     if (existing) {
-      res.status(200).json({ ...existing, alreadyPublished: true });
+      res.status(200).json({ ...omitClaimToken(existing), alreadyPublished: true });
       return;
     }
   }
