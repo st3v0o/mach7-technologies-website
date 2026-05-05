@@ -81,17 +81,26 @@ function generateGeoJSON(entries: LogEntry[]): string {
   );
 }
 
+function xmlEscape(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
 function generateKML(entries: LogEntry[]): string {
   const points = entries
     .filter((e) => e.latitude !== 0 || e.longitude !== 0)
     .map(
       (e) => `    <Placemark>
-      <name>${e.filename}</name>
-      <description>${new Date(e.timestamp).toISOString()} — ${e.sessionId}</description>
+      <name>${xmlEscape(e.filename)}</name>
+      <description>${xmlEscape(new Date(e.timestamp).toISOString())} — ${xmlEscape(e.sessionId)}</description>
       <ExtendedData>
-        <Data name="job_name"><value>${e.jobName ?? ''}</value></Data>
-        <Data name="session_id"><value>${e.sessionId}</value></Data>
-        <Data name="timestamp"><value>${new Date(e.timestamp).toISOString()}</value></Data>
+        <Data name="job_name"><value>${xmlEscape(e.jobName ?? '')}</value></Data>
+        <Data name="session_id"><value>${xmlEscape(e.sessionId)}</value></Data>
+        <Data name="timestamp"><value>${xmlEscape(new Date(e.timestamp).toISOString())}</value></Data>
       </ExtendedData>
       <Point><coordinates>${e.longitude.toFixed(7)},${e.latitude.toFixed(7)},0</coordinates></Point>
     </Placemark>`
