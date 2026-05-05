@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import * as Clipboard from 'expo-clipboard';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
@@ -231,6 +232,8 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
   const [activeId, setActiveId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [atlasResult, setAtlasResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [newAtlasTokens, setNewAtlasTokens] = useState<{ sessionId: string; claimToken: string }[]>([]);
+  const [copiedToken, setCopiedToken] = useState<string | null>(null);
 
   const { publishSession, portalUrl, atlasSubmissions, importAtlasSubmissions } = usePortalConfig();
 
@@ -247,6 +250,8 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
     setActiveId(id);
     setError(null);
     setAtlasResult(null);
+    setNewAtlasTokens([]);
+    setCopiedToken(null);
     try {
       await fn();
     } catch (e) {
@@ -254,6 +259,12 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
     } finally {
       setActiveId(null);
     }
+  }
+
+  async function copyToken(token: string) {
+    await Clipboard.setStringAsync(token);
+    setCopiedToken(token);
+    setTimeout(() => setCopiedToken(null), 2000);
   }
 
   const options: ExportOption[] = [
@@ -279,11 +290,18 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
         let successCount = 0;
         let alreadyCount = 0;
         const errors: string[] = [];
+        const freshTokens: { sessionId: string; claimToken: string }[] = [];
         for (const [sid, entries] of bySession) {
           try {
-            const { alreadyPublished } = await publishSession(sid, entries, entries[0]?.jobName);
-            if (alreadyPublished) alreadyCount++;
-            else successCount++;
+            const result = await publishSession(sid, entries, entries[0]?.jobName);
+            if (result.alreadyPublished) {
+              alreadyCount++;
+            } else {
+              successCount++;
+              if (result.claimToken) {
+                freshTokens.push({ sessionId: sid, claimToken: result.claimToken });
+              }
+            }
           } catch (e) {
             errors.push(e instanceof Error ? e.message : 'Unknown error');
           }
@@ -295,6 +313,7 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
         if (successCount > 0) parts.push(`${successCount} submitted`);
         if (alreadyCount > 0) parts.push(`${alreadyCount} already in Atlas`);
         if (errors.length > 0) parts.push(`${errors.length} failed`);
+        if (freshTokens.length > 0) setNewAtlasTokens(freshTokens);
         setAtlasResult({
           success: errors.length === 0,
           message: parts.join(', '),
@@ -569,6 +588,39 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
           </View>
         )}
 
+        {newAtlasTokens.length > 0 && (
+          <View style={styles.tokenPanel}>
+            <View style={styles.tokenPanelHeader}>
+              <Ionicons name="key-outline" size={14} color={Colors.amber} />
+              <Text style={styles.tokenPanelTitle}>Save your delete code{newAtlasTokens.length > 1 ? 's' : ''}</Text>
+            </View>
+            <Text style={styles.tokenPanelDesc}>
+              Keep this code safe — you'll need it to remove your session from the Atlas via the portal website.
+            </Text>
+            {newAtlasTokens.map(({ sessionId, claimToken }) => (
+              <View key={sessionId} style={styles.tokenRow}>
+                <Text style={styles.tokenText} numberOfLines={1} selectable>
+                  {claimToken}
+                </Text>
+                <Pressable
+                  onPress={() => copyToken(claimToken)}
+                  style={({ pressed }) => [styles.copyBtn, pressed && { opacity: 0.6 }]}
+                  hitSlop={8}
+                >
+                  <Ionicons
+                    name={copiedToken === claimToken ? 'checkmark-outline' : 'copy-outline'}
+                    size={15}
+                    color={copiedToken === claimToken ? Colors.gpsGreen : Colors.amber}
+                  />
+                  <Text style={[styles.copyBtnText, copiedToken === claimToken && { color: Colors.gpsGreen }]}>
+                    {copiedToken === claimToken ? 'Copied!' : 'Copy'}
+                  </Text>
+                </Pressable>
+              </View>
+            ))}
+          </View>
+        )}
+
         <ScrollView
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
@@ -783,6 +835,64 @@ const styles = StyleSheet.create({
   footerText: {
     color: Colors.textTertiary,
     fontFamily: 'Inter_400Regular',
+    fontSize: 12,
+  },
+  tokenPanel: {
+    marginHorizontal: 16,
+    marginTop: 10,
+    padding: 14,
+    backgroundColor: 'rgba(255,159,10,0.07)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,159,10,0.25)',
+    gap: 8,
+  },
+  tokenPanelHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  tokenPanelTitle: {
+    color: Colors.amber,
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 13,
+  },
+  tokenPanelDesc: {
+    color: Colors.textSecondary,
+    fontFamily: 'Inter_400Regular',
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  tokenRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: Colors.background,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  tokenText: {
+    flex: 1,
+    color: Colors.text,
+    fontFamily: 'Inter_400Regular',
+    fontSize: 12,
+    letterSpacing: 0.3,
+  },
+  copyBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: 'rgba(255,159,10,0.1)',
+  },
+  copyBtnText: {
+    color: Colors.amber,
+    fontFamily: 'Inter_600SemiBold',
     fontSize: 12,
   },
 });

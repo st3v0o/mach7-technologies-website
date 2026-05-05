@@ -36,7 +36,7 @@ interface PortalConfigContextType {
     sessionId: string,
     entries: LogEntry[],
     jobName?: string
-  ) => Promise<{ alreadyPublished: boolean }>;
+  ) => Promise<{ alreadyPublished: boolean; claimToken?: string; atlasId?: number }>;
   atlasSubmissions: Record<string, AtlasSubmission>;
   removeFromAtlas: (sessionId: string) => Promise<void>;
   importAtlasSubmissions: (incoming: Record<string, AtlasSubmission>) => Promise<{ added: number; skipped: number }>;
@@ -148,7 +148,11 @@ export function PortalConfigProvider({ children }: { children: React.ReactNode }
         await storeAtlasSubmission(sessionId, { atlasId: data.id, claimToken: data.claimToken });
       }
 
-      return { alreadyPublished: data.alreadyPublished === true };
+      return {
+        alreadyPublished: data.alreadyPublished === true,
+        claimToken: typeof data.claimToken === 'string' ? data.claimToken : undefined,
+        atlasId: typeof data.id === 'number' ? data.id : undefined,
+      };
     },
     [portalUrl, markPublished, storeAtlasSubmission]
   );

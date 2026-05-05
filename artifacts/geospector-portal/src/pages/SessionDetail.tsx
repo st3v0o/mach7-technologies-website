@@ -17,6 +17,7 @@ import Layout from "@/components/Layout";
 import {
   ArrowLeft, Share2, MapPin, Globe, EyeOff, Map as MapIcon,
   Layers, Route, SlidersHorizontal, X, CheckCircle, Smartphone,
+  ChevronDown, ChevronRight, Trash2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
@@ -48,6 +49,11 @@ export default function SessionDetail() {
   const [maxSpeed, setMaxSpeed] = useState<string>("");
   const [dateFrom, setDateFrom] = useState<string>("");
   const [dateTo, setDateTo] = useState<string>("");
+
+  const [showRemovePanel, setShowRemovePanel] = useState(false);
+  const [deleteCode, setDeleteCode] = useState("");
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const { data: session, isLoading: sessionLoading, error: sessionError } = useGetPortalSession(sessionId);
   const { data: framesData, isLoading: framesLoading } = useGetPortalSessionFrames(sessionId, { limit: 500 });
@@ -119,6 +125,42 @@ export default function SessionDetail() {
     navigator.clipboard.writeText(url).then(() => {
       toast({ title: "Link copied!", description: url });
     });
+  }
+
+  async function handleAtlasDelete() {
+    const code = deleteCode.trim();
+    if (!code) {
+      setDeleteError("Please enter your delete code.");
+      return;
+    }
+    setDeleteLoading(true);
+    setDeleteError(null);
+    try {
+      const res = await fetch(
+        `/api/portal/sessions/${sessionId}?token=${encodeURIComponent(code)}`,
+        { method: "DELETE" }
+      );
+      if (res.status === 401) {
+        setDeleteError("Invalid delete code. Check that you copied it correctly.");
+        return;
+      }
+      if (res.status === 404) {
+        setDeleteError("Session not found.");
+        return;
+      }
+      if (!res.ok) {
+        setDeleteError(`Unexpected error (${res.status}). Please try again.`);
+        return;
+      }
+      qc.invalidateQueries({ queryKey: getListPortalSessionsQueryKey() });
+      qc.invalidateQueries({ queryKey: getGetPortalFeedQueryKey() });
+      toast({ title: "Session removed", description: "The session has been deleted from the Atlas." });
+      navigate("/");
+    } catch {
+      setDeleteError("Network error. Please check your connection and try again.");
+    } finally {
+      setDeleteLoading(false);
+    }
   }
 
   if (sessionLoading) {
@@ -373,6 +415,54 @@ export default function SessionDetail() {
                 selectedFrameId={selectedFrame?.id}
                 onSelectFrame={setSelectedFrame}
               />
+            </div>
+          )}
+
+          {session.sourceType === "atlas" && (
+            <div className="pb-4">
+              <button
+                onClick={() => { setShowRemovePanel((v) => !v); setDeleteError(null); }}
+                className="flex items-center gap-2 text-sm text-gray-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+              >
+                {showRemovePanel
+                  ? <ChevronDown className="h-4 w-4" />
+                  : <ChevronRight className="h-4 w-4" />}
+                <Trash2 className="h-3.5 w-3.5" />
+                Remove this session from Atlas
+              </button>
+
+              {showRemovePanel && (
+                <div className="mt-3 bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800/50 rounded-xl p-4 flex flex-col gap-3">
+                  <p className="text-sm text-gray-600 dark:text-slate-300">
+                    Enter the delete code you received when you submitted this session from the app. You can find it by tapping the <span className="font-medium text-violet-600 dark:text-violet-400">Atlas</span> badge in your Frame Log and choosing "Copy delete code".
+                  </p>
+                  <div className="flex gap-2 items-center flex-wrap">
+                    <input
+                      type="text"
+                      value={deleteCode}
+                      onChange={(e) => { setDeleteCode(e.target.value); setDeleteError(null); }}
+                      placeholder="Paste your delete code here"
+                      className="flex-1 min-w-0 px-3 py-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-gray-900 dark:text-white text-sm font-mono focus:outline-none focus:ring-2 focus:ring-red-400 dark:focus:ring-red-600 placeholder-gray-400 dark:placeholder-slate-500"
+                      disabled={deleteLoading}
+                      onKeyDown={(e) => { if (e.key === "Enter") handleAtlasDelete(); }}
+                    />
+                    <button
+                      onClick={handleAtlasDelete}
+                      disabled={deleteLoading || !deleteCode.trim()}
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      {deleteLoading ? "Removing…" : "Remove session"}
+                    </button>
+                  </div>
+                  {deleteError && (
+                    <p className="text-sm text-red-600 dark:text-red-400 flex items-center gap-1.5">
+                      <X className="h-3.5 w-3.5 flex-none" />
+                      {deleteError}
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           )}
 

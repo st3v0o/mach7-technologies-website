@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { useNavigation } from 'expo-router';
@@ -513,6 +514,13 @@ function SessionHeader({
                     t('log.removeFromAtlasDesc'),
                     [
                       { text: t('log.cancel'), style: 'cancel' },
+                      {
+                        text: 'Copy delete code',
+                        onPress: async () => {
+                          await Clipboard.setStringAsync(atlasSubmission.claimToken);
+                          Alert.alert('Copied', 'Your delete code has been copied to the clipboard. You can use it on the portal website to remove this session.');
+                        },
+                      },
                       {
                         text: t('log.remove'),
                         style: 'destructive',
