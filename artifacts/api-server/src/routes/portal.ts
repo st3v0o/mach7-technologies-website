@@ -8,6 +8,8 @@ import {
   type InsertPortalFrame,
 } from "@workspace/db";
 import { eq, desc, and, sql, count } from "drizzle-orm";
+import { Resend } from "resend";
+import { z } from "zod";
 import {
   ListPortalSessionsQueryParams,
   GetPortalSessionParams,
@@ -27,15 +29,21 @@ import { XMLParser } from "fast-xml-parser";
 
 const router = Router();
 
-// ── Helper: strip claimToken before sending sessions to clients ──────────────
+// ── Helper: strip sensitive fields before sending sessions to clients ────────
 
-function omitClaimToken<T extends { claimToken?: string | null }>(
-  session: T
-): Omit<T, "claimToken"> {
+function omitSensitiveFields<T extends {
+  claimToken?: string | null;
+  submitterEmail?: string | null;
+  deleteToken?: string | null;
+  deleteTokenExpiresAt?: Date | null;
+}>(session: T): Omit<T, "claimToken" | "submitterEmail" | "deleteToken" | "deleteTokenExpiresAt"> {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { claimToken: _ct, ...rest } = session;
+  const { claimToken: _ct, submitterEmail: _se, deleteToken: _dt, deleteTokenExpiresAt: _dtea, ...rest } = session;
   return rest;
 }
+
+// Keep backward-compat alias used throughout this file
+const omitClaimToken = omitSensitiveFields;
 
 // ── Helper: compute session metrics from frames ─────────────────────────────
 
@@ -104,6 +112,38 @@ router.get("/sessions", async (req, res) => {
     .offset(offset);
 
   res.json(sessions.map(omitClaimToken));
+});
+
+// ── GET /portal/sessions/delete-confirm/:token ───────────────────────────────
+// Called by the portal delete-confirmation page when the user clicks the
+// emailed link. Validates the one-time token and deletes the session.
+// Must be registered BEFORE /sessions/:id to avoid route collision.
+
+router.get("/sessions/delete-confirm/:token", async (req, res) => {
+  const token = req.params.token;
+  if (!token) {
+    res.status(400).json({ error: "token is required" });
+    return;
+  }
+
+  const [session] = await db
+    .select()
+    .from(portalSessionsTable)
+    .where(eq(portalSessionsTable.deleteToken, token));
+
+  if (!session) {
+    res.status(404).json({ error: "Delete link not found or already used." });
+    return;
+  }
+
+  if (!session.deleteTokenExpiresAt || session.deleteTokenExpiresAt < new Date()) {
+    res.status(410).json({ error: "This delete link has expired. Please request a new one." });
+    return;
+  }
+
+  await db.delete(portalSessionsTable).where(eq(portalSessionsTable.id, session.id));
+
+  res.json({ deleted: true, id: session.id });
 });
 
 // ── GET /portal/sessions/:id ─────────────────────────────────────────────────
@@ -418,6 +458,7 @@ router.post("/import/session-json", async (req, res) => {
   const shareToken = randomUUID();
   const claimToken = randomUUID();
   const makePublic = s["isPublic"] === true || s["is_public"] === true;
+  const submitterEmail = (s["submitterEmail"] ?? s["submitter_email"] ?? null) as string | null;
 
   const [session] = await db
     .insert(portalSessionsTable)
@@ -434,6 +475,7 @@ router.post("/import/session-json", async (req, res) => {
       sourceType: "atlas",
       publicShareToken: shareToken,
       claimToken,
+      submitterEmail: submitterEmail ?? undefined,
       status: "active",
       thumbnailUrl: mappedFrames[0]?.imageUrl ?? null,
       isPublic: makePublic,
@@ -659,6 +701,98 @@ router.patch("/sessions/:id/publish", async (req, res) => {
   }
 
   res.json(omitClaimToken(session));
+});
+
+// ── POST /portal/sessions/:id/request-delete ─────────────────────────────────
+// Sends a one-time delete link to the email that was provided at submit time.
+// Always responds with the same generic message regardless of match to prevent
+// email enumeration.
+
+const RequestDeleteBody = z.object({
+  email: z.string().email(),
+  portalBaseUrl: z.string().url(),
+});
+
+router.post("/sessions/:id/request-delete", async (req, res) => {
+  const paramParsed = GetPortalSessionParams.safeParse({ id: Number(req.params.id) });
+  if (!paramParsed.success) {
+    res.status(400).json({ error: "Invalid session id" });
+    return;
+  }
+
+  const bodyParsed = RequestDeleteBody.safeParse(req.body);
+  if (!bodyParsed.success) {
+    res.status(400).json({ error: "email and portalBaseUrl are required" });
+    return;
+  }
+
+  const { email, portalBaseUrl } = bodyParsed.data;
+  const genericOk = { sent: true, message: "If that email matches our records, you'll receive a delete link shortly." };
+
+  const [session] = await db
+    .select()
+    .from(portalSessionsTable)
+    .where(eq(portalSessionsTable.id, paramParsed.data.id));
+
+  if (!session || !session.submitterEmail) {
+    // No session or no email stored — respond generically (no enumeration)
+    res.json(genericOk);
+    return;
+  }
+
+  if (session.submitterEmail.toLowerCase() !== email.toLowerCase()) {
+    res.json(genericOk);
+    return;
+  }
+
+  // Generate a 1-hour delete token
+  const deleteToken = randomUUID();
+  const deleteTokenExpiresAt = new Date(Date.now() + 60 * 60 * 1000);
+
+  await db
+    .update(portalSessionsTable)
+    .set({ deleteToken, deleteTokenExpiresAt })
+    .where(eq(portalSessionsTable.id, session.id));
+
+  const resendKey = process.env.RESEND_EMAIL_KEY;
+  if (!resendKey) {
+    // Email not configured — still return OK so UI doesn't expose server state
+    res.json(genericOk);
+    return;
+  }
+
+  const base = portalBaseUrl.replace(/\/$/, "");
+  const deleteUrl = `${base}/delete/${deleteToken}`;
+  const sessionTitle = session.title ?? session.sessionId;
+
+  const resend = new Resend(resendKey);
+  try {
+    await resend.emails.send({
+      from: "Geospector Atlas <noreply@mach7technologies.com>",
+      to: [email],
+      subject: `Delete your Geospector Atlas session — ${sessionTitle}`,
+      html: `
+        <div style="font-family: sans-serif; max-width: 520px; margin: 0 auto; padding: 32px 24px; color: #1e293b;">
+          <h2 style="margin: 0 0 8px; font-size: 20px; font-weight: 700;">Delete Atlas session</h2>
+          <p style="margin: 0 0 16px; color: #64748b; font-size: 14px;">
+            You requested to delete <strong>${sessionTitle}</strong> from Geospector Atlas.
+          </p>
+          <a href="${deleteUrl}"
+            style="display: inline-block; padding: 12px 24px; background: #dc2626; color: #fff; text-decoration: none; border-radius: 8px; font-size: 15px; font-weight: 600;">
+            Delete this session permanently
+          </a>
+          <p style="margin: 20px 0 0; color: #94a3b8; font-size: 12px; line-height: 1.6;">
+            This link expires in 1 hour. If you didn't request this, ignore this email — your session is safe.<br>
+            Do not share this link with anyone.
+          </p>
+        </div>
+      `,
+    });
+  } catch {
+    // Email send failure is silent — user sees generic OK
+  }
+
+  res.json(genericOk);
 });
 
 // ── DELETE /portal/sessions/:id ─────────────────────────────────────────────

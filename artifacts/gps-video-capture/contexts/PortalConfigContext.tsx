@@ -35,7 +35,8 @@ interface PortalConfigContextType {
   publishSession: (
     sessionId: string,
     entries: LogEntry[],
-    jobName?: string
+    jobName?: string,
+    submitterEmail?: string
   ) => Promise<{ alreadyPublished: boolean; claimToken?: string; atlasId?: number }>;
   atlasSubmissions: Record<string, AtlasSubmission>;
   removeFromAtlas: (sessionId: string) => Promise<void>;
@@ -106,7 +107,8 @@ export function PortalConfigProvider({ children }: { children: React.ReactNode }
     async (
       sessionId: string,
       entries: LogEntry[],
-      jobName?: string
+      jobName?: string,
+      submitterEmail?: string
     ): Promise<{ alreadyPublished: boolean }> => {
       const baseUrl = portalUrl.replace(/\/+$/, '');
       if (!baseUrl) throw new Error('Portal URL is not configured. Set it in Settings.');
@@ -128,6 +130,7 @@ export function PortalConfigProvider({ children }: { children: React.ReactNode }
         title: jobName ? `${jobName} — ${new Date(sorted[0]?.timestamp ?? Date.now()).toLocaleDateString(getCurrentLocale(), { month: 'short', day: 'numeric', year: 'numeric' })}` : null,
         captureMode: null,
         isPublic: true,
+        submitterEmail: submitterEmail ?? null,
       };
 
       const response = await fetch(`${baseUrl}/api/portal/import/session-json`, {

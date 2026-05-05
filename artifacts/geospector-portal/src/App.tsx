@@ -7,6 +7,7 @@ import FeedPage from "@/pages/FeedPage";
 import SessionDetail from "@/pages/SessionDetail";
 import SharePage from "@/pages/SharePage";
 import ImportPage from "@/pages/ImportPage";
+import DeleteConfirmPage from "@/pages/DeleteConfirmPage";
 import { DarkModeCtx, useDarkModeInit } from "@/hooks/useDarkMode";
 
 const queryClient = new QueryClient({
@@ -22,6 +23,7 @@ function Router() {
       <Route path="/sessions/:id" component={SessionDetail} />
       <Route path="/share/:token" component={SharePage} />
       <Route path="/import" component={ImportPage} />
+      <Route path="/delete/:token" component={DeleteConfirmPage} />
       <Route component={NotFound} />
     </Switch>
   );

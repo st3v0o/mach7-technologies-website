@@ -29,6 +29,9 @@ export const portalSessionsTable = pgTable("portal_sessions", {
   sourceType: text("source_type").notNull().default("import"), // 'supabase' | 'webhook' | 'import' | 'atlas'
   publicShareToken: text("public_share_token").unique(), // random UUID for /share/:token links
   claimToken: text("claim_token").unique(), // secret UUID issued at submit-time; bearer can delete the session
+  submitterEmail: text("submitter_email"), // optional email provided at Atlas submit time; used for email-based delete
+  deleteToken: text("delete_token").unique(), // short-lived token emailed for delete-link flow
+  deleteTokenExpiresAt: timestamp("delete_token_expires_at", { withTimezone: true }), // expiry for deleteToken
   status: text("status").notNull().default("active"), // 'active' | 'archived'
   thumbnailUrl: text("thumbnail_url"), // URL of first frame image used as preview
   isPublic: boolean("is_public").notNull().default(false), // whether this session appears on the public feed

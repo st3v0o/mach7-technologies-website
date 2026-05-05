@@ -13,6 +13,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -234,6 +235,7 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
   const [atlasResult, setAtlasResult] = useState<{ success: boolean; message: string } | null>(null);
   const [newAtlasTokens, setNewAtlasTokens] = useState<{ sessionId: string; claimToken: string }[]>([]);
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
+  const [atlasEmail, setAtlasEmail] = useState<string>('');
 
   const { publishSession, portalUrl, atlasSubmissions, importAtlasSubmissions } = usePortalConfig();
 
@@ -293,7 +295,7 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
         const freshTokens: { sessionId: string; claimToken: string }[] = [];
         for (const [sid, entries] of bySession) {
           try {
-            const result = await publishSession(sid, entries, entries[0]?.jobName);
+            const result = await publishSession(sid, entries, entries[0]?.jobName, atlasEmail.trim() || undefined);
             if (result.alreadyPublished) {
               alreadyCount++;
             } else {
@@ -630,50 +632,70 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
             const isDisabled = !!activeId;
 
             return (
-              <Pressable
-                key={opt.id}
-                onPress={() => run(opt.id, opt.handler)}
-                disabled={isDisabled}
-                style={({ pressed }) => [
-                  styles.card,
-                  pressed && !isDisabled && { opacity: 0.8 },
-                  isDisabled && !isLoading && { opacity: 0.4 },
-                ]}
-              >
-                {/* Icon */}
-                <View style={[styles.iconWrap, { backgroundColor: opt.iconColor + '18' }]}>
-                  {isLoading ? (
-                    <ActivityIndicator size="small" color={opt.iconColor} />
-                  ) : (
-                    <Ionicons name={opt.icon as never} size={22} color={opt.iconColor} />
-                  )}
-                </View>
-
-                {/* Content */}
-                <View style={styles.cardContent}>
-                  <View style={styles.cardTitleRow}>
-                    <Text style={styles.cardTitle}>{opt.title}</Text>
-                    {opt.badge && (
-                      <View style={[styles.badge, { backgroundColor: opt.badgeColor + '20', borderColor: opt.badgeColor + '50' }]}>
-                        <Text style={[styles.badgeText, { color: opt.badgeColor }]}>{opt.badge}</Text>
-                      </View>
+              <React.Fragment key={opt.id}>
+                <Pressable
+                  onPress={() => run(opt.id, opt.handler)}
+                  disabled={isDisabled}
+                  style={({ pressed }) => [
+                    styles.card,
+                    pressed && !isDisabled && { opacity: 0.8 },
+                    isDisabled && !isLoading && { opacity: 0.4 },
+                  ]}
+                >
+                  {/* Icon */}
+                  <View style={[styles.iconWrap, { backgroundColor: opt.iconColor + '18' }]}>
+                    {isLoading ? (
+                      <ActivityIndicator size="small" color={opt.iconColor} />
+                    ) : (
+                      <Ionicons name={opt.icon as never} size={22} color={opt.iconColor} />
                     )}
                   </View>
-                  <Text style={styles.cardDesc}>{opt.description}</Text>
-                  <View style={styles.tagRow}>
-                    {opt.tags.map((tag) => (
-                      <View key={tag} style={styles.tag}>
-                        <Text style={styles.tagText}>{tag}</Text>
-                      </View>
-                    ))}
-                  </View>
-                </View>
 
-                {/* Arrow */}
-                {!isLoading && (
-                  <Ionicons name="chevron-forward" size={16} color={Colors.textTertiary} />
+                  {/* Content */}
+                  <View style={styles.cardContent}>
+                    <View style={styles.cardTitleRow}>
+                      <Text style={styles.cardTitle}>{opt.title}</Text>
+                      {opt.badge && (
+                        <View style={[styles.badge, { backgroundColor: opt.badgeColor + '20', borderColor: opt.badgeColor + '50' }]}>
+                          <Text style={[styles.badgeText, { color: opt.badgeColor }]}>{opt.badge}</Text>
+                        </View>
+                      )}
+                    </View>
+                    <Text style={styles.cardDesc}>{opt.description}</Text>
+                    <View style={styles.tagRow}>
+                      {opt.tags.map((tag) => (
+                        <View key={tag} style={styles.tag}>
+                          <Text style={styles.tagText}>{tag}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+
+                  {/* Arrow */}
+                  {!isLoading && (
+                    <Ionicons name="chevron-forward" size={16} color={Colors.textTertiary} />
+                  )}
+                </Pressable>
+
+                {opt.id === 'atlas' && (
+                  <View style={styles.atlasEmailSection}>
+                    <Text style={styles.atlasEmailLabel}>Your email (optional)</Text>
+                    <TextInput
+                      style={styles.atlasEmailInput}
+                      value={atlasEmail}
+                      onChangeText={setAtlasEmail}
+                      placeholder="you@example.com"
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      placeholderTextColor={Colors.textTertiary}
+                    />
+                    <Text style={styles.atlasEmailHint}>
+                      Provide your email so you can request a delete link from the portal later — no delete code required.
+                    </Text>
+                  </View>
                 )}
-              </Pressable>
+              </React.Fragment>
             );
           })}
 
@@ -894,5 +916,41 @@ const styles = StyleSheet.create({
     color: Colors.amber,
     fontFamily: 'Inter_600SemiBold',
     fontSize: 12,
+  },
+  atlasEmailSection: {
+    marginTop: -4,
+    marginBottom: 2,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    backgroundColor: 'rgba(10, 132, 255, 0.05)',
+    borderWidth: 1,
+    borderTopWidth: 0,
+    borderColor: 'rgba(10, 132, 255, 0.15)',
+    borderBottomLeftRadius: 12,
+    borderBottomRightRadius: 12,
+    gap: 6,
+  },
+  atlasEmailLabel: {
+    color: Colors.textSecondary,
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 12,
+    letterSpacing: 0.1,
+  },
+  atlasEmailInput: {
+    backgroundColor: Colors.background,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    color: Colors.text,
+    fontFamily: 'Inter_400Regular',
+    fontSize: 14,
+  },
+  atlasEmailHint: {
+    color: Colors.textTertiary,
+    fontFamily: 'Inter_400Regular',
+    fontSize: 11,
+    lineHeight: 15,
   },
 });
