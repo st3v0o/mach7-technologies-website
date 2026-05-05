@@ -60,17 +60,17 @@ export default function SharePage() {
 
   return (
     <Layout>
-      <div className="max-w-5xl mx-auto px-4 py-6 w-full flex-1 flex flex-col gap-5">
+      <div className="max-w-5xl mx-auto px-4 py-5 w-full flex-1 flex flex-col gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white leading-tight">
+          <h1 className="text-xl font-bold text-gray-900 dark:text-white leading-tight">
             {session.title ?? session.sessionId}
           </h1>
-          <p className="text-sm text-gray-400 dark:text-slate-400 mt-1">Shared GPS session via Geospector</p>
+          <p className="text-xs text-gray-400 dark:text-slate-500 mt-0.5 uppercase tracking-wide font-medium">GPS session · Geospector</p>
         </div>
 
         <MetricsBar metrics={session} />
 
-        <div className="rounded-2xl overflow-hidden border border-gray-200 dark:border-slate-700 shadow-sm relative" style={{ height: "48vh", minHeight: 320 }}>
+        <div className="rounded-lg overflow-hidden border border-gray-200 dark:border-slate-700 shadow-sm relative" style={{ height: "48vh", minHeight: 320 }}>
           <SessionMap
             routeGeojson={routeGeojson}
             frames={frames}
