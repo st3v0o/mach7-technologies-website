@@ -716,6 +716,15 @@ const RequestDeleteBody = z.object({
  * Returns the trusted portal base URL, derived entirely from server-side
  * environment variables. Never uses client-supplied data.
  */
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#x27;");
+}
+
 function getPortalBaseUrl(): string {
   if (process.env.PORTAL_BASE_URL) {
     return process.env.PORTAL_BASE_URL.replace(/\/$/, "");
@@ -778,7 +787,7 @@ router.post("/sessions/:id/request-delete", async (req, res) => {
 
   const base = portalBaseUrl.replace(/\/$/, "");
   const deleteUrl = `${base}/delete/${deleteToken}`;
-  const sessionTitle = session.title ?? session.sessionId;
+  const sessionTitle = escapeHtml(session.title ?? session.sessionId);
 
   const resend = new Resend(resendKey);
   try {
