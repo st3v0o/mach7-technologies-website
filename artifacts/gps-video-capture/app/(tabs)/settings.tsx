@@ -121,12 +121,20 @@ export default function SettingsScreen() {
   const [showSuccessToast, setShowSuccessToast] = useState(false);
   const [jobNameDraft, setJobNameDraft] = useState(settings.jobName);
   const [portalUrlDraft, setPortalUrlDraft] = useState(portalUrl);
+  const [feetInputText, setFeetInputText] = useState(String(Math.round(metersToFeet(settings.dynamicMeters))));
+  const [isFeetFocused, setIsFeetFocused] = useState(false);
 
   useEffect(() => {
     setPortalUrlDraft(portalUrl);
   }, [portalUrl]);
 
   const currentFeet = Math.round(metersToFeet(settings.dynamicMeters));
+
+  useEffect(() => {
+    if (!isFeetFocused) {
+      setFeetInputText(String(currentFeet));
+    }
+  }, [currentFeet, isFeetFocused]);
 
   const fixedDesc =
     settings.fixedFps < 1
@@ -345,7 +353,37 @@ export default function SettingsScreen() {
             <Text style={styles.sectionTitle}>FEET PER FRAME</Text>
             <View style={styles.card}>
               <View style={styles.sliderValueRow}>
-                <Text style={styles.sliderValue}>{currentFeet}</Text>
+                <TextInput
+                  style={[styles.sliderValue, styles.sliderValueInput, isFeetFocused && styles.sliderValueInputFocused]}
+                  value={feetInputText}
+                  onChangeText={setFeetInputText}
+                  keyboardType="number-pad"
+                  returnKeyType="done"
+                  maxLength={4}
+                  selectTextOnFocus
+                  onFocus={() => setIsFeetFocused(true)}
+                  onBlur={() => {
+                    setIsFeetFocused(false);
+                    const parsed = parseInt(feetInputText, 10);
+                    if (!isNaN(parsed) && feetInputText.trim() !== '') {
+                      const clamped = Math.max(DYNAMIC_FEET_MIN, Math.min(DYNAMIC_FEET_MAX, parsed));
+                      updateSettings({ dynamicMeters: feetToMeters(clamped) });
+                      setFeetInputText(String(clamped));
+                    } else {
+                      setFeetInputText(String(currentFeet));
+                    }
+                  }}
+                  onSubmitEditing={() => {
+                    const parsed = parseInt(feetInputText, 10);
+                    if (!isNaN(parsed) && feetInputText.trim() !== '') {
+                      const clamped = Math.max(DYNAMIC_FEET_MIN, Math.min(DYNAMIC_FEET_MAX, parsed));
+                      updateSettings({ dynamicMeters: feetToMeters(clamped) });
+                      setFeetInputText(String(clamped));
+                    } else {
+                      setFeetInputText(String(currentFeet));
+                    }
+                  }}
+                />
                 <Text style={styles.sliderUnit}>ft</Text>
               </View>
               <View style={styles.sliderWrapper}>
@@ -355,7 +393,10 @@ export default function SettingsScreen() {
                   maximumValue={DYNAMIC_FEET_MAX}
                   step={1}
                   value={currentFeet}
-                  onValueChange={(ft) => updateSettings({ dynamicMeters: feetToMeters(ft) })}
+                  onValueChange={(ft) => {
+                    updateSettings({ dynamicMeters: feetToMeters(ft) });
+                    setFeetInputText(String(ft));
+                  }}
                   minimumTrackTintColor={Colors.blue}
                   maximumTrackTintColor={Colors.border}
                   thumbTintColor={Colors.blue}
@@ -939,7 +980,7 @@ const styles = StyleSheet.create({
   },
   sliderValueRow: {
     flexDirection: 'row',
-    alignItems: 'baseline',
+    alignItems: 'center',
     justifyContent: 'center',
     paddingTop: 16,
     paddingBottom: 4,
@@ -950,6 +991,15 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_600SemiBold',
     fontSize: 40,
     lineHeight: 44,
+  },
+  sliderValueInput: {
+    minWidth: 72,
+    textAlign: 'center',
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  },
+  sliderValueInputFocused: {
+    borderBottomColor: Colors.blue,
   },
   sliderUnit: {
     color: Colors.textSecondary,
