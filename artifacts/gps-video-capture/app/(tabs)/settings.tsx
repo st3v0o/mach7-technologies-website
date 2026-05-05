@@ -357,11 +357,12 @@ export default function SettingsScreen() {
                   style={[styles.sliderValue, styles.sliderValueInput, isFeetFocused && styles.sliderValueInputFocused]}
                   value={feetInputText}
                   onChangeText={(text) => {
-                    setFeetInputText(text);
-                    const parsed = parseInt(text, 10);
-                    if (!isNaN(parsed) && text.trim() !== '') {
-                      const clamped = Math.max(DYNAMIC_FEET_MIN, Math.min(DYNAMIC_FEET_MAX, parsed));
+                    if (/^\d+$/.test(text)) {
+                      const clamped = Math.max(DYNAMIC_FEET_MIN, Math.min(DYNAMIC_FEET_MAX, parseInt(text, 10)));
                       updateSettings({ dynamicMeters: feetToMeters(clamped) });
+                      setFeetInputText(String(clamped));
+                    } else {
+                      setFeetInputText(text);
                     }
                   }}
                   keyboardType="number-pad"
@@ -371,9 +372,8 @@ export default function SettingsScreen() {
                   onFocus={() => setIsFeetFocused(true)}
                   onBlur={() => {
                     setIsFeetFocused(false);
-                    const parsed = parseInt(feetInputText, 10);
-                    if (!isNaN(parsed) && feetInputText.trim() !== '') {
-                      const clamped = Math.max(DYNAMIC_FEET_MIN, Math.min(DYNAMIC_FEET_MAX, parsed));
+                    if (/^\d+$/.test(feetInputText)) {
+                      const clamped = Math.max(DYNAMIC_FEET_MIN, Math.min(DYNAMIC_FEET_MAX, parseInt(feetInputText, 10)));
                       updateSettings({ dynamicMeters: feetToMeters(clamped) });
                       setFeetInputText(String(clamped));
                     } else {
@@ -381,9 +381,8 @@ export default function SettingsScreen() {
                     }
                   }}
                   onSubmitEditing={() => {
-                    const parsed = parseInt(feetInputText, 10);
-                    if (!isNaN(parsed) && feetInputText.trim() !== '') {
-                      const clamped = Math.max(DYNAMIC_FEET_MIN, Math.min(DYNAMIC_FEET_MAX, parsed));
+                    if (/^\d+$/.test(feetInputText)) {
+                      const clamped = Math.max(DYNAMIC_FEET_MIN, Math.min(DYNAMIC_FEET_MAX, parseInt(feetInputText, 10)));
                       updateSettings({ dynamicMeters: feetToMeters(clamped) });
                       setFeetInputText(String(clamped));
                     } else {
