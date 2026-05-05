@@ -8,6 +8,7 @@ interface SessionMapProps {
   frames: PortalFrame[];
   selectedFrameId?: number;
   onMarkerClick: (frame: PortalFrame) => void;
+  sessionTitle?: string | null;
 }
 
 function extractLineStringCoords(geojson: { [key: string]: unknown } | null | undefined): [number, number][] {
@@ -45,10 +46,12 @@ function FrameMarkers({
   frames,
   selectedFrameId,
   onMarkerClick,
+  sessionTitle,
 }: {
   frames: PortalFrame[];
   selectedFrameId?: number;
   onMarkerClick: (frame: PortalFrame) => void;
+  sessionTitle?: string | null;
 }) {
   const map = useMap();
   const markerRefs = useRef<Map<number, L.Marker>>(new Map());
@@ -92,6 +95,9 @@ function FrameMarkers({
                   style={{ width: "100%", maxHeight: 110, objectFit: "cover", borderRadius: 4, marginBottom: 6 }}
                 />
               )}
+              {sessionTitle && (
+                <div style={{ fontWeight: 600, color: "#3b82f6", marginBottom: 4, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em" }}>{sessionTitle}</div>
+              )}
               <div style={{ fontWeight: 600, marginBottom: 2 }}>Frame #{frame.frameIndex}</div>
               <div style={{ color: "#666" }}>{formatTimestamp(frame.capturedAt)}</div>
               <div>📍 {frame.latitude.toFixed(5)}, {frame.longitude.toFixed(5)}</div>
@@ -105,7 +111,7 @@ function FrameMarkers({
   );
 }
 
-export default function SessionMap({ routeGeojson, frames, selectedFrameId, onMarkerClick }: SessionMapProps) {
+export default function SessionMap({ routeGeojson, frames, selectedFrameId, onMarkerClick, sessionTitle }: SessionMapProps) {
   const linePositions = extractLineStringCoords(routeGeojson);
   const center: [number, number] = linePositions[0] ?? [37.3387, -121.8853];
 
@@ -134,6 +140,7 @@ export default function SessionMap({ routeGeojson, frames, selectedFrameId, onMa
         frames={frames}
         selectedFrameId={selectedFrameId}
         onMarkerClick={onMarkerClick}
+        sessionTitle={sessionTitle}
       />
     </MapContainer>
   );

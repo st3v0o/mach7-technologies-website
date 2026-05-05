@@ -13,6 +13,7 @@ import {
   SectionList,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -20,7 +21,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Colors from '@/constants/colors';
 import { LogEntry, useRecording } from '@/contexts/RecordingContext';
 import { usePortalConfig } from '@/contexts/PortalConfigContext';
-import { useSettings } from '@/contexts/SettingsContext';
 import ExportModal from '@/components/ExportModal';
 import LocalDatabaseSheet from '@/components/LocalDatabaseSheet';
 import LogMapView, { SessionSection } from '@/components/LogMapView';
@@ -273,7 +273,7 @@ function groupEntriesBySessions(entries: LogEntry[]): SessionSection[] {
     const hasPhoto = sorted.some((f) => f.videoSegment === 'photo');
     const mode: 'video' | 'photo' | 'mixed' =
       hasVideo && hasPhoto ? 'mixed' : hasPhoto ? 'photo' : 'video';
-    sections.push({ sessionId: sid, mode, startMs: sorted[0]?.timestamp ?? 0, data: sorted });
+    sections.push({ sessionId: sid, mode, startMs: sorted[0]?.timestamp ?? 0, data: sorted, jobName: sorted[0]?.jobName });
   }
   return sections.sort((a, b) => b.startMs - a.startMs);
 }
@@ -284,18 +284,23 @@ function SessionHeader({
   bulkMode = false,
   isSelected = false,
   onToggleSelected,
+  onEditJobName,
+  onToggleCollapse,
+  isCollapsed = false,
 }: {
   section: SessionSection;
   onShareGpx: () => void;
   bulkMode?: boolean;
   isSelected?: boolean;
   onToggleSelected?: () => void;
+  onEditJobName?: () => void;
+  onToggleCollapse?: () => void;
+  isCollapsed?: boolean;
 }) {
   const [sharing, setSharing] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [publishMsg, setPublishMsg] = useState<string | null>(null);
   const { isPublished, publishSession, portalUrl } = usePortalConfig();
-  const { settings } = useSettings();
 
   const d = new Date(section.startMs);
   const dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -329,7 +334,7 @@ function SessionHeader({
       const { alreadyPublished: wasAlready } = await publishSession(
         section.sessionId,
         section.data,
-        settings.jobName || undefined
+        section.jobName || undefined
       );
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setPublishMsg(wasAlready ? 'Already in portal' : 'Published!');
@@ -345,23 +350,44 @@ function SessionHeader({
 
   return (
     <Pressable
-      onPress={bulkMode ? onToggleSelected : undefined}
+      onPress={bulkMode ? onToggleSelected : onToggleCollapse}
       style={({ pressed }) => [
         sessionStyles.header,
         bulkMode && isSelected && sessionStyles.headerSelected,
-        bulkMode && pressed && { opacity: 0.8 },
+        pressed && { opacity: 0.8 },
       ]}
     >
-      {bulkMode && (
+      {bulkMode ? (
         <View style={[sessionStyles.checkbox, isSelected && sessionStyles.checkboxSelected]}>
           {isSelected && <Ionicons name="checkmark" size={12} color="#fff" />}
         </View>
+      ) : (
+        <Ionicons
+          name={isCollapsed ? 'chevron-forward' : 'chevron-down'}
+          size={14}
+          color={Colors.textTertiary}
+          style={{ marginRight: 6 }}
+        />
       )}
       <View style={sessionStyles.headerLeft}>
         <View style={[sessionStyles.modeBadge, { borderColor: modeColor }]}>
           <Text style={[sessionStyles.modeText, { color: modeColor }]}>{modeLabel}</Text>
         </View>
         <View>
+          {!bulkMode && (
+            <Pressable
+              onPress={(e) => { e.stopPropagation(); onEditJobName?.(); }}
+              hitSlop={4}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 2 }}
+            >
+              {section.jobName ? (
+                <Text style={sessionStyles.jobNameText}>{section.jobName}</Text>
+              ) : (
+                <Text style={sessionStyles.jobNamePlaceholder}>Add job name…</Text>
+              )}
+              <Ionicons name="pencil-outline" size={11} color={Colors.textTertiary} />
+            </Pressable>
+          )}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <Text style={sessionStyles.dateText}>{dateStr} · {timeStr}</Text>
             {alreadyPublished && (
@@ -371,7 +397,9 @@ function SessionHeader({
               </View>
             )}
           </View>
-          <Text style={sessionStyles.countText}>{section.data.length} frames</Text>
+          <Text style={sessionStyles.countText}>
+            {isCollapsed ? `${section.data.length} frames (collapsed)` : `${section.data.length} frames`}
+          </Text>
           {publishMsg && (
             <Text style={[
               sessionStyles.publishMsg,
@@ -386,7 +414,7 @@ function SessionHeader({
         <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
           {!!portalUrl && !alreadyPublished && (
             <Pressable
-              onPress={handlePublish}
+              onPress={(e) => { e.stopPropagation(); handlePublish(); }}
               disabled={publishing || Platform.OS === 'web'}
               style={({ pressed }) => [sessionStyles.publishBtn, pressed && { opacity: 0.7 }]}
             >
@@ -397,7 +425,7 @@ function SessionHeader({
             </Pressable>
           )}
           <Pressable
-            onPress={handleGpx}
+            onPress={(e) => { e.stopPropagation(); handleGpx(); }}
             disabled={sharing || Platform.OS === 'web'}
             style={({ pressed }) => [sessionStyles.gpxBtn, pressed && { opacity: 0.7 }]}
           >
@@ -438,9 +466,8 @@ const PERIOD_LABELS: { key: BulkPeriod; label: string }[] = [
 export default function LogScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
-  const { logEntries, shareGpx, clearLog, processingStatus, totalFrames, segmentCount } = useRecording();
+  const { logEntries, shareGpx, clearLog, processingStatus, totalFrames, segmentCount, renameSessionJobName } = useRecording();
   const { publishSession, portalUrl } = usePortalConfig();
-  const { settings } = useSettings();
   const [selectedEntry, setSelectedEntry] = useState<LogEntry | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'map' | 'table'>('list');
   const [isDemoMode, setIsDemoMode] = useState(false);
@@ -450,10 +477,37 @@ export default function LogScreen() {
   const [selectedSessionIds, setSelectedSessionIds] = useState<Set<string>>(new Set());
   const [activePeriod, setActivePeriod] = useState<BulkPeriod | null>(null);
   const [bulkPublishing, setBulkPublishing] = useState(false);
+  const [collapsedSessions, setCollapsedSessions] = useState<Set<string>>(new Set());
+  const [editingJobSession, setEditingJobSession] = useState<{ sessionId: string; currentName: string } | null>(null);
+  const [jobEditDraft, setJobEditDraft] = useState('');
 
   const sections = useMemo(() => groupEntriesBySessions(logEntries), [logEntries]);
+  const displaySections = useMemo(
+    () => sections.map((s) => ({ ...s, data: collapsedSessions.has(s.sessionId) ? [] : s.data })),
+    [sections, collapsedSessions]
+  );
   const mapSections = isDemoMode ? DEMO_SECTIONS : sections;
   const sessionIds = useMemo(() => sections.map((s) => s.sessionId), [sections]);
+
+  const toggleCollapse = (sessionId: string) => {
+    setCollapsedSessions((prev) => {
+      const next = new Set(prev);
+      if (next.has(sessionId)) next.delete(sessionId);
+      else next.add(sessionId);
+      return next;
+    });
+  };
+
+  const openJobEdit = (sessionId: string, currentName: string) => {
+    setEditingJobSession({ sessionId, currentName });
+    setJobEditDraft(currentName);
+  };
+
+  const saveJobName = async () => {
+    if (!editingJobSession) return;
+    await renameSessionJobName(editingJobSession.sessionId, jobEditDraft.trim());
+    setEditingJobSession(null);
+  };
 
   const toggleBulkMode = () => {
     setIsBulkMode((v) => {
@@ -499,7 +553,7 @@ export default function LogScreen() {
       const section = sections.find((s) => s.sessionId === sid);
       if (!section) continue;
       try {
-        await publishSession(sid, section.data, settings.jobName || undefined);
+        await publishSession(sid, section.data, section.jobName || undefined);
         successCount++;
       } catch {
         errorCount++;
@@ -765,7 +819,7 @@ export default function LogScreen() {
         </View>
       ) : (
         <SectionList
-          sections={sections}
+          sections={displaySections}
           keyExtractor={(item) => item.id}
           renderItem={({ item, index, section }) => {
             const globalIndex = logEntries.indexOf(item);
@@ -787,6 +841,9 @@ export default function LogScreen() {
               bulkMode={isBulkMode}
               isSelected={selectedSessionIds.has(section.sessionId)}
               onToggleSelected={() => toggleSession(section.sessionId)}
+              onEditJobName={() => openJobEdit(section.sessionId, section.jobName || '')}
+              onToggleCollapse={() => toggleCollapse(section.sessionId)}
+              isCollapsed={collapsedSessions.has(section.sessionId)}
             />
           )}
           SectionSeparatorComponent={() => <View style={styles.sectionSeparator} />}
@@ -831,6 +888,47 @@ export default function LogScreen() {
           entry={selectedEntry}
           onClose={() => setSelectedEntry(null)}
         />
+      )}
+
+      {editingJobSession && (
+        <Modal
+          visible
+          transparent
+          animationType="fade"
+          onRequestClose={() => setEditingJobSession(null)}
+        >
+          <Pressable style={jobEditStyles.overlay} onPress={() => setEditingJobSession(null)}>
+            <Pressable style={jobEditStyles.card} onPress={() => {}}>
+              <Text style={jobEditStyles.title}>Job Name</Text>
+              <Text style={jobEditStyles.subtitle}>Label this session for easy identification</Text>
+              <TextInput
+                style={jobEditStyles.input}
+                value={jobEditDraft}
+                onChangeText={setJobEditDraft}
+                placeholder="e.g. Main St Survey, Job #1234…"
+                placeholderTextColor={Colors.textTertiary}
+                autoFocus
+                returnKeyType="done"
+                onSubmitEditing={saveJobName}
+                maxLength={80}
+              />
+              <View style={jobEditStyles.buttons}>
+                <Pressable
+                  onPress={() => setEditingJobSession(null)}
+                  style={({ pressed }) => [jobEditStyles.btn, jobEditStyles.btnCancel, pressed && { opacity: 0.7 }]}
+                >
+                  <Text style={jobEditStyles.btnCancelText}>Cancel</Text>
+                </Pressable>
+                <Pressable
+                  onPress={saveJobName}
+                  style={({ pressed }) => [jobEditStyles.btn, jobEditStyles.btnSave, pressed && { opacity: 0.7 }]}
+                >
+                  <Text style={jobEditStyles.btnSaveText}>Save</Text>
+                </Pressable>
+              </View>
+            </Pressable>
+          </Pressable>
+        </Modal>
       )}
 
       <ExportModal
@@ -1382,6 +1480,17 @@ const sessionStyles = StyleSheet.create({
     fontSize: 11,
     marginTop: 2,
   },
+  jobNameText: {
+    color: Colors.text,
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 13,
+  },
+  jobNamePlaceholder: {
+    color: Colors.textTertiary,
+    fontFamily: 'Inter_400Regular',
+    fontSize: 12,
+    fontStyle: 'italic',
+  },
 });
 
 const BRACKET_LEN = 28;
@@ -1600,5 +1709,77 @@ const modalStyles = StyleSheet.create({
     width: 1,
     height: 28,
     backgroundColor: 'rgba(255,255,255,0.15)',
+  },
+});
+
+const jobEditStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  card: {
+    backgroundColor: Colors.card,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: 24,
+    width: '100%',
+    maxWidth: 400,
+    gap: 12,
+  },
+  title: {
+    color: Colors.text,
+    fontFamily: 'Inter_700Bold',
+    fontSize: 18,
+  },
+  subtitle: {
+    color: Colors.textSecondary,
+    fontFamily: 'Inter_400Regular',
+    fontSize: 13,
+    marginTop: -4,
+  },
+  input: {
+    backgroundColor: Colors.background,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    color: Colors.text,
+    fontFamily: 'Inter_400Regular',
+    fontSize: 15,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginTop: 4,
+  },
+  buttons: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 4,
+  },
+  btn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  btnCancel: {
+    backgroundColor: Colors.background,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  btnSave: {
+    backgroundColor: Colors.blue,
+  },
+  btnCancelText: {
+    color: Colors.textSecondary,
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 14,
+  },
+  btnSaveText: {
+    color: '#fff',
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 14,
   },
 });

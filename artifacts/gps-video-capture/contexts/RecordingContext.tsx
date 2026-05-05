@@ -34,6 +34,7 @@ export interface LogEntry {
   videoPath: string;
   sessionId: string;
   supabaseUrl?: string;
+  jobName?: string;
 }
 
 export type GpsStatus = 'idle' | 'searching' | 'locked' | 'denied';
@@ -67,9 +68,11 @@ interface RecordingContextType {
     uri: string,
     timestamp: number,
     onFrameReady?: (frameUri: string, timestamp: number) => void,
-    saveToLibrary?: boolean
+    saveToLibrary?: boolean,
+    jobName?: string
   ) => Promise<void>;
   updateFrameUrl: (id: string, url: string) => Promise<void>;
+  renameSessionJobName: (sessionId: string, newName: string) => Promise<void>;
   shareLog: () => Promise<void>;
   clearLog: () => Promise<void>;
 }
@@ -496,6 +499,7 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
               localPath: destPath,
               videoPath: videoDestPath,
               sessionId: currentSession,
+              jobName: frameSettings.jobName || undefined,
             };
             newEntries.push(entry);
 
@@ -545,7 +549,8 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
       uri: string,
       timestamp: number,
       onFrameReady?: (frameUri: string, timestamp: number) => void,
-      saveToLibrary?: boolean
+      saveToLibrary?: boolean,
+      jobName?: string
     ) => {
       if (Platform.OS === 'web') return;
 
@@ -593,6 +598,7 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
           localPath: destPath,
           videoPath: '',
           sessionId: sessionIdRef.current,
+          jobName: jobName || undefined,
         };
 
         const lat = gpsLat.toFixed(7);
@@ -646,6 +652,16 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
       });
       await FileSystem.writeAsStringAsync(csvPath, updated.join('\n'));
     } catch {}
+  }, []);
+
+  const renameSessionJobName = useCallback(async (sessionId: string, newName: string) => {
+    setLogEntries((prev) => {
+      const updated = prev.map((e) =>
+        e.sessionId === sessionId ? { ...e, jobName: newName || undefined } : e
+      );
+      saveLog(updated);
+      return updated;
+    });
   }, []);
 
   const shareLog = useCallback(async () => {
@@ -707,6 +723,7 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
         processSegment,
         savePhoto,
         updateFrameUrl,
+        renameSessionJobName,
         shareLog,
         clearLog,
       }}

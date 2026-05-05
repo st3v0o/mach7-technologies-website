@@ -160,6 +160,7 @@ export default function SessionDetail() {
               frames={frames}
               selectedFrameId={selectedFrame?.id}
               onMarkerClick={setSelectedFrame}
+              sessionTitle={session.title}
             />
           ) : (
             <div className="h-full flex items-center justify-center bg-slate-800 text-slate-400">

@@ -60,6 +60,7 @@ function generateGeoJSON(entries: LogEntry[]): string {
         filename: e.filename,
         timestamp: new Date(e.timestamp).toISOString(),
         session_id: e.sessionId,
+        job_name: e.jobName ?? '',
         mode: e.videoSegment === 'photo' ? 'photo' : 'video_frame',
         local_path: e.localPath,
       },
@@ -86,7 +87,7 @@ function generateKML(entries: LogEntry[]): string {
     .map(
       (e) => `    <Placemark>
       <name>${e.filename}</name>
-      <description>${new Date(e.timestamp).toISOString()} — ${e.sessionId}</description>
+      <description>${new Date(e.timestamp).toISOString()} — ${e.jobName ? e.jobName + ' — ' : ''}${e.sessionId}</description>
       <Point><coordinates>${e.longitude.toFixed(7)},${e.latitude.toFixed(7)},0</coordinates></Point>
     </Placemark>`
     )
@@ -107,12 +108,13 @@ ${points}
 
 function generateCSV(entries: LogEntry[]): string {
   const header =
-    'filename,timestamp,latitude,longitude,mode,local_path,session_id\n';
+    'filename,timestamp,latitude,longitude,mode,local_path,session_id,job_name\n';
   const rows = entries
     .map((e) => {
       const ts = new Date(e.timestamp).toISOString();
       const mode = e.videoSegment === 'photo' ? 'photo' : 'video_frame';
-      return `${e.filename},${ts},${e.latitude.toFixed(7)},${e.longitude.toFixed(7)},${mode},${e.localPath},${e.sessionId}`;
+      const jobName = e.jobName ? `"${e.jobName.replace(/"/g, '""')}"` : '';
+      return `${e.filename},${ts},${e.latitude.toFixed(7)},${e.longitude.toFixed(7)},${mode},${e.localPath},${e.sessionId},${jobName}`;
     })
     .join('\n');
   return header + rows;

@@ -16,6 +16,7 @@ export interface SessionSection {
   mode: 'video' | 'photo' | 'mixed';
   startMs: number;
   data: LogEntry[];
+  jobName?: string;
 }
 
 interface Props {
