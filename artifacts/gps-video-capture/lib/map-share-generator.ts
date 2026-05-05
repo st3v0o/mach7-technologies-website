@@ -1,4 +1,5 @@
 import { LogEntry } from '@/contexts/RecordingContext';
+import { LEAFLET_CSS, LEAFLET_JS } from '@/lib/leaflet-inline';
 
 const SESSION_COLORS = [
   '#4FC3F7',
@@ -14,6 +15,15 @@ const SESSION_COLORS = [
   '#90CAF9',
   '#B0BEC5',
 ];
+
+function htmlEscape(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 
 export interface MapShareOptions {
   mode: 'local' | 'cloud';
@@ -63,7 +73,7 @@ export function generateMapHtml(
   const timestamps = entries.map((e) => e.timestamp).filter(Boolean);
   const dateRange =
     timestamps.length > 0
-      ? `${new Date(Math.min(...timestamps)).toLocaleDateString()} – ${new Date(Math.max(...timestamps)).toLocaleDateString()}`
+      ? `${new Date(Math.min(...timestamps)).toLocaleDateString()} \u2013 ${new Date(Math.max(...timestamps)).toLocaleDateString()}`
       : '';
 
   const geojson = JSON.stringify({ type: 'FeatureCollection', features: geoFeatures });
@@ -76,7 +86,7 @@ export function generateMapHtml(
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Geospector Map</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+  <style>${LEAFLET_CSS}</style>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { background: #0d1117; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
@@ -142,11 +152,17 @@ export function generateMapHtml(
     <span><strong>${photoCount}</strong> photos</span>
     ${dateRange ? `<span>${dateRange}</span>` : ''}
   </div>
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.min.js" crossorigin=""></script>
+  <script>${LEAFLET_JS}</script>
   <script>
     var DATA = ${geojson};
     var COLORS = ${colors};
     var LABELS = ${labels};
+
+    function esc(s) {
+      return String(s)
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+        .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    }
 
     var map = L.map('map', { preferCanvas: true });
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -176,23 +192,28 @@ export function generateMapHtml(
 
       var html = '';
       if (p.photo) {
-        html += '<img class="popup-photo" src="' + p.photo + '" loading="lazy" />';
+        html += '<img class="popup-photo" src="' + esc(p.photo) + '" loading="lazy" />';
       }
       if (p.job_name) {
-        html += '<div class="popup-job">' + p.job_name + '</div>';
+        html += '<div class="popup-job">' + esc(p.job_name) + '</div>';
       }
-      html += '<div class="popup-ts">' + new Date(p.timestamp).toLocaleString() + '</div>';
-      html += '<div class="popup-sid">' + p.session_id.slice(0, 12) + '&hellip;</div>';
+      html += '<div class="popup-ts">' + esc(new Date(p.timestamp).toLocaleString()) + '</div>';
+      html += '<div class="popup-sid">' + esc(p.session_id.slice(0, 12)) + '&hellip;</div>';
       marker.bindPopup(html, { maxWidth: 240 });
 
       if (!addedSessions[p.session_id]) {
         addedSessions[p.session_id] = true;
         var item = document.createElement('div');
         item.className = 'legend-item';
-        item.innerHTML =
-          '<div class="legend-dot" style="background:' + color + '"></div>' +
-          '<span style="overflow:hidden;text-overflow:ellipsis">' +
-          (LABELS[p.session_id] || p.session_id.slice(0, 8)) + '</span>';
+        var dot = document.createElement('div');
+        dot.className = 'legend-dot';
+        dot.style.background = color;
+        var lbl = document.createElement('span');
+        lbl.style.overflow = 'hidden';
+        lbl.style.textOverflow = 'ellipsis';
+        lbl.textContent = LABELS[p.session_id] || p.session_id.slice(0, 8);
+        item.appendChild(dot);
+        item.appendChild(lbl);
         legend.appendChild(item);
       }
     });

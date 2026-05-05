@@ -28,6 +28,26 @@ export interface TestResult {
   testedAt: number;
 }
 
+export interface ShareProjectSession {
+  id: string;
+  jobName?: string;
+  frameCount: number;
+  firstFrameAt?: string;
+  lastFrameAt?: string;
+}
+
+export interface ShareProjectPayload {
+  entries: LogEntry[];
+  sessionIds: string[];
+  mapHtml: string;
+  sessions: ShareProjectSession[];
+  metadata: {
+    totalFrames: number;
+    geotaggedFrames: number;
+    exportedAt: string;
+  };
+}
+
 interface StorageConfigContextType {
   providerType: StorageProviderType;
   providerLabel: string;
@@ -37,11 +57,7 @@ interface StorageConfigContextType {
   isEnvPreconfigured: boolean;
   envTestError: string | null;
   uploadFrame: (params: UploadFrameParams) => Promise<string>;
-  shareProject: (
-    mapHtml: string,
-    entries: LogEntry[],
-    sessionIds: string[]
-  ) => Promise<string | null>;
+  shareProject: (payload: ShareProjectPayload) => Promise<string | null>;
   testConnection: () => Promise<{ success: boolean; error?: string }>;
   reloadConfig: () => Promise<void>;
   clearConfig: () => void;
@@ -224,11 +240,9 @@ export function StorageConfigProvider({ children }: { children: React.ReactNode 
   );
 
   const shareProject = useCallback(
-    async (
-      mapHtml: string,
-      entries: LogEntry[],
-      sessionIds: string[]
-    ): Promise<string | null> => {
+    async (payload: ShareProjectPayload): Promise<string | null> => {
+      const { entries, sessionIds, mapHtml, sessions, metadata } = payload;
+
       if (config.providerType === 'supabase') {
         if (!config.supabaseUrl || !config.supabaseKey || !config.supabaseBucket) {
           throw new Error('Supabase not configured');
@@ -262,11 +276,10 @@ export function StorageConfigProvider({ children }: { children: React.ReactNode 
           }));
         const body = JSON.stringify({
           event: 'share',
-          exportedAt: new Date().toISOString(),
-          sessionIds,
-          totalFrames: entries.length,
-          geotaggedFrames: geoFeatures.length,
           mapHtml,
+          sessions,
+          metadata,
+          sessionIds,
           geojson: { type: 'FeatureCollection', features: geoFeatures },
         });
         const headers: Record<string, string> = { 'Content-Type': 'application/json' };

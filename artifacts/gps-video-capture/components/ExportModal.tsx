@@ -23,7 +23,7 @@ import { useTranslation } from 'react-i18next';
 import Colors from '@/constants/colors';
 import { LogEntry } from '@/contexts/RecordingContext';
 import { usePortalConfig } from '@/contexts/PortalConfigContext';
-import { useStorageConfig } from '@/contexts/StorageConfigContext';
+import { useStorageConfig, ShareProjectPayload } from '@/contexts/StorageConfigContext';
 import { generateMapHtml } from '@/lib/map-share-generator';
 import {
   isoNow,
@@ -87,6 +87,7 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
   const [filterOpen, setFilterOpen] = useState(false);
   const [selectedSessionIds, setSelectedSessionIds] = useState<Set<string> | null>(null);
   const [periodFilter, setPeriodFilter] = useState<PeriodFilter>('all');
+  const [selectedJobNames, setSelectedJobNames] = useState<Set<string> | null>(null);
 
   const [shareMapConfirmOpen, setShareMapConfirmOpen] = useState(false);
   const shareMapAnim = useRef(new Animated.Value(0)).current;
@@ -106,19 +107,28 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
   }, [visible]);
 
   const derivedSessions = useMemo(() => {
-    const map = new Map<string, { jobName?: string; count: number; firstAt: number }>();
+    const map = new Map<string, { jobName?: string; count: number; firstAt: number; lastAt: number }>();
     for (const e of logEntries) {
       const s = map.get(e.sessionId);
-      if (!s) map.set(e.sessionId, { jobName: e.jobName, count: 1, firstAt: e.timestamp });
+      if (!s) map.set(e.sessionId, { jobName: e.jobName, count: 1, firstAt: e.timestamp, lastAt: e.timestamp });
       else {
         s.count++;
         if (e.timestamp < s.firstAt) s.firstAt = e.timestamp;
+        if (e.timestamp > s.lastAt) s.lastAt = e.timestamp;
       }
     }
     return [...map.entries()]
       .map(([id, s]) => ({ id, ...s }))
       .sort((a, b) => b.firstAt - a.firstAt);
   }, [logEntries]);
+
+  const distinctJobNames = useMemo(() => {
+    const names = new Set<string>();
+    for (const s of derivedSessions) {
+      if (s.jobName) names.add(s.jobName);
+    }
+    return [...names].sort();
+  }, [derivedSessions]);
 
   const filteredEntries = useMemo(() => {
     let entries = logEntries;
@@ -129,15 +139,18 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
     if (selectedSessionIds !== null) {
       entries = entries.filter((e) => selectedSessionIds.has(e.sessionId));
     }
+    if (selectedJobNames !== null) {
+      entries = entries.filter((e) => e.jobName && selectedJobNames.has(e.jobName));
+    }
     return entries;
-  }, [logEntries, selectedSessionIds, periodFilter]);
+  }, [logEntries, selectedSessionIds, periodFilter, selectedJobNames]);
 
   const filteredSessionIds = useMemo(
     () => [...new Set(filteredEntries.map((e) => e.sessionId))],
     [filteredEntries]
   );
 
-  const isFilterActive = periodFilter !== 'all' || selectedSessionIds !== null;
+  const isFilterActive = periodFilter !== 'all' || selectedSessionIds !== null || selectedJobNames !== null;
 
   const photoCount = useMemo(
     () => filteredEntries.filter((e) => e.localPath).length,
@@ -210,6 +223,7 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
     setFilterOpen(false);
     setSelectedSessionIds(null);
     setPeriodFilter('all');
+    setSelectedJobNames(null);
     onClose();
   }
 
@@ -237,9 +251,27 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
     return selectedSessionIds === null || selectedSessionIds.has(sid);
   }
 
+  function toggleJobName(name: string) {
+    if (selectedJobNames === null) {
+      const next = new Set(distinctJobNames);
+      next.delete(name);
+      setSelectedJobNames(next.size === distinctJobNames.length ? null : next);
+    } else {
+      const next = new Set(selectedJobNames);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      setSelectedJobNames(next.size === distinctJobNames.length ? null : next);
+    }
+  }
+
+  function isJobNameSelected(name: string) {
+    return selectedJobNames === null || selectedJobNames.has(name);
+  }
+
   function resetFilter() {
     setSelectedSessionIds(null);
     setPeriodFilter('all');
+    setSelectedJobNames(null);
   }
 
   async function handleShareMap() {
@@ -297,7 +329,29 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
         setShareMapResult({ type: 'local_done' });
       } else {
         const html = generateMapHtml(filteredEntries, { mode: 'cloud' });
-        const url = await shareProject(html, filteredEntries, filteredSessionIds);
+        const sessionsMeta = derivedSessions
+          .filter((s) => filteredSessionIds.includes(s.id))
+          .map((s) => ({
+            id: s.id,
+            jobName: s.jobName,
+            frameCount: s.count,
+            firstFrameAt: new Date(s.firstAt).toISOString(),
+            lastFrameAt: new Date(s.lastAt).toISOString(),
+          }));
+        const payload: ShareProjectPayload = {
+          entries: filteredEntries,
+          sessionIds: filteredSessionIds,
+          mapHtml: html,
+          sessions: sessionsMeta,
+          metadata: {
+            totalFrames: filteredEntries.length,
+            geotaggedFrames: filteredEntries.filter(
+              (e) => e.latitude !== 0 || e.longitude !== 0
+            ).length,
+            exportedAt: new Date().toISOString(),
+          },
+        };
+        const url = await shareProject(payload);
         setShareMapResult(url ? { type: 'url', url } : { type: 'sent_no_url' });
       }
     } catch (e) {
@@ -760,7 +814,7 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
         >
-          {derivedSessions.length > 1 && (
+          {logEntries.length > 0 && (
             <View style={styles.filterSection}>
               <Pressable
                 onPress={() => setFilterOpen((v) => !v)}
@@ -826,6 +880,35 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
                       );
                     })}
                   </View>
+
+                  {distinctJobNames.length > 0 && (
+                    <View style={styles.periodRow}>
+                      {distinctJobNames.map((name) => {
+                        const isActive = selectedJobNames === null || selectedJobNames.has(name);
+                        return (
+                          <Pressable
+                            key={name}
+                            onPress={() => toggleJobName(name)}
+                            style={({ pressed }) => [
+                              styles.periodChip,
+                              isActive && styles.periodChipActive,
+                              pressed && { opacity: 0.7 },
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.periodChipText,
+                                isActive && styles.periodChipTextActive,
+                              ]}
+                              numberOfLines={1}
+                            >
+                              {name}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  )}
 
                   <View style={styles.sessionList}>
                     {derivedSessions.map((s) => {
