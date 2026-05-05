@@ -73,6 +73,7 @@ interface RecordingContextType {
   ) => Promise<void>;
   updateFrameUrl: (id: string, url: string) => Promise<void>;
   renameSessionJobName: (sessionId: string, newName: string) => Promise<void>;
+  snapshotSessionJobName: (jobName: string | undefined) => void;
   shareLog: () => Promise<void>;
   clearLog: () => Promise<void>;
 }
@@ -664,6 +665,11 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
     } catch {}
   }, []);
 
+  const snapshotSessionJobName = useCallback((jobName: string | undefined) => {
+    const currentSession = sessionIdRef.current;
+    sessionJobNameMapRef.current.set(currentSession, jobName || undefined);
+  }, []);
+
   const renameSessionJobName = useCallback(async (sessionId: string, newName: string) => {
     sessionJobNameMapRef.current.set(sessionId, newName || undefined);
     setLogEntries((prev) => {
@@ -736,6 +742,7 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
         savePhoto,
         updateFrameUrl,
         renameSessionJobName,
+        snapshotSessionJobName,
         shareLog,
         clearLog,
       }}

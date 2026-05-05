@@ -87,7 +87,12 @@ function generateKML(entries: LogEntry[]): string {
     .map(
       (e) => `    <Placemark>
       <name>${e.filename}</name>
-      <description>${new Date(e.timestamp).toISOString()} — ${e.jobName ? e.jobName + ' — ' : ''}${e.sessionId}</description>
+      <description>${new Date(e.timestamp).toISOString()} — ${e.sessionId}</description>
+      <ExtendedData>
+        <Data name="job_name"><value>${e.jobName ?? ''}</value></Data>
+        <Data name="session_id"><value>${e.sessionId}</value></Data>
+        <Data name="timestamp"><value>${new Date(e.timestamp).toISOString()}</value></Data>
+      </ExtendedData>
       <Point><coordinates>${e.longitude.toFixed(7)},${e.latitude.toFixed(7)},0</coordinates></Point>
     </Placemark>`
     )

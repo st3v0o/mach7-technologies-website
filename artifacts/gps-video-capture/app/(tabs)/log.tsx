@@ -497,7 +497,7 @@ function SessionHeader({
             )}
           </View>
           <Text style={sessionStyles.countText}>
-            {isCollapsed ? `${section.data.length} frames (collapsed)` : `${section.data.length} frames`}
+            {isCollapsed ? `${fullData.length} frames (collapsed)` : `${fullData.length} frames`}
           </Text>
           {publishMsg && (
             <Text style={[
