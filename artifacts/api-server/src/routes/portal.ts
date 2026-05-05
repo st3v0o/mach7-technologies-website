@@ -662,18 +662,14 @@ router.patch("/sessions/:id/publish", async (req, res) => {
 });
 
 // ── DELETE /portal/sessions/:id ─────────────────────────────────────────────
-// Accountless delete: caller must supply the claimToken issued at submit-time.
+// Atlas sessions: caller must supply the claimToken issued at submit-time via
+//   ?token=<claimToken>
+// Import/demo sessions (no claimToken): deleted directly with no token required.
 
 router.delete("/sessions/:id", async (req, res) => {
   const paramParsed = GetPortalSessionParams.safeParse({ id: Number(req.params.id) });
   if (!paramParsed.success) {
     res.status(400).json({ error: "Invalid session id" });
-    return;
-  }
-
-  const token = req.query["token"];
-  if (!token || typeof token !== "string") {
-    res.status(400).json({ error: "token query param is required" });
     return;
   }
 
@@ -687,9 +683,17 @@ router.delete("/sessions/:id", async (req, res) => {
     return;
   }
 
-  if (!session.claimToken || session.claimToken !== token) {
-    res.status(401).json({ error: "Invalid claim token" });
-    return;
+  // Atlas sessions require a valid claim token
+  if (session.claimToken) {
+    const token = req.query["token"];
+    if (!token || typeof token !== "string") {
+      res.status(400).json({ error: "token query param is required for atlas sessions" });
+      return;
+    }
+    if (session.claimToken !== token) {
+      res.status(401).json({ error: "Invalid claim token" });
+      return;
+    }
   }
 
   await db

@@ -54,6 +54,7 @@ export default function SessionDetail() {
   const [deleteCode, setDeleteCode] = useState("");
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [confirmDirectDelete, setConfirmDirectDelete] = useState(false);
 
   const { data: session, isLoading: sessionLoading, error: sessionError } = useGetPortalSession(sessionId);
   const { data: framesData, isLoading: framesLoading } = useGetPortalSessionFrames(sessionId, { limit: 500 });
@@ -155,6 +156,30 @@ export default function SessionDetail() {
       qc.invalidateQueries({ queryKey: getListPortalSessionsQueryKey() });
       qc.invalidateQueries({ queryKey: getGetPortalFeedQueryKey() });
       toast({ title: "Session removed", description: "The session has been deleted from the Atlas." });
+      navigate("/");
+    } catch {
+      setDeleteError("Network error. Please check your connection and try again.");
+    } finally {
+      setDeleteLoading(false);
+    }
+  }
+
+  async function handleDirectDelete() {
+    setDeleteLoading(true);
+    setDeleteError(null);
+    try {
+      const res = await fetch(`/api/portal/sessions/${sessionId}`, { method: "DELETE" });
+      if (res.status === 404) {
+        setDeleteError("Session not found.");
+        return;
+      }
+      if (!res.ok) {
+        setDeleteError(`Unexpected error (${res.status}). Please try again.`);
+        return;
+      }
+      qc.invalidateQueries({ queryKey: getListPortalSessionsQueryKey() });
+      qc.invalidateQueries({ queryKey: getGetPortalFeedQueryKey() });
+      toast({ title: "Session deleted", description: "The session has been removed." });
       navigate("/");
     } catch {
       setDeleteError("Network error. Please check your connection and try again.");
@@ -418,53 +443,111 @@ export default function SessionDetail() {
             </div>
           )}
 
-          {session.sourceType === "atlas" && (
-            <div className="pb-4">
-              <button
-                onClick={() => { setShowRemovePanel((v) => !v); setDeleteError(null); }}
-                className="flex items-center gap-2 text-sm text-gray-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 transition-colors"
-              >
-                {showRemovePanel
-                  ? <ChevronDown className="h-4 w-4" />
-                  : <ChevronRight className="h-4 w-4" />}
-                <Trash2 className="h-3.5 w-3.5" />
-                Remove this session from Atlas
-              </button>
+          <div className="pb-4">
+            <button
+              onClick={() => {
+                setShowRemovePanel((v) => !v);
+                setDeleteError(null);
+                setConfirmDirectDelete(false);
+              }}
+              className="flex items-center gap-2 text-sm text-gray-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+            >
+              {showRemovePanel
+                ? <ChevronDown className="h-4 w-4" />
+                : <ChevronRight className="h-4 w-4" />}
+              <Trash2 className="h-3.5 w-3.5" />
+              {session.sourceType === "atlas" ? "Remove this session from Atlas" : "Delete this session"}
+            </button>
 
-              {showRemovePanel && (
-                <div className="mt-3 bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800/50 rounded-lg p-4 flex flex-col gap-3">
-                  <p className="text-sm text-gray-600 dark:text-slate-300">
-                    Enter the delete code you received when you submitted this session from the app. You can find it by tapping the <span className="font-medium text-violet-600 dark:text-violet-400">Atlas</span> badge in your Frame Log and choosing "Copy delete code".
-                  </p>
-                  <div className="flex gap-2 items-center flex-wrap">
-                    <input
-                      type="text"
-                      value={deleteCode}
-                      onChange={(e) => { setDeleteCode(e.target.value); setDeleteError(null); }}
-                      placeholder="Paste your delete code here"
-                      className="flex-1 min-w-0 px-3 py-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-gray-900 dark:text-white text-sm font-mono focus:outline-none focus:ring-2 focus:ring-red-400 dark:focus:ring-red-600 placeholder-gray-400 dark:placeholder-slate-500"
-                      disabled={deleteLoading}
-                      onKeyDown={(e) => { if (e.key === "Enter") handleAtlasDelete(); }}
-                    />
-                    <button
-                      onClick={handleAtlasDelete}
-                      disabled={deleteLoading || !deleteCode.trim()}
-                      className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                      {deleteLoading ? "Removing…" : "Remove session"}
-                    </button>
-                  </div>
-                  {deleteError && (
-                    <p className="text-sm text-red-600 dark:text-red-400 flex items-center gap-1.5">
-                      <X className="h-3.5 w-3.5 flex-none" />
-                      {deleteError}
-                    </p>
-                  )}
+            {showRemovePanel && session.sourceType === "atlas" && (
+              <div className="mt-3 bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800/50 rounded-lg p-4 flex flex-col gap-3">
+                <p className="text-sm text-gray-600 dark:text-slate-300">
+                  Enter the delete code you received when you submitted this session from the app. You can find it by tapping the <span className="font-medium text-violet-600 dark:text-violet-400">Atlas</span> badge in your Frame Log and choosing "Copy delete code".
+                </p>
+                <div className="flex gap-2 items-center flex-wrap">
+                  <input
+                    type="text"
+                    value={deleteCode}
+                    onChange={(e) => { setDeleteCode(e.target.value); setDeleteError(null); }}
+                    placeholder="Paste your delete code here"
+                    className="flex-1 min-w-0 px-3 py-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-gray-900 dark:text-white text-sm font-mono focus:outline-none focus:ring-2 focus:ring-red-400 dark:focus:ring-red-600 placeholder-gray-400 dark:placeholder-slate-500"
+                    disabled={deleteLoading}
+                    onKeyDown={(e) => { if (e.key === "Enter") handleAtlasDelete(); }}
+                  />
+                  <button
+                    onClick={handleAtlasDelete}
+                    disabled={deleteLoading || !deleteCode.trim()}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    {deleteLoading ? "Removing…" : "Remove session"}
+                  </button>
                 </div>
-              )}
-            </div>
-          )}
+                {deleteError && (
+                  <p className="text-sm text-red-600 dark:text-red-400 flex items-center gap-1.5">
+                    <X className="h-3.5 w-3.5 flex-none" />
+                    {deleteError}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {showRemovePanel && session.sourceType !== "atlas" && (
+              <div className="mt-3 bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800/50 rounded-lg p-4 flex flex-col gap-3">
+                {!confirmDirectDelete ? (
+                  <>
+                    <p className="text-sm text-gray-600 dark:text-slate-300">
+                      This will permanently delete the session and all its frame data. This cannot be undone.
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setConfirmDirectDelete(true)}
+                        className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-medium transition-colors whitespace-nowrap"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        Delete session
+                      </button>
+                      <button
+                        onClick={() => setShowRemovePanel(false)}
+                        className="px-4 py-2 rounded-lg border border-gray-200 dark:border-slate-600 text-gray-600 dark:text-slate-300 text-sm hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm font-medium text-red-700 dark:text-red-400">
+                      Are you sure? This is permanent and cannot be undone.
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={handleDirectDelete}
+                        disabled={deleteLoading}
+                        className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-red-700 hover:bg-red-800 text-white text-sm font-medium transition-colors disabled:opacity-50 whitespace-nowrap"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        {deleteLoading ? "Deleting…" : "Yes, delete permanently"}
+                      </button>
+                      <button
+                        onClick={() => setConfirmDirectDelete(false)}
+                        disabled={deleteLoading}
+                        className="px-4 py-2 rounded-lg border border-gray-200 dark:border-slate-600 text-gray-600 dark:text-slate-300 text-sm hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </>
+                )}
+                {deleteError && (
+                  <p className="text-sm text-red-600 dark:text-red-400 flex items-center gap-1.5">
+                    <X className="h-3.5 w-3.5 flex-none" />
+                    {deleteError}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
 
           {allFrames.length > 0 && (
             <div className="pb-6">
