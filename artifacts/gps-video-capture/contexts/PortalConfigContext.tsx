@@ -39,6 +39,7 @@ interface PortalConfigContextType {
   ) => Promise<{ alreadyPublished: boolean }>;
   atlasSubmissions: Record<string, AtlasSubmission>;
   removeFromAtlas: (sessionId: string) => Promise<void>;
+  importAtlasSubmissions: (incoming: Record<string, AtlasSubmission>) => Promise<{ added: number; skipped: number }>;
 }
 
 const PortalConfigContext = createContext<PortalConfigContextType | null>(null);
@@ -152,6 +153,35 @@ export function PortalConfigProvider({ children }: { children: React.ReactNode }
     [portalUrl, markPublished, storeAtlasSubmission]
   );
 
+  const importAtlasSubmissions = useCallback(
+    async (incoming: Record<string, AtlasSubmission>): Promise<{ added: number; skipped: number }> => {
+      let added = 0;
+      let skipped = 0;
+      setAtlasSubmissions((prev) => {
+        const next = { ...prev };
+        for (const [sessionId, sub] of Object.entries(incoming)) {
+          if (
+            sub &&
+            typeof sub.atlasId === 'number' &&
+            typeof sub.claimToken === 'string' &&
+            sub.claimToken.length > 0
+          ) {
+            if (next[sessionId]) {
+              skipped++;
+            } else {
+              next[sessionId] = sub;
+              added++;
+            }
+          }
+        }
+        AsyncStorage.setItem(ATLAS_SUBMISSIONS_KEY, JSON.stringify(next)).catch(() => {});
+        return next;
+      });
+      return { added, skipped };
+    },
+    []
+  );
+
   const removeFromAtlas = useCallback(
     async (sessionId: string) => {
       const submission = atlasSubmissions[sessionId];
@@ -197,6 +227,7 @@ export function PortalConfigProvider({ children }: { children: React.ReactNode }
         publishSession,
         atlasSubmissions,
         removeFromAtlas,
+        importAtlasSubmissions,
       }}
     >
       {children}

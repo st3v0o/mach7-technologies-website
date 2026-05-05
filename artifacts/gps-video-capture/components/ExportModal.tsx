@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import JSZip from 'jszip';
@@ -231,7 +232,7 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
   const [error, setError] = useState<string | null>(null);
   const [atlasResult, setAtlasResult] = useState<{ success: boolean; message: string } | null>(null);
 
-  const { publishSession, portalUrl, atlasSubmissions } = usePortalConfig();
+  const { publishSession, portalUrl, atlasSubmissions, importAtlasSubmissions } = usePortalConfig();
 
   const photoCount = useMemo(
     () => logEntries.filter((e) => e.localPath).length,
@@ -323,6 +324,52 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
           JSON.stringify(backup, null, 2),
           'application/json'
         );
+      },
+    },
+    {
+      id: 'atlas_restore',
+      icon: 'download-outline',
+      iconColor: Colors.amber,
+      title: 'Restore Atlas Tokens',
+      description:
+        'Import a previously exported atlas_tokens.json backup. Restored tokens re-enable the Atlas badge and "Remove from Atlas" button for recovered sessions.',
+      tags: ['Atlas', 'JSON', 'Restore'],
+      handler: async () => {
+        const result = await DocumentPicker.getDocumentAsync({
+          type: 'application/json',
+          copyToCacheDirectory: true,
+        });
+        if (result.canceled || result.assets.length === 0) {
+          return;
+        }
+        const asset = result.assets[0];
+        if (!asset) return;
+        const raw = await FileSystem.readAsStringAsync(asset.uri);
+        let parsed: unknown;
+        try {
+          parsed = JSON.parse(raw);
+        } catch {
+          throw new Error('The selected file is not valid JSON.');
+        }
+        if (
+          typeof parsed !== 'object' ||
+          parsed === null ||
+          !('sessions' in parsed) ||
+          typeof (parsed as Record<string, unknown>).sessions !== 'object' ||
+          (parsed as Record<string, unknown>).sessions === null
+        ) {
+          throw new Error('Invalid backup file format. Expected a file with a "sessions" key.');
+        }
+        const sessions = (parsed as { sessions: Record<string, unknown> }).sessions;
+        const { added, skipped } = await importAtlasSubmissions(sessions as Record<string, { atlasId: number; claimToken: string }>);
+        const parts: string[] = [];
+        if (added > 0) parts.push(`${added} token${added !== 1 ? 's' : ''} restored`);
+        if (skipped > 0) parts.push(`${skipped} already present`);
+        if (parts.length === 0) parts.push('No valid tokens found in file');
+        setAtlasResult({
+          success: added > 0,
+          message: parts.join(', '),
+        });
       },
     },
     {
