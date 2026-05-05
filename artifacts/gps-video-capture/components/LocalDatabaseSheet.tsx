@@ -1,5 +1,6 @@
 import React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import Colors from '@/constants/colors';
 import { SessionSection } from '@/components/LogMapView';
@@ -9,13 +10,14 @@ interface Props {
 }
 
 export default function LocalDatabaseSheet({ sections }: Props) {
+  const { t } = useTranslation();
   const totalFrames = sections.reduce((acc, s) => acc + s.data.length, 0);
 
   if (totalFrames === 0) {
     return (
       <View style={styles.empty}>
-        <Text style={styles.emptyTitle}>No data</Text>
-        <Text style={styles.emptySubtitle}>Capture frames to view them here.</Text>
+        <Text style={styles.emptyTitle}>{t('log.noData')}</Text>
+        <Text style={styles.emptySubtitle}>{t('log.noDataSubtitle')}</Text>
       </View>
     );
   }
@@ -26,7 +28,7 @@ export default function LocalDatabaseSheet({ sections }: Props) {
         <View key={section.sessionId} style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sessionId}>{section.sessionId.slice(-8).toUpperCase()}</Text>
-            <Text style={styles.frameCount}>{section.data.length} frames</Text>
+            <Text style={styles.frameCount}>{t('log.frames', { count: section.data.length })}</Text>
           </View>
           {section.data.map((entry, idx) => (
             <View key={entry.id} style={styles.row}>

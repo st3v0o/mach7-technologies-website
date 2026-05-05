@@ -6,29 +6,32 @@ import { SymbolView } from 'expo-symbols';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import Colors from '@/constants/colors';
 
 function NativeTabLayout() {
+  const { t } = useTranslation();
   return (
     <NativeTabs>
       <NativeTabs.Trigger name="index">
         <Icon sf={{ default: 'record.circle', selected: 'record.circle.fill' }} />
-        <Label>Capture</Label>
+        <Label>{t('tabs.capture')}</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="log">
         <Icon sf={{ default: 'list.bullet.rectangle', selected: 'list.bullet.rectangle.fill' }} />
-        <Label>Log</Label>
+        <Label>{t('tabs.log')}</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="settings">
         <Icon sf={{ default: 'slider.horizontal.3', selected: 'slider.horizontal.3' }} />
-        <Label>Settings</Label>
+        <Label>{t('tabs.settings')}</Label>
       </NativeTabs.Trigger>
     </NativeTabs>
   );
 }
 
 function ClassicTabLayout() {
+  const { t } = useTranslation();
   const isIOS = Platform.OS === 'ios';
   const isWeb = Platform.OS === 'web';
 
@@ -63,7 +66,7 @@ function ClassicTabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Capture',
+          title: t('tabs.capture'),
           tabBarIcon: ({ color }) =>
             isIOS ? (
               <SymbolView name="record.circle" tintColor={color} size={24} />
@@ -75,7 +78,7 @@ function ClassicTabLayout() {
       <Tabs.Screen
         name="log"
         options={{
-          title: 'Log',
+          title: t('tabs.log'),
           tabBarIcon: ({ color }) =>
             isIOS ? (
               <SymbolView name="list.bullet.rectangle" tintColor={color} size={24} />
@@ -87,7 +90,7 @@ function ClassicTabLayout() {
       <Tabs.Screen
         name="settings"
         options={{
-          title: 'Settings',
+          title: t('tabs.settings'),
           tabBarIcon: ({ color }) =>
             isIOS ? (
               <SymbolView name="slider.horizontal.3" tintColor={color} size={24} />

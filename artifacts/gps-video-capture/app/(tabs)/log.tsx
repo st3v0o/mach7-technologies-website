@@ -17,6 +17,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 
 import Colors from '@/constants/colors';
 import { LogEntry, useRecording } from '@/contexts/RecordingContext';
@@ -26,13 +27,15 @@ import LocalDatabaseSheet from '@/components/LocalDatabaseSheet';
 import LogMapView, { SessionSection } from '@/components/LogMapView';
 import { useUpload } from '@/contexts/UploadContext';
 import { DEMO_SECTIONS } from '@/lib/demoData';
+import { getCurrentLocale } from '@/src/i18n';
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 
 function formatTimestamp(ms: number): string {
+  const locale = getCurrentLocale();
   const d = new Date(ms);
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) +
-    ' ' + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  return d.toLocaleDateString(locale, { month: 'short', day: 'numeric' }) +
+    ' ' + d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 }
 
 function formatCoordShort(lat: number, lon: number): string {
@@ -190,6 +193,7 @@ function FrameRow({
 }
 
 function UploadStatusBanner() {
+  const { t } = useTranslation();
   const { isCloudConfigured, isOnline, isProcessing, queue, retryFailed } = useUpload();
   const { sessionId } = useRecording();
 
@@ -215,9 +219,9 @@ function UploadStatusBanner() {
         <Text style={[styles.uploadBannerText, { color: isOnline ? Colors.blue : Colors.textTertiary }]}>
           {isOnline
             ? isCurrentSession
-              ? 'Session sync'
-              : `All-time: ${uploadedAll}/${totalAll}`
-            : 'Offline — queued'}
+              ? t('log.sessionSync')
+              : t('log.allTime', { uploaded: uploadedAll, total: totalAll })
+            : t('log.offline')}
         </Text>
         {isProcessing && (
           <ActivityIndicator size="small" color={Colors.blue} style={{ marginLeft: 4 }} />
@@ -250,7 +254,7 @@ function UploadStatusBanner() {
           >
             <Ionicons name="refresh-outline" size={11} color={Colors.accent} />
             <Text style={[styles.uploadChipText, { color: Colors.accent }]}>
-              Retry {failedCount}
+              {t('log.retryFailed', { count: failedCount })}
             </Text>
           </Pressable>
         )}
@@ -262,7 +266,8 @@ function UploadStatusBanner() {
 type GroupMode = 'session' | 'job' | 'date';
 
 function formatDateLabel(ms: number): string {
-  return new Date(ms).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+  const locale = getCurrentLocale();
+  return new Date(ms).toLocaleDateString(locale, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 function groupByJobName(sessions: SessionSection[]): SessionSection[] {
@@ -324,8 +329,9 @@ function GroupHeader({
   isCollapsed: boolean;
   onToggleCollapse: () => void;
 }) {
+  const { t } = useTranslation();
   const label = mode === 'job'
-    ? (section.jobName || 'Unlabeled')
+    ? (section.jobName || t('log.unlabeled'))
     : section.jobName || formatDateLabel(section.startMs);
   const sessionCount = section.sessionCount ?? 1;
   const modeColor = section.mode === 'video' ? Colors.blue : section.mode === 'photo' ? Colors.gpsGreen : Colors.amber;
@@ -396,6 +402,7 @@ function SessionHeader({
   onToggleCollapse?: () => void;
   isCollapsed?: boolean;
 }) {
+  const { t } = useTranslation();
   const [sharing, setSharing] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [publishMsg, setPublishMsg] = useState<string | null>(null);
@@ -403,8 +410,9 @@ function SessionHeader({
   const atlasSubmission = atlasSubmissions[section.sessionId];
 
   const d = new Date(section.startMs);
-  const dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  const locale = getCurrentLocale();
+  const dateStr = d.toLocaleDateString(locale, { month: 'short', day: 'numeric', year: 'numeric' });
+  const timeStr = d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
   const modeColor =
     section.mode === 'video' ? Colors.blue :
     section.mode === 'photo' ? Colors.gpsGreen : Colors.amber;
@@ -425,7 +433,7 @@ function SessionHeader({
   const handlePublish = async () => {
     if (publishing) return;
     if (!portalUrl) {
-      Alert.alert('Portal not configured', 'Set your Portal URL in Settings before publishing.');
+      Alert.alert(t('log.portalNotConfigured'), t('log.setPortalUrl'));
       return;
     }
     setPublishing(true);
@@ -483,7 +491,7 @@ function SessionHeader({
               {section.jobName ? (
                 <Text style={sessionStyles.jobNameText}>{section.jobName}</Text>
               ) : (
-                <Text style={sessionStyles.jobNamePlaceholder}>Add job name…</Text>
+                <Text style={sessionStyles.jobNamePlaceholder}>{t('log.addJobName')}</Text>
               )}
               <Ionicons name="pencil-outline" size={11} color={Colors.textTertiary} />
             </Pressable>
@@ -493,7 +501,7 @@ function SessionHeader({
             {alreadyPublished && (
               <View style={sessionStyles.publishedBadge}>
                 <Ionicons name="cloud-done-outline" size={10} color={Colors.gpsGreen} />
-                <Text style={sessionStyles.publishedBadgeText}>Published</Text>
+                <Text style={sessionStyles.publishedBadgeText}>{t('log.published')}</Text>
               </View>
             )}
             {!!atlasSubmission && (
@@ -501,18 +509,18 @@ function SessionHeader({
                 onPress={(e) => {
                   e.stopPropagation();
                   Alert.alert(
-                    'Remove from Atlas',
-                    'This will permanently remove this session from the public Geospector Atlas feed.',
+                    t('log.removeFromAtlas'),
+                    t('log.removeFromAtlasDesc'),
                     [
-                      { text: 'Cancel', style: 'cancel' },
+                      { text: t('log.cancel'), style: 'cancel' },
                       {
-                        text: 'Remove',
+                        text: t('log.remove'),
                         style: 'destructive',
                         onPress: async () => {
                           try {
                             await removeFromAtlas(section.sessionId);
                           } catch (err) {
-                            Alert.alert('Error', err instanceof Error ? err.message : 'Failed to remove from Atlas');
+                            Alert.alert(t('error.title'), err instanceof Error ? err.message : t('log.removeFromAtlasError'));
                           }
                         },
                       },
@@ -528,7 +536,7 @@ function SessionHeader({
             )}
           </View>
           <Text style={sessionStyles.countText}>
-            {isCollapsed ? `${fullData.length} frames (collapsed)` : `${fullData.length} frames`}
+            {isCollapsed ? t('log.framesCollapsed', { count: fullData.length }) : t('log.frames', { count: fullData.length })}
           </Text>
           {publishMsg && (
             <Text style={[
@@ -551,7 +559,7 @@ function SessionHeader({
               {publishing
                 ? <ActivityIndicator size="small" color={Colors.gpsGreen} style={{ width: 13, height: 13 }} />
                 : <Ionicons name="cloud-upload-outline" size={13} color={Colors.gpsGreen} />}
-              <Text style={sessionStyles.publishBtnText}>{publishing ? 'Sending…' : 'Publish'}</Text>
+              <Text style={sessionStyles.publishBtnText}>{publishing ? t('log.sending') : t('log.publish')}</Text>
             </Pressable>
           )}
           <Pressable
@@ -560,7 +568,7 @@ function SessionHeader({
             style={({ pressed }) => [sessionStyles.gpxBtn, pressed && { opacity: 0.7 }]}
           >
             <Ionicons name="map-outline" size={13} color={Colors.amber} />
-            <Text style={sessionStyles.gpxBtnText}>{sharing ? 'Sharing…' : 'GPX'}</Text>
+            <Text style={sessionStyles.gpxBtnText}>{sharing ? t('log.sharing') : t('log.gpx')}</Text>
           </Pressable>
         </View>
       )}
@@ -586,15 +594,20 @@ function getSessionsForPeriod(sections: SessionSection[], period: BulkPeriod): S
   return new Set(sections.filter((s) => s.startMs >= cutoffMs).map((s) => s.sessionId));
 }
 
-const PERIOD_LABELS: { key: BulkPeriod; label: string }[] = [
-  { key: 'today', label: 'Today' },
-  { key: 'week', label: 'This Week' },
-  { key: 'month', label: 'This Month' },
-  { key: 'year', label: 'This Year' },
-];
+function usePeriodLabels() {
+  const { t } = useTranslation();
+  return [
+    { key: 'today' as BulkPeriod, label: t('log.today') },
+    { key: 'week' as BulkPeriod, label: t('log.thisWeek') },
+    { key: 'month' as BulkPeriod, label: t('log.thisMonth') },
+    { key: 'year' as BulkPeriod, label: t('log.thisYear') },
+  ];
+}
 
 export default function LogScreen() {
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
+  const periodLabels = usePeriodLabels();
   const navigation = useNavigation();
   const { logEntries, shareGpx, clearLog, processingStatus, totalFrames, segmentCount, renameSessionJobName } = useRecording();
   const { publishSession, portalUrl } = usePortalConfig();
@@ -688,7 +701,7 @@ export default function LogScreen() {
 
   const handleBulkPublish = async () => {
     if (!portalUrl) {
-      Alert.alert('Portal not configured', 'Set your Portal URL in Settings before publishing.');
+      Alert.alert(t('log.portalNotConfigured'), t('log.setPortalUrl'));
       return;
     }
     if (selectedSessionIds.size === 0) return;
@@ -729,12 +742,12 @@ export default function LogScreen() {
   const handleClear = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     Alert.alert(
-      'Clear All Data',
-      'This will permanently delete all captured frames and GPS log data. This cannot be undone.',
+      t('log.clearAll'),
+      t('log.clearAllDesc'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('log.cancel'), style: 'cancel' },
         {
-          text: 'Clear',
+          text: t('log.clearConfirm'),
           style: 'destructive',
           onPress: async () => {
             await clearLog();
@@ -749,11 +762,11 @@ export default function LogScreen() {
     <View style={[styles.container, { paddingTop: insets.top + (Platform.OS === 'web' ? 67 : 0) }]}>
       <View style={styles.header}>
         <View>
-          <Text style={styles.headerTitle}>Frame Log</Text>
+          <Text style={styles.headerTitle}>{t('log.title')}</Text>
           <Text style={styles.headerSubtitle}>
             {logEntries.length > 0
-              ? `${logEntries.length} frames  ·  ${segmentCount} segments`
-              : 'No frames captured yet'}
+              ? t('log.framesCount', { count: logEntries.length, segments: segmentCount })
+              : t('log.noFrames')}
           </Text>
         </View>
         <View style={styles.headerActions}>
@@ -777,7 +790,7 @@ export default function LogScreen() {
                 color={isDemoMode ? '#000' : Colors.amber}
               />
               {isDemoMode && (
-                <Text style={[styles.actionBtnText, { color: '#000', fontSize: 12 }]}>Demo</Text>
+                <Text style={[styles.actionBtnText, { color: '#000', fontSize: 12 }]}>{t('log.demo')}</Text>
               )}
             </Pressable>
           )}
@@ -804,7 +817,7 @@ export default function LogScreen() {
                 styles.actionBtnText,
                 { color: isBulkMode ? Colors.text : Colors.gpsGreen, fontSize: 12 },
               ]}>
-                {isBulkMode ? 'Cancel' : 'Publish'}
+                {isBulkMode ? t('log.cancel') : t('log.publish')}
               </Text>
             </Pressable>
           )}
@@ -824,7 +837,7 @@ export default function LogScreen() {
               testID="export-button"
             >
               <Ionicons name="share-outline" size={16} color={Colors.blue} />
-              <Text style={[styles.actionBtnText, { color: Colors.blue }]}>Export</Text>
+              <Text style={[styles.actionBtnText, { color: Colors.blue }]}>{t('log.export')}</Text>
             </Pressable>
           )}
           {logEntries.length > 0 && viewMode === 'list' && !isBulkMode && (
@@ -845,8 +858,8 @@ export default function LogScreen() {
       {/* Bulk mode period chips */}
       {isBulkMode && viewMode === 'list' && (
         <View style={styles.bulkChipsRow}>
-          <Text style={styles.bulkChipsLabel}>Quick Select:</Text>
-          {PERIOD_LABELS.map(({ key, label }) => (
+          <Text style={styles.bulkChipsLabel}>{t('log.selectAll')}:</Text>
+          {periodLabels.map(({ key, label }) => (
             <Pressable
               key={key}
               onPress={() => togglePeriod(key)}
@@ -870,9 +883,9 @@ export default function LogScreen() {
       {/* View mode segmented control */}
       <View style={styles.segControl}>
         {([
-          { mode: 'list' as const, icon: 'list-outline', label: 'List' },
-          { mode: 'map' as const, icon: 'map-outline', label: 'Map' },
-          { mode: 'table' as const, icon: 'grid-outline', label: 'DB' },
+          { mode: 'list' as const, icon: 'list-outline', label: t('log.listView') },
+          { mode: 'map' as const, icon: 'map-outline', label: t('log.mapView') },
+          { mode: 'table' as const, icon: 'grid-outline', label: t('log.tableView') },
         ]).map(({ mode, icon, label }) => (
           <Pressable
             key={mode}
@@ -913,11 +926,11 @@ export default function LogScreen() {
 
       {viewMode === 'list' && (
         <View style={styles.groupByControl}>
-          <Text style={styles.groupByLabel}>Group by</Text>
+          <Text style={styles.groupByLabel}>{t('log.groupBy')}</Text>
           {([
-            { mode: 'session' as GroupMode, label: 'Session' },
-            { mode: 'job' as GroupMode, label: 'Job' },
-            { mode: 'date' as GroupMode, label: 'Date' },
+            { mode: 'session' as GroupMode, label: t('log.bySession') },
+            { mode: 'job' as GroupMode, label: t('log.byJob') },
+            { mode: 'date' as GroupMode, label: t('log.byDate') },
           ]).map(({ mode, label }) => (
             <Pressable
               key={mode}
@@ -944,7 +957,7 @@ export default function LogScreen() {
       {processingStatus === 'processing' && (
         <View style={styles.processingBanner}>
           <Ionicons name="cog" size={14} color={Colors.amber} />
-          <Text style={styles.processingText}>Extracting frames and associating GPS data...</Text>
+          <Text style={styles.processingText}>{t('log.extractingFrames')}</Text>
         </View>
       )}
 
@@ -970,24 +983,24 @@ export default function LogScreen() {
           <View style={styles.emptyIconContainer}>
             <Ionicons name="layers-outline" size={40} color={Colors.textTertiary} />
           </View>
-          <Text style={styles.emptyTitle}>No frames yet</Text>
+          <Text style={styles.emptyTitle}>{t('log.noFrames')}</Text>
           <Text style={styles.emptySubtitle}>
-            Start recording on the Capture tab. Frames are extracted and GPS-tagged automatically every 90 seconds.
+            {t('log.noFramesDesc')}
           </Text>
           <View style={styles.emptyStats}>
             <View style={styles.emptyStat}>
               <Text style={styles.emptyStatValue}>0</Text>
-              <Text style={styles.emptyStatLabel}>Segments</Text>
+              <Text style={styles.emptyStatLabel}>{t('log.segments')}</Text>
             </View>
             <View style={styles.emptyStatDivider} />
             <View style={styles.emptyStat}>
               <Text style={styles.emptyStatValue}>0</Text>
-              <Text style={styles.emptyStatLabel}>Frames</Text>
+              <Text style={styles.emptyStatLabel}>{t('log.frames')}</Text>
             </View>
             <View style={styles.emptyStatDivider} />
             <View style={styles.emptyStat}>
               <Text style={styles.emptyStatValue}>~1fps</Text>
-              <Text style={styles.emptyStatLabel}>Rate</Text>
+              <Text style={styles.emptyStatLabel}>{t('log.rate')}</Text>
             </View>
           </View>
         </View>
@@ -1063,10 +1076,10 @@ export default function LogScreen() {
               : <Ionicons name="cloud-upload-outline" size={18} color="#fff" />}
             <Text style={styles.bulkPublishBtnText}>
               {bulkPublishing
-                ? 'Publishing…'
+                ? t('log.publishing')
                 : selectedSessionIds.size === 0
-                  ? 'Select sessions above'
-                  : `Publish ${selectedSessionIds.size} session${selectedSessionIds.size !== 1 ? 's' : ''}`}
+                  ? t('log.selectSessions')
+                  : t('log.publishN', { count: selectedSessionIds.size })}
             </Text>
           </Pressable>
         </View>
@@ -1088,13 +1101,13 @@ export default function LogScreen() {
         >
           <Pressable style={jobEditStyles.overlay} onPress={() => setEditingJobSession(null)}>
             <Pressable style={jobEditStyles.card} onPress={() => {}}>
-              <Text style={jobEditStyles.title}>Job Name</Text>
-              <Text style={jobEditStyles.subtitle}>Label this session for easy identification</Text>
+              <Text style={jobEditStyles.title}>{t('log.editJobName')}</Text>
+              <Text style={jobEditStyles.subtitle}>{t('log.jobNameSubtitle')}</Text>
               <TextInput
                 style={jobEditStyles.input}
                 value={jobEditDraft}
                 onChangeText={setJobEditDraft}
-                placeholder="e.g. Main St Survey, Job #1234…"
+                placeholder={t('log.editJobNamePlaceholder')}
                 placeholderTextColor={Colors.textTertiary}
                 autoFocus
                 returnKeyType="done"
@@ -1106,13 +1119,13 @@ export default function LogScreen() {
                   onPress={() => setEditingJobSession(null)}
                   style={({ pressed }) => [jobEditStyles.btn, jobEditStyles.btnCancel, pressed && { opacity: 0.7 }]}
                 >
-                  <Text style={jobEditStyles.btnCancelText}>Cancel</Text>
+                  <Text style={jobEditStyles.btnCancelText}>{t('log.cancel')}</Text>
                 </Pressable>
                 <Pressable
                   onPress={saveJobName}
                   style={({ pressed }) => [jobEditStyles.btn, jobEditStyles.btnSave, pressed && { opacity: 0.7 }]}
                 >
-                  <Text style={jobEditStyles.btnSaveText}>Save</Text>
+                  <Text style={jobEditStyles.btnSaveText}>{t('log.save')}</Text>
                 </Pressable>
               </View>
             </Pressable>

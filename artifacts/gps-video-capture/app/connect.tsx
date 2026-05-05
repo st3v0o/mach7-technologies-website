@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Image, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 const expoDomain = process.env.EXPO_PUBLIC_EXPO_DEV_DOMAIN ?? '';
@@ -9,37 +10,33 @@ const QR_API = expoDomain
   : null;
 
 export default function ConnectScreen() {
+  const { t } = useTranslation();
   if (!__DEV__ && Platform.OS !== 'web') return null;
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>Connect Expo Go</Text>
-      <Text style={styles.subtitle}>Open your iPhone Camera app and scan this QR code</Text>
+      <Text style={styles.title}>{t('connect.title')}</Text>
+      <Text style={styles.subtitle}>{t('connect.subtitle')}</Text>
 
       <View style={styles.qrBox}>
         {QR_API ? (
           <Image source={{ uri: QR_API }} style={styles.qr} resizeMode="contain" />
         ) : (
           <View style={[styles.qr, styles.qrPlaceholder]}>
-            <Text style={styles.qrPlaceholderText}>QR unavailable{'\n'}use URL below</Text>
+            <Text style={styles.qrPlaceholderText}>{t('connect.qrUnavailable')}</Text>
           </View>
         )}
       </View>
 
-      <Text style={styles.orText}>— or enter this URL manually in Expo Go —</Text>
+      <Text style={styles.orText}>{t('connect.or')}</Text>
 
       <View style={styles.urlBox}>
         <Text style={styles.urlText} selectable>{EXPO_URL}</Text>
       </View>
 
-      <Text style={styles.steps}>
-        {'1. Open the Camera app on your iPhone\n2. Point it at the QR code above\n3. Tap the notification to open in Expo Go\n\nMake sure Expo Go is installed from the App Store.'}
-      </Text>
+      <Text style={styles.steps}>{t('connect.steps')}</Text>
 
       {Platform.OS !== 'ios' && Platform.OS !== 'android' && (
-        <Text style={styles.webNote}>
-          This page is only for connecting Expo Go.{'\n'}
-          The full app runs on your iPhone.
-        </Text>
+        <Text style={styles.webNote}>{t('connect.webNote')}</Text>
       )}
     </ScrollView>
   );

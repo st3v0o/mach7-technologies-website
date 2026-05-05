@@ -13,6 +13,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import Colors from '@/constants/colors';
 import { LogEntry } from '@/contexts/RecordingContext';
@@ -225,6 +226,7 @@ async function addGpxToZip(zip: JSZip, sessionIds: string[], folder = 'gpx_track
 }
 
 export default function ExportModal({ visible, onClose, logEntries, sessionIds }: Props) {
+  const { t } = useTranslation();
   const [activeId, setActiveId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [atlasResult, setAtlasResult] = useState<{ success: boolean; message: string } | null>(null);
@@ -247,7 +249,7 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
     try {
       await fn();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Export failed');
+      setError(e instanceof Error ? e.message : t('export.exportFailed'));
     } finally {
       setActiveId(null);
     }
@@ -302,11 +304,10 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
       id: 'full_archive',
       icon: 'archive-outline',
       iconColor: Colors.gpsGreen,
-      title: 'Full Archive',
-      badge: 'Recommended',
+      title: t('export.fullArchive'),
+      badge: t('export.recommended'),
       badgeColor: Colors.gpsGreen,
-      description:
-        'Everything in one ZIP — all frames, GPS tracks, GeoJSON layer, and CSV database.',
+      description: t('export.fullArchiveDesc'),
       tags: ['Photos', 'GPX', 'GeoJSON', 'CSV', 'KML', 'ZIP'],
       handler: async () => {
         await buildZipAndShare(`geospector_export_${isoNow()}.zip`, async (zip) => {
@@ -335,9 +336,8 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
       id: 'gis_package',
       icon: 'globe-outline',
       iconColor: Colors.blue,
-      title: 'GIS Package',
-      description:
-        'Spatial data ready for QGIS, ArcGIS, Mapbox, or Google Earth. No photos — just the data layer.',
+      title: t('export.gisPackage'),
+      description: t('export.gisPackageDesc'),
       tags: ['GeoJSON', 'KML', 'CSV', 'ZIP'],
       handler: async () => {
         await buildZipAndShare(`geospector_gis_${isoNow()}.zip`, async (zip) => {
@@ -351,9 +351,8 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
       id: 'inspection_package',
       icon: 'camera-outline',
       iconColor: Colors.amber,
-      title: 'Inspection Package',
-      description:
-        'Photos with CSV metadata sidecar and GPS tracks — designed for site surveys, walk-arounds, and field inspections.',
+      title: t('export.inspectionPackage'),
+      description: t('export.inspectionPackageDesc'),
       tags: ['Photos', 'CSV', 'GPX', 'ZIP'],
       handler: async () => {
         await buildZipAndShare(`geospector_inspection_${isoNow()}.zip`, async (zip) => {
@@ -367,14 +366,13 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
       id: 'gps_tracks',
       icon: 'navigate-outline',
       iconColor: Colors.accent,
-      title: 'GPS Tracks',
-      description:
-        'All session GPX route files bundled together. Import into navigation apps or GIS tools.',
+      title: t('export.gpsTracks'),
+      description: t('export.gpsTracksDesc'),
       tags: ['GPX', 'ZIP'],
       handler: async () => {
         const gpxFiles = await getGpxFiles(sessionIds);
         if (gpxFiles.length === 0) {
-          throw new Error('No GPX track files found. Record routes in Manual mode using the Start GPX button.');
+          throw new Error(t('export.noGpxFound'));
         }
         if (gpxFiles.length === 1) {
           await Sharing.shareAsync(gpxFiles[0].path, {
@@ -396,9 +394,8 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
       id: 'geojson',
       icon: 'map-outline',
       iconColor: Colors.blue,
-      title: 'GeoJSON',
-      description:
-        'Single FeatureCollection with every GPS-tagged frame as a point feature. Works in any modern GIS tool.',
+      title: t('export.geojson'),
+      description: t('export.geojsonDesc'),
       tags: ['GeoJSON'],
       handler: async () => {
         await writeAndShare(
@@ -412,9 +409,8 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
       id: 'kml',
       icon: 'earth-outline',
       iconColor: '#4285F4',
-      title: 'KML (Google Earth)',
-      description:
-        'Keyhole Markup Language — open directly in Google Earth, Google Maps, or any KML-compatible viewer.',
+      title: t('export.kml'),
+      description: t('export.kmlDesc'),
       tags: ['KML'],
       handler: async () => {
         await writeAndShare(
@@ -428,9 +424,8 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
       id: 'csv',
       icon: 'grid-outline',
       iconColor: Colors.textSecondary,
-      title: 'CSV Spreadsheet',
-      description:
-        'Full frame log with timestamps, coordinates, session IDs, and file paths. Import into Excel, Sheets, or a database.',
+      title: t('export.csv'),
+      description: t('export.csvDesc'),
       tags: ['CSV'],
       handler: async () => {
         await writeAndShare(
@@ -453,9 +448,11 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
         {/* Header */}
         <View style={styles.header}>
           <View>
-            <Text style={styles.headerTitle}>Export</Text>
+            <Text style={styles.headerTitle}>{t('export.title')}</Text>
             <Text style={styles.headerSubtitle}>
-              {logEntries.length} frames · {sessionIds.length} session{sessionIds.length !== 1 ? 's' : ''} · {geotaggedCount} geotagged
+              {sessionIds.length === 1
+                ? t('export.summary', { frames: logEntries.length, sessions: sessionIds.length, geotagged: geotaggedCount })
+                : t('export.summarySessions', { frames: logEntries.length, sessions: sessionIds.length, geotagged: geotaggedCount })}
             </Text>
           </View>
           <Pressable

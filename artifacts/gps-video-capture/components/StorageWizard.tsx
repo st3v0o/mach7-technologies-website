@@ -15,6 +15,8 @@ import {
   View,
 } from 'react-native';
 
+import { useTranslation } from 'react-i18next';
+
 import Colors from '@/constants/colors';
 import { StorageConfig, testCredentials, useStorageConfig } from '@/contexts/StorageConfigContext';
 import {
@@ -76,6 +78,7 @@ function SetupStep({ n, children }: { n: number; children: React.ReactNode }) {
 }
 
 export default function StorageWizard({ visible, onClose, onSaved }: Props) {
+  const { t } = useTranslation();
   const { isEnvPreconfigured } = useStorageConfig();
   const [step, setStep] = useState<WizardStep>('choose');
   const [pendingProvider, setPendingProvider] = useState<ProviderType>('none');
@@ -173,7 +176,7 @@ export default function StorageWizard({ visible, onClose, onSaved }: Props) {
       onSaved?.();
       setStep('success');
     } else {
-      setTestError(result.error ?? 'Connection failed');
+      setTestError(result.error ?? t('storage.connectionFailed'));
       setStep('error');
     }
   };
@@ -279,7 +282,7 @@ export default function StorageWizard({ visible, onClose, onSaved }: Props) {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <View style={styles.header}>
-          <Text style={styles.title}>Cloud Storage</Text>
+          <Text style={styles.title}>{t('storage.cloudStorage')}</Text>
           <Pressable onPress={handleClose} hitSlop={12}>
             <Ionicons name="close" size={24} color={Colors.text} />
           </Pressable>
@@ -296,28 +299,28 @@ export default function StorageWizard({ visible, onClose, onSaved }: Props) {
                 </View>
               </View>
 
-              <Text style={styles.preconfiguredTitle}>Pre-configured</Text>
+              <Text style={styles.preconfiguredTitle}>{t('storage.preconfiguredTitle')}</Text>
               <Text style={styles.preconfiguredSubtitle}>
-                This app has been set up with Supabase credentials by your administrator. No manual setup is required.
+                {t('storage.preconfiguredSubtitle')}
               </Text>
 
               <View style={styles.preconfiguredCard}>
                 <View style={styles.preconfiguredRow}>
-                  <Text style={styles.preconfiguredLabel}>PROJECT URL</Text>
+                  <Text style={styles.preconfiguredLabel}>{t('storage.projectUrl')}</Text>
                   <Text style={styles.preconfiguredValue} numberOfLines={1}>
                     {process.env.EXPO_PUBLIC_SUPABASE_URL ?? '—'}
                   </Text>
                 </View>
                 <View style={styles.preconfiguredDivider} />
                 <View style={styles.preconfiguredRow}>
-                  <Text style={styles.preconfiguredLabel}>BUCKET</Text>
+                  <Text style={styles.preconfiguredLabel}>{t('storage.bucket')}</Text>
                   <Text style={styles.preconfiguredValue}>
                     {process.env.EXPO_PUBLIC_SUPABASE_BUCKET ?? '—'}
                   </Text>
                 </View>
                 <View style={styles.preconfiguredDivider} />
                 <View style={styles.preconfiguredRow}>
-                  <Text style={styles.preconfiguredLabel}>ANON KEY</Text>
+                  <Text style={styles.preconfiguredLabel}>{t('storage.anonKey')}</Text>
                   <Text style={styles.preconfiguredValue}>
                     {'••••••••••••••••••••'}
                   </Text>
@@ -326,7 +329,7 @@ export default function StorageWizard({ visible, onClose, onSaved }: Props) {
 
               <InfoBox>
                 <Text style={styles.infoBoxText}>
-                  These credentials are baked into the app build. You can override them by reconfiguring manually below.
+                  {t('storage.overrideNote')}
                 </Text>
               </InfoBox>
 
@@ -335,11 +338,11 @@ export default function StorageWizard({ visible, onClose, onSaved }: Props) {
                 onPress={() => setStep('choose')}
               >
                 <Ionicons name="settings-outline" size={15} color={Colors.textSecondary} />
-                <Text style={styles.reconfigureBtnText}>Reconfigure manually</Text>
+                <Text style={styles.reconfigureBtnText}>{t('storage.reconfigureManually')}</Text>
               </Pressable>
 
               <Pressable style={[styles.doneBtn, { marginTop: 4 }]} onPress={handleClose}>
-                <Text style={styles.doneBtnText}>Done</Text>
+                <Text style={styles.doneBtnText}>{t('storage.done')}</Text>
               </Pressable>
             </View>
           )}
@@ -347,7 +350,7 @@ export default function StorageWizard({ visible, onClose, onSaved }: Props) {
           {/* ── CHOOSE PROVIDER ─────────────────────────────────── */}
           {step === 'choose' && (
             <View style={styles.choices}>
-              <Text style={styles.subtitle}>Choose where to upload your captured frames.</Text>
+              <Text style={styles.subtitle}>{t('storage.chooseSubtitle')}</Text>
 
               {/* NEW: Connect with Supabase Account */}
               <Pressable style={[styles.choiceBtn, styles.choiceBtnFeatured]} onPress={() => setStep('supabase-account')}>
@@ -356,12 +359,12 @@ export default function StorageWizard({ visible, onClose, onSaved }: Props) {
                 </View>
                 <View style={styles.choiceText}>
                   <View style={styles.choiceNameRow}>
-                    <Text style={styles.choiceName}>Connect with Supabase Account</Text>
+                    <Text style={styles.choiceName}>{t('storage.connectWithAccount')}</Text>
                     <View style={styles.choiceNewBadge}>
-                      <Text style={styles.choiceNewBadgeText}>EASY</Text>
+                      <Text style={styles.choiceNewBadgeText}>{t('storage.easy')}</Text>
                     </View>
                   </View>
-                  <Text style={styles.choiceDesc}>Sign in to your account and pick a project — no credentials to copy</Text>
+                  <Text style={styles.choiceDesc}>{t('storage.connectWithAccountDesc')}</Text>
                 </View>
                 <Ionicons name="chevron-forward" size={18} color={Colors.textTertiary} />
               </Pressable>
@@ -370,8 +373,8 @@ export default function StorageWizard({ visible, onClose, onSaved }: Props) {
               <Pressable style={styles.choiceBtn} onPress={() => setStep('supabase')}>
                 <Ionicons name="server-outline" size={24} color={Colors.gpsGreen} />
                 <View style={styles.choiceText}>
-                  <Text style={styles.choiceName}>Supabase</Text>
-                  <Text style={styles.choiceDesc}>Enter your Project URL, anon key, and bucket manually</Text>
+                  <Text style={styles.choiceName}>{t('storage.supabase')}</Text>
+                  <Text style={styles.choiceDesc}>{t('storage.supabaseManualDesc')}</Text>
                 </View>
                 <Ionicons name="chevron-forward" size={18} color={Colors.textTertiary} />
               </Pressable>
@@ -380,8 +383,8 @@ export default function StorageWizard({ visible, onClose, onSaved }: Props) {
               <Pressable style={styles.choiceBtn} onPress={() => setStep('webhook')}>
                 <Ionicons name="link-outline" size={24} color={Colors.blue} />
                 <View style={styles.choiceText}>
-                  <Text style={styles.choiceName}>Webhook</Text>
-                  <Text style={styles.choiceDesc}>POST frames as base64 to any HTTP endpoint</Text>
+                  <Text style={styles.choiceName}>{t('storage.webhook')}</Text>
+                  <Text style={styles.choiceDesc}>{t('storage.webhookDesc')}</Text>
                 </View>
                 <Ionicons name="chevron-forward" size={18} color={Colors.textTertiary} />
               </Pressable>
@@ -399,8 +402,8 @@ export default function StorageWizard({ visible, onClose, onSaved }: Props) {
               >
                 <Ionicons name="phone-portrait-outline" size={24} color={Colors.textSecondary} />
                 <View style={styles.choiceText}>
-                  <Text style={styles.choiceName}>Local Only</Text>
-                  <Text style={styles.choiceDesc}>Keep frames on device only</Text>
+                  <Text style={styles.choiceName}>{t('storage.localOnly')}</Text>
+                  <Text style={styles.choiceDesc}>{t('storage.localOnlyDesc')}</Text>
                 </View>
               </Pressable>
             </View>
@@ -410,14 +413,13 @@ export default function StorageWizard({ visible, onClose, onSaved }: Props) {
           {step === 'supabase-account' && (
             <View style={styles.form}>
               <Text style={styles.subtitle}>
-                Enter your Supabase Personal Access Token to browse your projects.
+                {t('storage.patSubtitle')}
               </Text>
 
               <InfoBox>
                 <Text style={styles.infoBoxText}>
-                  <Text style={{ fontFamily: 'Inter_600SemiBold', color: Colors.text }}>Your token is never stored.</Text>
-                  {' '}It is kept in memory only during setup to fetch your project credentials, and is cleared when you close this screen.{'\n\n'}
-                  Generate a token at{' '}
+                  <Text style={{ fontFamily: 'Inter_600SemiBold', color: Colors.text }}>{t('storage.patTokenNotStored')}</Text>
+                  {t('storage.patTokenDetail')}
                   <Text
                     style={{ color: Colors.blue, textDecorationLine: 'underline' }}
                     onPress={() => WebBrowser.openBrowserAsync('https://supabase.com/dashboard/account/tokens')}
@@ -425,12 +427,12 @@ export default function StorageWizard({ visible, onClose, onSaved }: Props) {
                 </Text>
               </InfoBox>
 
-              <Text style={styles.fieldLabel}>Personal Access Token</Text>
+              <Text style={styles.fieldLabel}>{t('storage.personalAccessToken')}</Text>
               <TextInput
                 style={styles.input}
                 value={pat}
-                onChangeText={(t) => {
-                  setPat(t);
+                onChangeText={(val) => {
+                  setPat(val);
                   setProjects([]);
                   setProjectsError('');
                 }}
@@ -450,7 +452,7 @@ export default function StorageWizard({ visible, onClose, onSaved }: Props) {
                   ? <ActivityIndicator size="small" color="#fff" />
                   : <Ionicons name="cloud-download-outline" size={15} color="#fff" />}
                 <Text style={styles.saveBtnText}>
-                  {fetchingProjects ? 'Fetching projects…' : 'Connect'}
+                  {fetchingProjects ? t('storage.fetchingProjects') : t('storage.connect')}
                 </Text>
               </Pressable>
 
@@ -464,7 +466,7 @@ export default function StorageWizard({ visible, onClose, onSaved }: Props) {
 
               {projects.length > 0 && (
                 <View style={styles.projectList}>
-                  <Text style={styles.fieldLabel}>Your Projects</Text>
+                  <Text style={styles.fieldLabel}>{t('storage.yourProjects')}</Text>
                   {projects.map((p) => (
                     <Pressable
                       key={p.id}
@@ -494,13 +496,13 @@ export default function StorageWizard({ visible, onClose, onSaved }: Props) {
               {/* Manual fallback */}
               <View style={styles.manualFallbackRow}>
                 <Pressable onPress={() => setStep('supabase')}>
-                  <Text style={styles.manualFallbackText}>Enter credentials manually instead</Text>
+                  <Text style={styles.manualFallbackText}>{t('storage.enterManually')}</Text>
                 </Pressable>
               </View>
 
               <View style={styles.formActions}>
                 <Pressable style={[styles.backBtn, { flex: 1 }]} onPress={handleProviderBack}>
-                  <Text style={styles.backBtnText}>Back</Text>
+                  <Text style={styles.backBtnText}>{t('storage.back')}</Text>
                 </Pressable>
               </View>
             </View>
@@ -511,20 +513,20 @@ export default function StorageWizard({ visible, onClose, onSaved }: Props) {
             <View style={styles.form}>
               <Text style={styles.subtitle}>
                 {selectedProject
-                  ? `Choose a storage bucket in "${selectedProject.name}".`
-                  : 'Choose a storage bucket.'}
+                  ? t('storage.chooseProjectBucket', { project: selectedProject.name })
+                  : t('storage.chooseBucket')}
               </Text>
 
               {fetchingBuckets && (
                 <View style={styles.centeredRow}>
                   <ActivityIndicator size="small" color={Colors.blue} />
-                  <Text style={styles.fetchingText}>Loading buckets…</Text>
+                  <Text style={styles.fetchingText}>{t('storage.loadingBuckets')}</Text>
                 </View>
               )}
 
               {!fetchingBuckets && buckets.length > 0 && (
                 <View style={styles.bucketList}>
-                  <Text style={styles.fieldLabel}>Available Buckets</Text>
+                  <Text style={styles.fieldLabel}>{t('storage.availableBuckets')}</Text>
                   {buckets.map((b) => (
                     <Pressable
                       key={b.id}
@@ -545,7 +547,7 @@ export default function StorageWizard({ visible, onClose, onSaved }: Props) {
                           styles.bucketBadgeText,
                           { color: b.public ? Colors.gpsGreen : Colors.amber },
                         ]}>
-                          {b.public ? 'Public' : 'Private'}
+                          {b.public ? t('storage.public') : t('storage.private')}
                         </Text>
                       </View>
                       <Ionicons name="chevron-forward" size={16} color={Colors.textTertiary} />
@@ -558,7 +560,7 @@ export default function StorageWizard({ visible, onClose, onSaved }: Props) {
                 <View style={styles.patErrorBox}>
                   <Ionicons name="alert-circle-outline" size={15} color={Colors.amber} />
                   <Text style={[styles.patErrorText, { color: Colors.amber }]}>
-                    Could not load buckets: {bucketsError}
+                    {t('storage.couldNotLoadBuckets', { error: bucketsError })}
                   </Text>
                 </View>
               )}
@@ -572,9 +574,9 @@ export default function StorageWizard({ visible, onClose, onSaved }: Props) {
                   >
                     <Ionicons name="add-circle-outline" size={16} color={Colors.blue} />
                     <View style={{ flex: 1 }}>
-                      <Text style={[styles.bucketCardName, { color: Colors.blue }]}>Create new bucket</Text>
+                      <Text style={[styles.bucketCardName, { color: Colors.blue }]}>{t('storage.createNewBucket')}</Text>
                       <Text style={{ color: Colors.textTertiary, fontFamily: 'Inter_400Regular', fontSize: 11, marginTop: 2 }}>
-                        Enter a name in the field below
+                        {t('storage.enterNameBelow')}
                       </Text>
                     </View>
                   </Pressable>
@@ -584,10 +586,10 @@ export default function StorageWizard({ visible, onClose, onSaved }: Props) {
               {/* Manual bucket name input */}
               <View style={[styles.dividerRow, { marginTop: 16 }]}>
                 {buckets.length > 0 && (
-                  <Text style={styles.dividerLabel}>or use an existing bucket name</Text>
+                  <Text style={styles.dividerLabel}>{t('storage.orExistingBucket')}</Text>
                 )}
               </View>
-              <Text style={[styles.fieldLabel, { marginTop: 8 }]}>Bucket Name</Text>
+              <Text style={[styles.fieldLabel, { marginTop: 8 }]}>{t('storage.bucketName')}</Text>
               <TextInput
                 style={styles.input}
                 value={bucketInput}
@@ -597,7 +599,7 @@ export default function StorageWizard({ visible, onClose, onSaved }: Props) {
                 autoCapitalize="none"
               />
               <Text style={styles.bucketHint}>
-                The bucket must already exist in your Supabase project with public access or an anon-upload RLS policy.
+                {t('storage.bucketHint')}
               </Text>
 
               {(() => {
@@ -625,7 +627,7 @@ export default function StorageWizard({ visible, onClose, onSaved }: Props) {
                       }
                     >
                       <Ionicons name="open-outline" size={14} color={Colors.blue} />
-                      <Text style={styles.dashboardLinkText}>Create a new bucket in Supabase ↗</Text>
+                      <Text style={styles.dashboardLinkText}>{t('storage.createInSupabase')}</Text>
                     </Pressable>
                     <Pressable
                       style={styles.dashboardLink}
@@ -638,7 +640,7 @@ export default function StorageWizard({ visible, onClose, onSaved }: Props) {
                       }
                     >
                       <Ionicons name="open-outline" size={14} color={Colors.blue} />
-                      <Text style={styles.dashboardLinkText}>Manage bucket permissions in Supabase ↗</Text>
+                      <Text style={styles.dashboardLinkText}>{t('storage.managePermissions')}</Text>
                     </Pressable>
                   </>
                 );
@@ -649,7 +651,7 @@ export default function StorageWizard({ visible, onClose, onSaved }: Props) {
                   style={styles.backBtn}
                   onPress={() => setStep('supabase-account')}
                 >
-                  <Text style={styles.backBtnText}>Back</Text>
+                  <Text style={styles.backBtnText}>{t('storage.back')}</Text>
                 </Pressable>
                 <Pressable
                   style={[styles.saveBtn, !bucketInput.trim() && styles.saveBtnDisabled]}
@@ -657,7 +659,7 @@ export default function StorageWizard({ visible, onClose, onSaved }: Props) {
                   onPress={() => handleSelectBucket(bucketInput.trim())}
                 >
                   <Ionicons name="wifi-outline" size={15} color="#fff" />
-                  <Text style={styles.saveBtnText}>Test & Save</Text>
+                  <Text style={styles.saveBtnText}>{t('storage.testAndSave')}</Text>
                 </Pressable>
               </View>
             </View>
@@ -666,14 +668,14 @@ export default function StorageWizard({ visible, onClose, onSaved }: Props) {
           {/* ── SUPABASE CREDENTIALS (manual) ───────────────────── */}
           {step === 'supabase' && (
             <View style={styles.form}>
-              <Text style={styles.subtitle}>Enter your Supabase project credentials.</Text>
+              <Text style={styles.subtitle}>{t('storage.enterSupabaseCredentials')}</Text>
 
               <Pressable
                 style={styles.instructionsToggle}
                 onPress={() => setInstructionsOpen((v) => !v)}
               >
                 <Ionicons name="help-circle-outline" size={16} color={Colors.blue} />
-                <Text style={styles.instructionsToggleText}>How to set this up</Text>
+                <Text style={styles.instructionsToggleText}>{t('storage.howToSetUp')}</Text>
                 <Ionicons
                   name={instructionsOpen ? 'chevron-up' : 'chevron-down'}
                   size={14}
@@ -684,55 +686,35 @@ export default function StorageWizard({ visible, onClose, onSaved }: Props) {
               {instructionsOpen && (
                 <View style={styles.instructionsPanel}>
                   <SetupStep n={1}>
-                    <Text style={styles.setupText}>
-                      Go to{' '}
-                      <Text style={styles.setupLink}>supabase.com</Text>
-                      {' '}and create a project (or open an existing one).
-                    </Text>
+                    <Text style={styles.setupText}>{t('storage.supabaseStep1')}</Text>
                   </SetupStep>
 
                   <SetupStep n={2}>
-                    <Text style={styles.setupText}>
-                      In the left sidebar, open{' '}
-                      <Text style={styles.setupBold}>Storage</Text>
-                      {' '}→{' '}
-                      <Text style={styles.setupBold}>New Bucket</Text>.
-                    </Text>
-                    <Text style={[styles.setupText, { marginTop: 4 }]}>
-                      Name it anything (e.g. <Text style={styles.setupCode}>frames</Text>).
-                      Set the bucket to{' '}
-                      <Text style={styles.setupBold}>Public</Text>
-                      {' '}or configure an RLS policy that permits anon uploads.
-                    </Text>
+                    <Text style={styles.setupText}>{t('storage.supabaseStep2a')}</Text>
+                    <Text style={[styles.setupText, { marginTop: 4 }]}>{t('storage.supabaseStep2b')}</Text>
                   </SetupStep>
 
                   <SetupStep n={3}>
-                    <Text style={styles.setupText}>
-                      Go to{' '}
-                      <Text style={styles.setupBold}>Project Settings → API</Text>
-                      {' '}and copy:
-                    </Text>
+                    <Text style={styles.setupText}>{t('storage.supabaseStep3')}</Text>
                     <View style={styles.bulletList}>
-                      <Text style={styles.bullet}>• <Text style={styles.setupBold}>Project URL</Text> → paste below</Text>
-                      <Text style={styles.bullet}>• <Text style={styles.setupBold}>anon / public</Text> key → paste below</Text>
+                      <Text style={styles.bullet}>{t('storage.supabaseStep3Url')}</Text>
+                      <Text style={styles.bullet}>{t('storage.supabaseStep3Key')}</Text>
                     </View>
                   </SetupStep>
 
                   <SetupStep n={4}>
-                    <Text style={styles.setupText}>
-                      The app creates folder structure automatically — no manual setup needed:
-                    </Text>
+                    <Text style={styles.setupText}>{t('storage.supabaseStep4')}</Text>
                     <CodeBlock>
                       {`${supabaseBucket || 'frames'}/\n└── <sessionId>/\n    ├── frame_001.jpg\n    ├── frame_002.jpg\n    └── ...`}
                     </CodeBlock>
                     <Text style={[styles.setupText, { marginTop: 4, color: Colors.textTertiary }]}>
-                      One folder per recording session (named by UUID).
+                      {t('storage.supabaseStep4Note')}
                     </Text>
                   </SetupStep>
                 </View>
               )}
 
-              <Text style={styles.fieldLabel}>Project URL</Text>
+              <Text style={styles.fieldLabel}>{t('storage.projectUrlLabel')}</Text>
               <TextInput
                 style={styles.input}
                 value={supabaseUrl}
@@ -742,7 +724,7 @@ export default function StorageWizard({ visible, onClose, onSaved }: Props) {
                 autoCapitalize="none"
                 keyboardType="url"
               />
-              <Text style={styles.fieldLabel}>Anon Key</Text>
+              <Text style={styles.fieldLabel}>{t('storage.anonKeyLabel')}</Text>
               <TextInput
                 style={styles.input}
                 value={supabaseKey}
@@ -751,7 +733,7 @@ export default function StorageWizard({ visible, onClose, onSaved }: Props) {
                 placeholderTextColor={Colors.textTertiary}
                 autoCapitalize="none"
               />
-              <Text style={styles.fieldLabel}>Bucket Name</Text>
+              <Text style={styles.fieldLabel}>{t('storage.bucketNameLabel')}</Text>
               <TextInput
                 style={styles.input}
                 value={supabaseBucket}
@@ -763,7 +745,7 @@ export default function StorageWizard({ visible, onClose, onSaved }: Props) {
 
               <View style={styles.formActions}>
                 <Pressable style={styles.backBtn} onPress={handleProviderBack}>
-                  <Text style={styles.backBtnText}>Back</Text>
+                  <Text style={styles.backBtnText}>{t('storage.back')}</Text>
                 </Pressable>
                 <Pressable
                   style={[styles.saveBtn, !supabaseReady && styles.saveBtnDisabled]}
@@ -771,7 +753,7 @@ export default function StorageWizard({ visible, onClose, onSaved }: Props) {
                   onPress={() => startTest('supabase')}
                 >
                   <Ionicons name="wifi-outline" size={15} color="#fff" />
-                  <Text style={styles.saveBtnText}>Test & Save</Text>
+                  <Text style={styles.saveBtnText}>{t('storage.testAndSave')}</Text>
                 </Pressable>
               </View>
             </View>
@@ -780,14 +762,14 @@ export default function StorageWizard({ visible, onClose, onSaved }: Props) {
           {/* ── WEBHOOK CREDENTIALS ─────────────────────────────── */}
           {step === 'webhook' && (
             <View style={styles.form}>
-              <Text style={styles.subtitle}>Enter your webhook endpoint URL.</Text>
+              <Text style={styles.subtitle}>{t('storage.enterWebhookEndpoint')}</Text>
 
               <Pressable
                 style={styles.instructionsToggle}
                 onPress={() => setInstructionsOpen((v) => !v)}
               >
                 <Ionicons name="help-circle-outline" size={16} color={Colors.blue} />
-                <Text style={styles.instructionsToggleText}>How to set this up</Text>
+                <Text style={styles.instructionsToggleText}>{t('storage.howToSetUp')}</Text>
                 <Ionicons
                   name={instructionsOpen ? 'chevron-up' : 'chevron-down'}
                   size={14}
@@ -798,45 +780,27 @@ export default function StorageWizard({ visible, onClose, onSaved }: Props) {
               {instructionsOpen && (
                 <View style={styles.instructionsPanel}>
                   <SetupStep n={1}>
-                    <Text style={styles.setupText}>
-                      Deploy an HTTP endpoint that accepts{' '}
-                      <Text style={styles.setupBold}>POST</Text>
-                      {' '}requests.
-                    </Text>
+                    <Text style={styles.setupText}>{t('storage.webhookStep1')}</Text>
                   </SetupStep>
 
                   <SetupStep n={2}>
-                    <Text style={styles.setupText}>
-                      The app sends a JSON body with these fields:
-                    </Text>
+                    <Text style={styles.setupText}>{t('storage.webhookStep2')}</Text>
                     <CodeBlock>{`{\n  "id": "uuid",\n  "sessionId": "uuid",\n  "filename": "frame_001.jpg",\n  "timestamp": 1700000000000,\n  "latitude": 37.7749,\n  "longitude": -122.4194,\n  "segmentName": "seg_001",\n  "imageBase64": "<base64 JPEG>"\n}`}</CodeBlock>
                   </SetupStep>
 
                   <SetupStep n={3}>
-                    <Text style={styles.setupText}>
-                      Respond with any{' '}
-                      <Text style={styles.setupBold}>2xx status</Text>
-                      {' '}and optionally include:
-                    </Text>
+                    <Text style={styles.setupText}>{t('storage.webhookStep3')}</Text>
                     <CodeBlock>{'{ "url": "https://..." }'}</CodeBlock>
-                    <Text style={[styles.setupText, { marginTop: 4 }]}>
-                      The <Text style={styles.setupCode}>url</Text> field, if returned, is recorded in the session log as the remote file location.
-                    </Text>
+                    <Text style={[styles.setupText, { marginTop: 4 }]}>{t('storage.webhookStep3Note')}</Text>
                   </SetupStep>
 
                   <SetupStep n={4}>
-                    <Text style={styles.setupText}>
-                      The optional{' '}
-                      <Text style={styles.setupBold}>Secret</Text>
-                      {' '}value is sent as the{' '}
-                      <Text style={styles.setupCode}>x-webhook-secret</Text>
-                      {' '}request header for basic authentication.
-                    </Text>
+                    <Text style={styles.setupText}>{t('storage.webhookStep4')}</Text>
                   </SetupStep>
                 </View>
               )}
 
-              <Text style={styles.fieldLabel}>Endpoint URL</Text>
+              <Text style={styles.fieldLabel}>{t('storage.endpointUrl')}</Text>
               <TextInput
                 style={styles.input}
                 value={webhookUrl}
@@ -846,19 +810,19 @@ export default function StorageWizard({ visible, onClose, onSaved }: Props) {
                 autoCapitalize="none"
                 keyboardType="url"
               />
-              <Text style={styles.fieldLabel}>Secret (optional)</Text>
+              <Text style={styles.fieldLabel}>{t('storage.secret')}</Text>
               <TextInput
                 style={styles.input}
                 value={webhookSecret}
                 onChangeText={setWebhookSecret}
-                placeholder="Sent as x-webhook-secret header"
+                placeholder={t('storage.webhookSecretPlaceholder')}
                 placeholderTextColor={Colors.textTertiary}
                 autoCapitalize="none"
               />
 
               <View style={styles.formActions}>
                 <Pressable style={styles.backBtn} onPress={handleProviderBack}>
-                  <Text style={styles.backBtnText}>Back</Text>
+                  <Text style={styles.backBtnText}>{t('storage.back')}</Text>
                 </Pressable>
                 <Pressable
                   style={[styles.saveBtn, !webhookReady && styles.saveBtnDisabled]}
@@ -866,7 +830,7 @@ export default function StorageWizard({ visible, onClose, onSaved }: Props) {
                   onPress={() => startTest('webhook')}
                 >
                   <Ionicons name="wifi-outline" size={15} color="#fff" />
-                  <Text style={styles.saveBtnText}>Test & Save</Text>
+                  <Text style={styles.saveBtnText}>{t('storage.testAndSave')}</Text>
                 </Pressable>
               </View>
             </View>
@@ -876,9 +840,9 @@ export default function StorageWizard({ visible, onClose, onSaved }: Props) {
           {step === 'testing' && (
             <View style={styles.centeredStep}>
               <ActivityIndicator size="large" color={Colors.blue} />
-              <Text style={styles.testingTitle}>Testing connection…</Text>
+              <Text style={styles.testingTitle}>{t('storage.testing')}</Text>
               <Text style={styles.testingSubtitle}>
-                Connecting to your {pendingProvider === 'supabase' ? 'Supabase bucket' : 'webhook endpoint'}, please wait.
+                {pendingProvider === 'supabase' ? t('storage.testingSubtitleSupabase') : t('storage.testingSubtitleWebhook')}
               </Text>
             </View>
           )}
@@ -889,19 +853,19 @@ export default function StorageWizard({ visible, onClose, onSaved }: Props) {
               <View style={styles.successIcon}>
                 <Ionicons name="checkmark" size={40} color="#fff" />
               </View>
-              <Text style={styles.successTitle}>Connected!</Text>
+              <Text style={styles.successTitle}>{t('storage.successTitle')}</Text>
               <Text style={styles.successSubtitle}>
                 {pendingProvider === 'supabase'
-                  ? 'Frames will upload to your Supabase bucket after each session. Uploads retry automatically if you go offline.'
-                  : 'Frames will be POSTed to your endpoint after each session. Uploads retry automatically if you go offline.'}
+                  ? t('storage.successSubtitleSupabase')
+                  : t('storage.successSubtitleWebhook')}
               </Text>
               <InfoBox>
                 <Text style={styles.infoBoxText}>
-                  Uploads are queued and sent in the background. If the device goes offline, they resume automatically when connectivity is restored.
+                  {t('storage.uploadQueuedNote')}
                 </Text>
               </InfoBox>
               <Pressable style={styles.doneBtn} onPress={handleClose}>
-                <Text style={styles.doneBtnText}>Done</Text>
+                <Text style={styles.doneBtnText}>{t('storage.done')}</Text>
               </Pressable>
             </View>
           )}
@@ -912,12 +876,12 @@ export default function StorageWizard({ visible, onClose, onSaved }: Props) {
               <View style={styles.errorIcon}>
                 <Ionicons name="close" size={38} color="#fff" />
               </View>
-              <Text style={styles.errorTitle}>Connection Failed</Text>
+              <Text style={styles.errorTitle}>{t('storage.connectionFailedTitle')}</Text>
               <View style={styles.errorBox}>
                 <Text style={styles.errorMessage}>{testError}</Text>
               </View>
               <Text style={styles.errorHint}>
-                Check that your credentials are correct and that the bucket exists with public access or an anon-upload RLS policy.
+                {t('storage.errorHint')}
               </Text>
               <View style={styles.errorActions}>
                 <Pressable
@@ -925,10 +889,10 @@ export default function StorageWizard({ visible, onClose, onSaved }: Props) {
                   onPress={() => setStep(originStep)}
                 >
                   <Ionicons name="refresh-outline" size={16} color={Colors.text} />
-                  <Text style={styles.retryBtnText}>Try Again</Text>
+                  <Text style={styles.retryBtnText}>{t('storage.tryAgain')}</Text>
                 </Pressable>
                 <Pressable style={styles.saveAnywayBtn} onPress={saveAnyway}>
-                  <Text style={styles.saveAnywayText}>Save Anyway</Text>
+                  <Text style={styles.saveAnywayText}>{t('storage.saveAnyway')}</Text>
                 </Pressable>
               </View>
               {originStep === 'bucket-select' && (
@@ -936,7 +900,7 @@ export default function StorageWizard({ visible, onClose, onSaved }: Props) {
                   style={styles.changeProjectBtn}
                   onPress={() => setStep('supabase-account')}
                 >
-                  <Text style={styles.changeProjectText}>Change Project</Text>
+                  <Text style={styles.changeProjectText}>{t('storage.changeProject')}</Text>
                 </Pressable>
               )}
             </View>

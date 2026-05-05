@@ -10,6 +10,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import Colors from '@/constants/colors';
 import { useStorageConfig } from '@/contexts/StorageConfigContext';
@@ -37,6 +38,7 @@ function StatusIcon({ status }: { status: string }) {
 }
 
 export default function UploadProgressModal({ visible, sessionId, onClose }: Props) {
+  const { t } = useTranslation();
   const { providerLabel } = useStorageConfig();
   const {
     isCloudConfigured,
@@ -107,7 +109,7 @@ export default function UploadProgressModal({ visible, sessionId, onClose }: Pro
                     size={18}
                     color={failedCount > 0 ? Colors.amber : Colors.gpsGreen}
                   />
-                  <Text style={styles.headerTitle}>Session Complete</Text>
+                  <Text style={styles.headerTitle}>{t('upload.sessionComplete')}</Text>
                 </View>
                 <Pressable onPress={onClose} style={styles.closeBtn} hitSlop={12}>
                   <Ionicons name="close" size={20} color={Colors.textSecondary} />
@@ -117,10 +119,9 @@ export default function UploadProgressModal({ visible, sessionId, onClose }: Pro
               {!isCloudConfigured ? (
                 <View style={styles.noticeBox}>
                   <Ionicons name="phone-portrait-outline" size={22} color={Colors.textTertiary} />
-                  <Text style={styles.noticeTitle}>Saved Locally</Text>
+                  <Text style={styles.noticeTitle}>{t('upload.savedLocally')}</Text>
                   <Text style={styles.noticeBody}>
-                    No cloud provider configured. Frames and CSV log are saved on your device.
-                    Configure a provider in Settings → Cloud Storage.
+                    {t('upload.savedLocallyDesc')}
                   </Text>
                 </View>
               ) : (
@@ -128,7 +129,7 @@ export default function UploadProgressModal({ visible, sessionId, onClose }: Pro
                   {!isOnline && (
                     <View style={styles.offlineBar}>
                       <Ionicons name="wifi-outline" size={13} color={Colors.amber} />
-                      <Text style={styles.offlineText}>Offline — uploads will resume when connected</Text>
+                      <Text style={styles.offlineText}>{t('upload.offline')}</Text>
                     </View>
                   )}
 
@@ -140,24 +141,24 @@ export default function UploadProgressModal({ visible, sessionId, onClose }: Pro
                   <View style={styles.statsRow}>
                     <View style={styles.statItem}>
                       <Text style={[styles.statNum, { color: Colors.gpsGreen }]}>{sessionUploaded}</Text>
-                      <Text style={styles.statLabel}>UPLOADED</Text>
+                      <Text style={styles.statLabel}>{t('upload.uploaded')}</Text>
                     </View>
                     <View style={styles.statDivider} />
                     <View style={styles.statItem}>
                       <Text style={[styles.statNum, { color: Colors.amber }]}>{sessionPending}</Text>
-                      <Text style={styles.statLabel}>PENDING</Text>
+                      <Text style={styles.statLabel}>{t('upload.pending')}</Text>
                     </View>
                     <View style={styles.statDivider} />
                     <View style={styles.statItem}>
                       <Text style={[styles.statNum, { color: sessionFailed > 0 ? Colors.accent : Colors.textTertiary }]}>
                         {sessionFailed}
                       </Text>
-                      <Text style={styles.statLabel}>FAILED</Text>
+                      <Text style={styles.statLabel}>{t('upload.failed')}</Text>
                     </View>
                     <View style={styles.statDivider} />
                     <View style={styles.statItem}>
                       <Text style={styles.statNum}>{total}</Text>
-                      <Text style={styles.statLabel}>TOTAL</Text>
+                      <Text style={styles.statLabel}>{t('upload.total')}</Text>
                     </View>
                   </View>
 
@@ -175,7 +176,7 @@ export default function UploadProgressModal({ visible, sessionId, onClose }: Pro
 
                   {sessionItems.length > 0 && (
                     <View style={styles.section}>
-                      <Text style={styles.sectionLabel}>FRAMES THIS SESSION</Text>
+                      <Text style={styles.sectionLabel}>{t('upload.framesThisSession')}</Text>
                       <ScrollView
                         style={styles.itemList}
                         showsVerticalScrollIndicator={false}
@@ -188,7 +189,7 @@ export default function UploadProgressModal({ visible, sessionId, onClose }: Pro
                               {item.filename}
                             </Text>
                             {item.retries > 0 && (
-                              <Text style={styles.retryBadge}>retry {item.retries}×</Text>
+                              <Text style={styles.retryBadge}>{t('upload.retry', { count: item.retries })}</Text>
                             )}
                             <Text
                               style={[
@@ -198,7 +199,13 @@ export default function UploadProgressModal({ visible, sessionId, onClose }: Pro
                                 item.status === 'failed' && { color: Colors.accent },
                               ]}
                             >
-                              {item.status === 'uploading' ? 'uploading…' : item.status}
+                              {item.status === 'uploading'
+                                ? t('upload.uploading')
+                                : item.status === 'uploaded'
+                                ? t('upload.uploaded')
+                                : item.status === 'failed'
+                                ? t('upload.failed')
+                                : t('upload.pending')}
                             </Text>
                           </View>
                         ))}
@@ -209,7 +216,7 @@ export default function UploadProgressModal({ visible, sessionId, onClose }: Pro
                   {total === 0 && (
                     <View style={styles.emptyBox}>
                       <Text style={styles.emptyText}>
-                        No detection frames were captured this session.
+                        {t('upload.noFramesCaptured')}
                       </Text>
                     </View>
                   )}
@@ -219,9 +226,9 @@ export default function UploadProgressModal({ visible, sessionId, onClose }: Pro
               {uploadLogs.length > 0 && (
                 <View style={styles.section}>
                   <View style={styles.sectionHeaderRow}>
-                    <Text style={styles.sectionLabel}>UPLOAD LOG</Text>
+                    <Text style={styles.sectionLabel}>{t('upload.uploadLog')}</Text>
                     <Pressable onPress={clearLogs} hitSlop={8}>
-                      <Text style={styles.clearLogsBtn}>Clear</Text>
+                      <Text style={styles.clearLogsBtn}>{t('upload.clear')}</Text>
                     </Pressable>
                   </View>
                   <ScrollView
@@ -256,14 +263,14 @@ export default function UploadProgressModal({ visible, sessionId, onClose }: Pro
                     onPress={retryFailed}
                   >
                     <Ionicons name="refresh" size={14} color={Colors.amber} />
-                    <Text style={styles.retryBtnText}>Retry Failed</Text>
+                    <Text style={styles.retryBtnText}>{t('upload.retryFailed')}</Text>
                   </Pressable>
                 )}
                 <Pressable
                   style={({ pressed }) => [styles.doneBtn, pressed && { opacity: 0.8 }]}
                   onPress={onClose}
                 >
-                  <Text style={styles.doneBtnText}>Done</Text>
+                  <Text style={styles.doneBtnText}>{t('upload.done')}</Text>
                 </Pressable>
               </View>
 

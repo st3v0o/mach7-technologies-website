@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 
 import Colors from '@/constants/colors';
 import {
@@ -28,6 +29,10 @@ import { usePortalConfig } from '@/contexts/PortalConfigContext';
 import { useStorageConfig } from '@/contexts/StorageConfigContext';
 import StorageWizard from '@/components/StorageWizard';
 import SuccessToast from '@/components/SuccessToast';
+import { SUPPORTED_LANGUAGES, changeLanguage, getCurrentLocale, LanguageCode } from '@/src/i18n';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const LANGUAGE_STORAGE_KEY = '@gps_language';
 
 function fpsLabel(fps: number): string {
   if (fps < 1) return `1 / ${Math.round(1 / fps)}s`;
@@ -104,15 +109,29 @@ const PROVIDER_COLORS: Record<string, string> = {
   webhook: Colors.blue,
 };
 
-const MOUNT_OPTIONS: { value: MountType; label: string; icon: string }[] = [
-  { value: 'vehicle', label: 'Vehicle', icon: 'car-outline' },
-  { value: 'drone', label: 'Drone', icon: 'airplane-outline' },
-  { value: 'handheld', label: 'Handheld', icon: 'hand-left-outline' },
-  { value: 'bike', label: 'Bike', icon: 'bicycle-outline' },
+const MOUNT_OPTIONS: { value: MountType; labelKey: string; icon: string }[] = [
+  { value: 'vehicle', labelKey: 'settings.mountVehicle', icon: 'car-outline' },
+  { value: 'drone', labelKey: 'settings.mountDrone', icon: 'airplane-outline' },
+  { value: 'handheld', labelKey: 'settings.mountHandheld', icon: 'hand-left-outline' },
+  { value: 'bike', labelKey: 'settings.mountBike', icon: 'bicycle-outline' },
 ];
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
+  const [selectedLanguage, setSelectedLanguage] = useState<LanguageCode>('system');
+
+  useEffect(() => {
+    AsyncStorage.getItem(LANGUAGE_STORAGE_KEY).then((val) => {
+      if (val) setSelectedLanguage(val as LanguageCode);
+    });
+  }, []);
+
+  const handleLanguageChange = async (lang: LanguageCode) => {
+    setSelectedLanguage(lang);
+    await changeLanguage(lang);
+  };
+
   const { settings, updateSettings } = useSettings();
   const { providerType, providerLabel, isCloudConfigured, lastTestResult, testConnection, reloadConfig, clearConfig, isEnvPreconfigured } = useStorageConfig();
   const { portalUrl, setPortalUrl } = usePortalConfig();
@@ -138,12 +157,12 @@ export default function SettingsScreen() {
 
   const fixedDesc =
     settings.fixedFps < 1
-      ? `One frame every ${Math.round(1 / settings.fixedFps)} seconds`
+      ? t('settings.oneFrameEvery', { n: Math.round(1 / settings.fixedFps) })
       : settings.fixedFps === 1
-      ? 'One frame per second'
-      : `${settings.fixedFps} frames per second`;
+      ? t('settings.oneFramePerSecond')
+      : t('settings.framesPerSecond', { n: settings.fixedFps });
 
-  const dynamicDesc = `One frame every ${currentFeet} ft traveled`;
+  const dynamicDesc = t('settings.oneFrameEveryFt', { n: currentFeet });
 
   function exampleFps(mph: number): string {
     const mps = mph / MPH_PER_MPS;
@@ -177,9 +196,10 @@ export default function SettingsScreen() {
   };
 
   const formatTestTime = (ts: number) => {
+    const locale = getCurrentLocale();
     const d = new Date(ts);
-    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) +
-      ' ' + d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    return d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' }) +
+      ' ' + d.toLocaleDateString(locale, { month: 'short', day: 'numeric' });
   };
 
   type StorageStatusVariant = 'unconfigured' | 'untested' | 'verified' | 'failed';
@@ -197,10 +217,10 @@ export default function SettingsScreen() {
   };
 
   const STATUS_LABEL: Record<StorageStatusVariant, string> = {
-    unconfigured: 'Not configured',
-    untested: 'Configured — not tested yet',
-    verified: `Verified \u2713 ${lastTestResult ? formatTestTime(lastTestResult.testedAt) : ''}`,
-    failed: 'Last test failed',
+    unconfigured: t('settings.notConfigured'),
+    untested: t('settings.configuredNotTested'),
+    verified: t('settings.verified', { time: lastTestResult ? formatTestTime(lastTestResult.testedAt) : '' }),
+    failed: t('settings.lastTestFailed'),
   };
 
   const STATUS_LABEL_COLOR: Record<StorageStatusVariant, string> = {
@@ -221,33 +241,33 @@ export default function SettingsScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Settings</Text>
-          <Text style={styles.headerSubtitle}>Frame extraction configuration</Text>
+          <Text style={styles.headerTitle}>{t('settings.title')}</Text>
+          <Text style={styles.headerSubtitle}>{t('settings.subtitle')}</Text>
         </View>
 
         {/* ── Job / Project ─────────────────────────────────────────────── */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>ACTIVE JOB</Text>
+          <Text style={styles.sectionTitle}>{t('settings.activeJob')}</Text>
           <View style={styles.card}>
-            <Text style={styles.inputLabel}>Job Name</Text>
+            <Text style={styles.inputLabel}>{t('settings.jobName')}</Text>
             <TextInput
               style={styles.settingsInput}
               value={jobNameDraft}
               onChangeText={setJobNameDraft}
               onEndEditing={() => updateSettings({ jobName: jobNameDraft.trim() })}
               onSubmitEditing={() => updateSettings({ jobName: jobNameDraft.trim() })}
-              placeholder="e.g. Highway – Surface Condition Survey"
+              placeholder={t('settings.jobNamePlaceholder')}
               placeholderTextColor={Colors.textTertiary}
               autoCapitalize="words"
               returnKeyType="done"
             />
             <Text style={styles.inputHint}>
-              Sessions captured while this name is active are grouped under the same project. Visible in the camera HUD.
+              {t('settings.jobNameHint')}
             </Text>
 
             <View style={styles.divider} />
 
-            <Text style={[styles.inputLabel, { marginTop: 4 }]}>Mount Type</Text>
+            <Text style={[styles.inputLabel, { marginTop: 4 }]}>{t('settings.mountType')}</Text>
             <View style={styles.mountRow}>
               {MOUNT_OPTIONS.map((opt) => (
                 <Pressable
@@ -268,7 +288,7 @@ export default function SettingsScreen() {
                     styles.mountPillText,
                     settings.mountType === opt.value && styles.mountPillTextSelected,
                   ]}>
-                    {opt.label}
+                    {t(opt.labelKey)}
                   </Text>
                 </Pressable>
               ))}
@@ -277,26 +297,26 @@ export default function SettingsScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>CAPTURE MODE</Text>
+          <Text style={styles.sectionTitle}>{t('settings.captureMode')}</Text>
           <View style={styles.modeRow}>
             <ModeButton
-              label="Video"
+              label={t('settings.modeVideo')}
               icon="videocam-outline"
-              description="Record + extract frames"
+              description={t('settings.modeVideoDesc')}
               selected={settings.captureMode === 'video'}
               onPress={() => updateSettings({ captureMode: 'video' })}
             />
             <ModeButton
-              label="Auto Photo"
+              label={t('settings.modeAutoPhoto')}
               icon="camera-outline"
-              description="Photos at set interval"
+              description={t('settings.modeAutoPhotoDesc')}
               selected={settings.captureMode === 'photo'}
               onPress={() => updateSettings({ captureMode: 'photo' })}
             />
             <ModeButton
-              label="Manual"
+              label={t('settings.modeManual')}
               icon="aperture-outline"
-              description="Tap to shoot"
+              description={t('settings.modeManualDesc')}
               selected={settings.captureMode === 'manual'}
               onPress={() => updateSettings({ captureMode: 'manual' })}
             />
@@ -305,19 +325,19 @@ export default function SettingsScreen() {
 
         {settings.captureMode !== 'manual' && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>EXTRACTION MODE</Text>
+          <Text style={styles.sectionTitle}>{t('settings.extractionMode')}</Text>
           <View style={styles.modeRow}>
             <ModeButton
-              label="Fixed Rate"
+              label={t('settings.fixedRate')}
               icon="time-outline"
-              description="Constant interval"
+              description={t('settings.fixedRateDesc')}
               selected={settings.frameMode === 'fixed'}
               onPress={() => updateSettings({ frameMode: 'fixed' })}
             />
             <ModeButton
-              label="By Distance"
+              label={t('settings.byDistance')}
               icon="speedometer-outline"
-              description="Based on GPS speed"
+              description={t('settings.byDistanceDesc')}
               selected={settings.frameMode === 'dynamic'}
               onPress={() => updateSettings({ frameMode: 'dynamic' })}
             />
@@ -327,7 +347,7 @@ export default function SettingsScreen() {
 
         {settings.captureMode !== 'manual' && settings.frameMode === 'fixed' && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>FRAME RATE</Text>
+            <Text style={styles.sectionTitle}>{t('settings.frameRate')}</Text>
             <View style={styles.card}>
               <View style={styles.pillRow}>
                 {FIXED_FPS_OPTIONS.map((fps) => (
@@ -350,7 +370,7 @@ export default function SettingsScreen() {
 
         {settings.captureMode !== 'manual' && settings.frameMode === 'dynamic' && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>FEET PER FRAME</Text>
+            <Text style={styles.sectionTitle}>{t('settings.feetPerFrame')}</Text>
             <View style={styles.card}>
               <View style={styles.sliderValueRow}>
                 <TextInput
@@ -422,7 +442,7 @@ export default function SettingsScreen() {
         )}
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>CAMERA</Text>
+          <Text style={styles.sectionTitle}>{t('settings.camera')}</Text>
           <View style={styles.card}>
             <Pressable
               style={({ pressed }) => [styles.toggleRow, pressed && { opacity: 0.75 }]}
@@ -436,10 +456,10 @@ export default function SettingsScreen() {
                 />
                 <View style={styles.toggleText}>
                   <Text style={[styles.toggleLabel, settings.lockFocusAtInfinity && { color: Colors.blue }]}>
-                    Lock Focus at Infinity
+                    {t('settings.lockFocusInfinity')}
                   </Text>
                   <Text style={styles.toggleDesc}>
-                    Prevents autofocus from locking onto the dashboard or other nearby objects
+                    {t('settings.lockFocusInfinityDesc')}
                   </Text>
                 </View>
               </View>
@@ -451,7 +471,7 @@ export default function SettingsScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>LOCAL SAVE</Text>
+          <Text style={styles.sectionTitle}>{t('settings.localSave')}</Text>
           <View style={styles.card}>
             <Pressable
               style={({ pressed }) => [styles.toggleRow, pressed && { opacity: 0.75 }]}
@@ -465,10 +485,10 @@ export default function SettingsScreen() {
                 />
                 <View style={styles.toggleText}>
                   <Text style={[styles.toggleLabel, settings.savePhotosToLibrary && { color: Colors.blue }]}>
-                    Save Photos to Camera Roll
+                    {t('settings.saveToRoll')}
                   </Text>
                   <Text style={styles.toggleDesc}>
-                    Each captured photo is also saved to your iPhone Camera Roll
+                    {t('settings.saveToRollDesc')}
                   </Text>
                 </View>
               </View>
@@ -480,7 +500,7 @@ export default function SettingsScreen() {
             <View style={styles.summaryRow}>
               <Ionicons name="folder-outline" size={15} color={Colors.textSecondary} />
               <Text style={styles.summaryText}>
-                GPX tracks and frame data are also accessible via the Files app under Geospector
+                {t('settings.filesHint')}
               </Text>
             </View>
           </View>
@@ -488,10 +508,10 @@ export default function SettingsScreen() {
 
         <View style={styles.section}>
           <View style={styles.sectionTitleRow}>
-            <Text style={[styles.sectionTitle, { marginBottom: 0, marginLeft: 0 }]}>CLOUD STORAGE</Text>
+            <Text style={[styles.sectionTitle, { marginBottom: 0, marginLeft: 0 }]}>{t('settings.cloudStorage')}</Text>
             {isEnvPreconfigured && (
               <View style={styles.managedBadge}>
-                <Text style={styles.managedBadgeText}>MANAGED</Text>
+                <Text style={styles.managedBadgeText}>{t('settings.managed')}</Text>
               </View>
             )}
           </View>
@@ -507,8 +527,8 @@ export default function SettingsScreen() {
                 </Text>
                 <Text style={styles.storageProviderDesc}>
                   {providerType === 'none'
-                    ? 'Frames saved on device — CSV log as database'
-                    : 'Frames uploaded after each session'}
+                    ? t('settings.savedLocally')
+                    : t('settings.uploadedAfterSession')}
                 </Text>
               </View>
             </View>
@@ -521,7 +541,7 @@ export default function SettingsScreen() {
                 <View style={[styles.statusDot, { backgroundColor: STATUS_DOT_COLOR[storageVariant] }]} />
               )}
               <Text style={[styles.connectionStatusText, { color: STATUS_LABEL_COLOR[storageVariant] }]}>
-                {isTesting ? 'Testing connection…' : STATUS_LABEL[storageVariant]}
+                {isTesting ? t('settings.testingConnection') : STATUS_LABEL[storageVariant]}
               </Text>
             </View>
 
@@ -544,7 +564,7 @@ export default function SettingsScreen() {
               >
                 <Ionicons name="settings-outline" size={14} color={Colors.blue} />
                 <Text style={[styles.storageBtnText, { color: Colors.blue }]}>
-                  {isCloudConfigured ? 'Reconfigure' : 'Set Up Cloud Storage'}
+                  {isCloudConfigured ? t('settings.reconfigure') : t('settings.setupCloud')}
                 </Text>
               </Pressable>
 
@@ -558,7 +578,7 @@ export default function SettingsScreen() {
                     ? <ActivityIndicator size="small" color={Colors.gpsGreen} />
                     : <Ionicons name="wifi-outline" size={14} color={Colors.gpsGreen} />}
                   <Text style={[styles.storageBtnText, { color: Colors.gpsGreen }]}>
-                    Test Now
+                    {t('settings.testNow')}
                   </Text>
                 </Pressable>
               )}
@@ -569,20 +589,43 @@ export default function SettingsScreen() {
                   onPress={clearConfig}
                 >
                   <Ionicons name="trash-outline" size={14} color={Colors.accent} />
-                  <Text style={[styles.storageBtnText, { color: Colors.accent }]}>Disconnect</Text>
+                  <Text style={[styles.storageBtnText, { color: Colors.accent }]}>{t('settings.disconnect')}</Text>
                 </Pressable>
               )}
             </View>
           </View>
         </View>
 
+        {/* ── Language ──────────────────────────────────────────────────── */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>{t('settings.language')}</Text>
+          <View style={styles.card}>
+            <Text style={styles.inputLabel}>{t('settings.languageLabel')}</Text>
+            <View style={styles.pillRow}>
+              {SUPPORTED_LANGUAGES.map((lang) => (
+                <OptionPill
+                  key={lang.code}
+                  label={lang.code === 'system' ? t('settings.systemDefault') : lang.label}
+                  selected={selectedLanguage === lang.code}
+                  onPress={() => handleLanguageChange(lang.code as LanguageCode)}
+                />
+              ))}
+            </View>
+            <View style={styles.divider} />
+            <View style={styles.summaryRow}>
+              <Ionicons name="language-outline" size={15} color={Colors.textSecondary} />
+              <Text style={styles.summaryText}>{t('settings.languageHint')}</Text>
+            </View>
+          </View>
+        </View>
+
         {/* ── Geospector Portal ─────────────────────────────────────────── */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>GEOSPECTOR PORTAL</Text>
+          <Text style={styles.sectionTitle}>{t('settings.geospectorPortal')}</Text>
           <View style={styles.card}>
             <View style={styles.portalIconRow}>
               <Ionicons name="globe-outline" size={18} color={Colors.blue} />
-              <Text style={styles.portalTitle}>Portal URL</Text>
+              <Text style={styles.portalTitle}>{t('settings.portalUrl')}</Text>
             </View>
             <TextInput
               style={styles.settingsInput}
@@ -590,7 +633,7 @@ export default function SettingsScreen() {
               onChangeText={setPortalUrlDraft}
               onEndEditing={() => setPortalUrl(portalUrlDraft)}
               onSubmitEditing={() => setPortalUrl(portalUrlDraft)}
-              placeholder="https://your-portal.replit.app"
+              placeholder={t('settings.portalUrlPlaceholder')}
               placeholderTextColor={Colors.textTertiary}
               autoCapitalize="none"
               autoCorrect={false}
@@ -598,8 +641,7 @@ export default function SettingsScreen() {
               returnKeyType="done"
             />
             <Text style={styles.inputHint}>
-              Point the app at your Geospector Portal to publish sessions directly from the Log tab.
-              Leave blank if you are not using a portal.
+              {t('settings.portalUrlHint')}
             </Text>
           </View>
         </View>
@@ -608,12 +650,10 @@ export default function SettingsScreen() {
           <View style={styles.infoCard}>
             <View style={styles.infoHeader}>
               <Ionicons name="navigate-outline" size={18} color={Colors.blue} />
-              <Text style={styles.infoTitle}>How Dynamic Mode Works</Text>
+              <Text style={styles.infoTitle}>{t('settings.dynamicModeTitle')}</Text>
             </View>
             <Text style={styles.infoBody}>
-              In distance mode, the app uses live GPS speed to decide when to extract a frame. A
-              frame is saved every time you travel the set distance — so you get consistent spatial
-              coverage regardless of how fast you're moving.
+              {t('settings.dynamicModeBody')}
             </Text>
             <View style={styles.infoExamples}>
               <View style={styles.infoExample}>
@@ -628,7 +668,7 @@ export default function SettingsScreen() {
               <View style={styles.infoExampleDivider} />
               <View style={styles.infoExample}>
                 <Text style={styles.infoExampleSpeed}>0 mph</Text>
-                <Text style={styles.infoExampleFps}>No frames</Text>
+                <Text style={styles.infoExampleFps}>{t('settings.noFrames')}</Text>
               </View>
             </View>
           </View>
@@ -640,7 +680,7 @@ export default function SettingsScreen() {
         onClose={() => setWizardVisible(false)}
         onSaved={reloadConfig}
       />
-      <SuccessToast visible={showSuccessToast} message="Connection successful" />
+      <SuccessToast visible={showSuccessToast} message={t('settings.connectionSuccessful')} />
     </View>
   );
 }

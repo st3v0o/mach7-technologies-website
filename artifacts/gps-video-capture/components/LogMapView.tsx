@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Platform,
   Pressable,
@@ -10,6 +11,7 @@ import {
 
 import Colors from '@/constants/colors';
 import { LogEntry } from '@/contexts/RecordingContext';
+import { getCurrentLocale } from '@/src/i18n';
 
 export interface SessionSection {
   sessionId: string;
@@ -71,25 +73,14 @@ function calcRegion(sections: SessionSection[]): Region | null {
 }
 
 function formatTimestamp(ms: number): string {
+  const locale = getCurrentLocale();
   const d = new Date(ms);
   return (
-    d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) +
+    d.toLocaleDateString(locale, { month: 'short', day: 'numeric' }) +
     ' · ' +
-    d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+    d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
   );
 }
-
-type MapTypeOption = {
-  key: 'standard' | 'satellite' | 'hybrid' | 'mutedStandard';
-  label: string;
-};
-
-const MAP_TYPES: MapTypeOption[] = [
-  { key: 'standard',      label: 'Standard' },
-  { key: 'mutedStandard', label: 'Muted'    },
-  { key: 'satellite',     label: 'Satellite' },
-  { key: 'hybrid',        label: 'Hybrid'   },
-];
 
 export default function LogMapView({
   sections,
@@ -97,8 +88,16 @@ export default function LogMapView({
   onSelectEntry,
   onDemoPress,
 }: Props) {
+  const { t } = useTranslation();
   const [selected, setSelected] = useState<LogEntry | null>(null);
-  const [mapType, setMapType] = useState<MapTypeOption['key']>('standard');
+  const [mapType, setMapType] = useState<'standard' | 'satellite' | 'hybrid' | 'mutedStandard'>('standard');
+
+  const mapTypes = [
+    { key: 'standard' as const,      label: t('map.standard') },
+    { key: 'mutedStandard' as const, label: t('map.muted') },
+    { key: 'satellite' as const,     label: t('map.satellite') },
+    { key: 'hybrid' as const,        label: t('map.hybrid') },
+  ];
 
   const region = useMemo(() => calcRegion(sections), [sections]);
   const totalFrames = sections.reduce((acc, s) => acc + s.data.length, 0);
@@ -109,10 +108,8 @@ export default function LogMapView({
       <View style={styles.container}>
         <View style={styles.placeholder}>
           <Ionicons name="map-outline" size={48} color={Colors.textTertiary} />
-          <Text style={styles.emptyTitle}>Map not available in browser</Text>
-          <Text style={styles.emptySubtitle}>
-            Open in Expo Go on your device to see GPS frames on the map.
-          </Text>
+          <Text style={styles.emptyTitle}>{t('map.notAvailable')}</Text>
+          <Text style={styles.emptySubtitle}>{t('map.notAvailableDesc')}</Text>
         </View>
       </View>
     );
@@ -123,16 +120,14 @@ export default function LogMapView({
       <View style={styles.container}>
         <View style={styles.placeholder}>
           <Ionicons name="map-outline" size={48} color={Colors.textTertiary} />
-          <Text style={styles.emptyTitle}>No frames to map</Text>
-          <Text style={styles.emptySubtitle}>
-            Capture GPS-tagged frames to see them plotted here.
-          </Text>
+          <Text style={styles.emptyTitle}>{t('map.noFrames')}</Text>
+          <Text style={styles.emptySubtitle}>{t('map.noFramesDesc')}</Text>
           <Pressable
             onPress={onDemoPress}
             style={({ pressed }) => [styles.demoBtn, pressed && { opacity: 0.7 }]}
           >
             <Ionicons name="flask-outline" size={16} color={Colors.amber} />
-            <Text style={styles.demoBtnText}>Load demo data</Text>
+            <Text style={styles.demoBtnText}>{t('map.loadDemo')}</Text>
           </Pressable>
         </View>
       </View>
@@ -206,14 +201,15 @@ export default function LogMapView({
       <View style={styles.statsBar}>
         <Ionicons name="location" size={12} color={Colors.gpsGreen} />
         <Text style={styles.statsText}>
-          {totalFrames} frames · {sections.length} session
-          {sections.length !== 1 ? 's' : ''}
+          {sections.length === 1
+            ? t('map.framesStats', { count: totalFrames, sessions: sections.length })
+            : t('map.framesStatsSessions', { count: totalFrames, sessions: sections.length })}
         </Text>
       </View>
 
       {/* ── Map type picker ── */}
       <View style={styles.mapTypePicker}>
-        {MAP_TYPES.map((opt) => {
+        {mapTypes.map((opt) => {
           const active = mapType === opt.key;
           return (
             <Pressable

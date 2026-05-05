@@ -20,6 +20,7 @@ import {
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { runOnJS } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 
 import Colors from '@/constants/colors';
 import SuccessToast from '@/components/SuccessToast';
@@ -92,6 +93,7 @@ function GpsStatusDot({ status }: { status: string }) {
 
 export default function CaptureScreen() {
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   // iOS tab bar is 49pt; add the safe-area bottom inset (home indicator) on top
   const tabBarHeight = 49 + insets.bottom;
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
@@ -199,15 +201,15 @@ export default function CaptureScreen() {
     : '—';
 
   const mountLabel: Record<string, string> = {
-    vehicle: 'VEHICLE',
-    drone: 'DRONE',
-    handheld: 'HANDHELD',
-    bike: 'BIKE',
+    vehicle: t('capture.mountVehicle'),
+    drone: t('capture.mountDrone'),
+    handheld: t('capture.mountHandheld'),
+    bike: t('capture.mountBike'),
   };
 
   const captureModeLabel =
-    settings.captureMode === 'manual' ? 'MANUAL' :
-    settings.captureMode === 'photo' ? 'PHOTO' : 'AUTO';
+    settings.captureMode === 'manual' ? t('capture.modeManual') :
+    settings.captureMode === 'photo' ? t('capture.modePhoto') : t('capture.modeAuto');
 
   const cameraRef = useRef<CameraView>(null);
 
@@ -683,7 +685,7 @@ export default function CaptureScreen() {
   if (!cameraPermission || !micPermission) {
     return (
       <View style={[styles.permContainer, { paddingTop: insets.top + 20 }]}>
-        <Text style={styles.permText}>Loading...</Text>
+        <Text style={styles.permText}>{t('capture.loading')}</Text>
       </View>
     );
   }
@@ -692,9 +694,9 @@ export default function CaptureScreen() {
     return (
       <View style={[styles.permContainer, { paddingTop: insets.top + 20 }]}>
         <Ionicons name="videocam-off" size={48} color={Colors.textSecondary} style={{ marginBottom: 16 }} />
-        <Text style={styles.permTitle}>Camera Access Required</Text>
+        <Text style={styles.permTitle}>{t('capture.cameraRequired')}</Text>
         <Text style={styles.permSubtitle}>
-          Geospector needs camera access to record GPS-tagged video and photos.
+          {t('capture.cameraRequiredDesc')}
         </Text>
         <Pressable
           style={({ pressed }) => [styles.permButton, pressed && { opacity: 0.8 }]}
@@ -703,7 +705,7 @@ export default function CaptureScreen() {
             if (!micPermission.granted) await requestMicPermission();
           }}
         >
-          <Text style={styles.permButtonText}>Enable Camera</Text>
+          <Text style={styles.permButtonText}>{t('capture.enableCamera')}</Text>
         </Pressable>
       </View>
     );
@@ -724,7 +726,7 @@ export default function CaptureScreen() {
       ) : (
         <View style={[StyleSheet.absoluteFill, styles.webPlaceholder]}>
           <Ionicons name="videocam" size={64} color={Colors.textTertiary} />
-          <Text style={styles.webText}>Camera preview unavailable on web</Text>
+          <Text style={styles.webText}>{t('capture.cameraUnavailable')}</Text>
         </View>
       )}
 
@@ -743,9 +745,9 @@ export default function CaptureScreen() {
                        : Colors.amber,
                 },
               ]}>
-                {gpsStatus === 'locked' ? 'GPS LOCK' :
-                 gpsStatus === 'searching' ? 'ACQUIRING' :
-                 gpsStatus === 'denied' ? 'GPS DENIED' : 'GPS READY'}
+                {gpsStatus === 'locked' ? t('capture.gpsLock') :
+                 gpsStatus === 'searching' ? t('capture.acquiring') :
+                 gpsStatus === 'denied' ? t('capture.gpsDenied') : t('capture.gpsReady')}
               </Text>
             </View>
             {currentGps ? (
@@ -758,8 +760,8 @@ export default function CaptureScreen() {
               </Text>
             ) : (
               <Text style={styles.noGpsLine}>
-                {gpsStatus === 'searching' ? 'Acquiring…' :
-                 gpsStatus === 'idle' ? 'Starts when you record' : 'Check GPS permissions'}
+                {gpsStatus === 'searching' ? t('capture.acquiringGps') :
+                 gpsStatus === 'idle' ? t('capture.startsWhenRecord') : t('capture.checkGpsPerms')}
               </Text>
             )}
           </View>
@@ -811,12 +813,12 @@ export default function CaptureScreen() {
                   uploadJustDone && pendingCount === 0 && failedCount === 0 && { color: Colors.gpsGreen },
                 ]}>
                   {uploadJustDone && pendingCount === 0 && failedCount === 0
-                    ? 'All uploaded'
+                    ? t('capture.allUploaded')
                     : failedCount > 0 && pendingCount === 0
-                    ? `${failedCount} failed`
+                    ? t('capture.failed', { count: failedCount })
                     : failedCount > 0
-                    ? `${pendingCount} · ${failedCount} failed`
-                    : `${pendingCount} uploading`}
+                    ? t('capture.pendingAndFailed', { pending: pendingCount, failed: failedCount })
+                    : t('capture.uploading', { count: pendingCount })}
                 </Text>
               </Pressable>
             )}
@@ -829,7 +831,7 @@ export default function CaptureScreen() {
           <BlurView intensity={80} tint="dark" style={styles.processingBlur}>
             <Ionicons name="cog" size={14} color={Colors.amber} />
             <Text style={styles.processingText}>
-              Extracting frames… {Math.round(processingProgress)}%
+              {t('capture.extractingFrames', { progress: Math.round(processingProgress) })}
             </Text>
           </BlurView>
         </View>
@@ -840,7 +842,7 @@ export default function CaptureScreen() {
           <BlurView intensity={90} tint="dark" style={styles.envErrorBlur}>
             <Ionicons name="cloud-offline-outline" size={15} color={Colors.accent} style={styles.envErrorIcon} />
             <Text style={styles.envErrorText} numberOfLines={2}>
-              Cloud storage unreachable: {envTestError}
+              {t('capture.cloudUnreachable', { error: envTestError })}
             </Text>
             <Pressable
               onPress={handleRetryConnection}
@@ -851,7 +853,7 @@ export default function CaptureScreen() {
               {retryingEnvTest ? (
                 <ActivityIndicator size="small" color={Colors.textSecondary} style={{ width: 16, height: 16 }} />
               ) : (
-                <Text style={styles.envErrorRetryText}>Retry</Text>
+                <Text style={styles.envErrorRetryText}>{t('capture.retry')}</Text>
               )}
             </Pressable>
             <Pressable
@@ -880,7 +882,7 @@ export default function CaptureScreen() {
                 {formatCoord(currentGps.latitude, true)}{'  /  '}{formatCoord(currentGps.longitude, false)}
               </Text>
             ) : (
-              <Text style={styles.bigCoordsSearching}>Acquiring GPS…</Text>
+              <Text style={styles.bigCoordsSearching}>{t('capture.acquiringGpsBig')}</Text>
             )}
 
             {/* Job name — tappable to edit */}
@@ -894,7 +896,7 @@ export default function CaptureScreen() {
               >
                 {settings.jobName
                   ? settings.jobName.toUpperCase()
-                  : 'TAP TO NAME THIS JOB  ✎'}
+                  : t('capture.tapToNameJob')}
               </Text>
             </Pressable>
 
@@ -912,18 +914,18 @@ export default function CaptureScreen() {
             {/* SESSION | MODE | FRAMES stats */}
             <View style={styles.statsRow}>
               <View style={styles.statsCol}>
-                <Text style={styles.statsLabel}>SESSION</Text>
+                <Text style={styles.statsLabel}>{t('capture.session')}</Text>
                 <Text style={styles.statsValue}>{shortSessionId}</Text>
               </View>
               <View style={styles.statsDivider} />
               <View style={styles.statsCol}>
-                <Text style={styles.statsLabel}>MODE</Text>
+                <Text style={styles.statsLabel}>{t('capture.mode')}</Text>
                 <Text style={styles.statsValue}>{captureModeLabel}</Text>
               </View>
               <View style={styles.statsDivider} />
               <View style={styles.statsCol}>
                 <Text style={styles.statsLabel}>
-                  {settings.captureMode === 'video' ? 'FRAMES' : 'PHOTOS'}
+                  {settings.captureMode === 'video' ? t('capture.frames') : t('capture.photos')}
                 </Text>
                 <Text style={styles.statsValue}>
                   {'#'}
@@ -975,15 +977,15 @@ export default function CaptureScreen() {
               {isRecording && !isPaused ? (
                 <View style={styles.recIndicator}>
                   <View style={styles.recDot} />
-                  <Text style={styles.recLabel}>REC</Text>
+                  <Text style={styles.recLabel}>{t('capture.rec')}</Text>
                 </View>
               ) : isRecording && isPaused ? (
                 <View style={styles.recIndicator}>
                   <View style={[styles.recDot, { backgroundColor: Colors.amber }]} />
-                  <Text style={[styles.recLabel, { color: Colors.amber }]}>PAUSED</Text>
+                  <Text style={[styles.recLabel, { color: Colors.amber }]}>{t('capture.paused')}</Text>
                 </View>
               ) : (
-                <Text style={styles.readyLabel}>READY</Text>
+                <Text style={styles.readyLabel}>{t('capture.ready')}</Text>
               )}
             </View>
 
@@ -1059,7 +1061,7 @@ export default function CaptureScreen() {
                     styles.gpxButtonLabel,
                     isGpxTracking && { color: Colors.background },
                   ]}>
-                    {isGpxTracking ? 'STOP\nGPX' : 'START\nGPX'}
+                    {isGpxTracking ? t('capture.stopGpx') : t('capture.startGpx')}
                   </Text>
                 </Pressable>
               )}
@@ -1101,7 +1103,7 @@ export default function CaptureScreen() {
                 style={styles.jobNameInput}
                 value={jobNameDraft}
                 onChangeText={setJobNameDraft}
-                placeholder="e.g. Highway – Surface Condition Survey"
+                placeholder={t('capture.jobNamePlaceholder')}
                 placeholderTextColor="rgba(255,255,255,0.25)"
                 autoFocus
                 autoCapitalize="words"
@@ -1116,7 +1118,7 @@ export default function CaptureScreen() {
                   style={styles.modalBtnSecondary}
                   onPress={() => setShowJobNameModal(false)}
                 >
-                  <Text style={styles.modalBtnSecondaryText}>Cancel</Text>
+                  <Text style={styles.modalBtnSecondaryText}>{t('capture.cancel')}</Text>
                 </Pressable>
                 <Pressable
                   style={styles.modalBtnPrimary}
@@ -1125,7 +1127,7 @@ export default function CaptureScreen() {
                     setShowJobNameModal(false);
                   }}
                 >
-                  <Text style={styles.modalBtnPrimaryText}>Save</Text>
+                  <Text style={styles.modalBtnPrimaryText}>{t('capture.save')}</Text>
                 </Pressable>
               </View>
             </Pressable>
@@ -1157,7 +1159,7 @@ export default function CaptureScreen() {
       />
 
       {/* Connection retry success toast */}
-      <SuccessToast visible={showRetrySuccess} message="Connection successful" />
+      <SuccessToast visible={showRetrySuccess} message={t('settings.connectionSuccessful')} />
     </View>
     </GestureDetector>
   );

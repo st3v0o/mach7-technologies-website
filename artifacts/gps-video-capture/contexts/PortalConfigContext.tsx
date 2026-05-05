@@ -8,6 +8,7 @@ import React, {
 } from 'react';
 
 import { LogEntry } from '@/contexts/RecordingContext';
+import { getCurrentLocale } from '@/src/i18n';
 
 const PORTAL_URL_KEY = '@portal_url';
 const PORTAL_PUBLISHED_IDS_KEY = '@portal_published_ids';
@@ -123,7 +124,7 @@ export function PortalConfigProvider({ children }: { children: React.ReactNode }
 
       const session = {
         sessionId,
-        title: jobName ? `${jobName} — ${new Date(sorted[0]?.timestamp ?? Date.now()).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}` : null,
+        title: jobName ? `${jobName} — ${new Date(sorted[0]?.timestamp ?? Date.now()).toLocaleDateString(getCurrentLocale(), { month: 'short', day: 'numeric', year: 'numeric' })}` : null,
         captureMode: null,
         isPublic: true,
       };

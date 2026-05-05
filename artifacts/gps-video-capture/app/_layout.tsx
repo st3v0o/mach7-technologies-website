@@ -23,6 +23,7 @@ import { SettingsProvider } from '@/contexts/SettingsContext';
 import { StorageConfigProvider } from '@/contexts/StorageConfigContext';
 import { UploadProvider, useUpload } from '@/contexts/UploadContext';
 import { RecordingProvider, useRecording } from '@/contexts/RecordingContext';
+import { initI18n } from '@/src/i18n';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -86,10 +87,15 @@ export default function RootLayout() {
     Inter_700Bold,
   });
 
+  const [i18nReady, setI18nReady] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
 
   useEffect(() => {
-    if (fontsLoaded || fontError) {
+    initI18n().then(() => setI18nReady(true)).catch(() => setI18nReady(true));
+  }, []);
+
+  useEffect(() => {
+    if ((fontsLoaded || fontError) && i18nReady) {
       SplashScreen.hideAsync();
       AsyncStorage.getItem(ONBOARDING_KEY).then((value) => {
         if (value === null) {
@@ -97,7 +103,7 @@ export default function RootLayout() {
         }
       });
     }
-  }, [fontsLoaded, fontError]);
+  }, [fontsLoaded, fontError, i18nReady]);
 
   const handleDismiss = useCallback(async () => {
     try {
@@ -108,7 +114,7 @@ export default function RootLayout() {
     }
   }, []);
 
-  if (!fontsLoaded && !fontError) return null;
+  if ((!fontsLoaded && !fontError) || !i18nReady) return null;
 
   return (
     <SafeAreaProvider>
