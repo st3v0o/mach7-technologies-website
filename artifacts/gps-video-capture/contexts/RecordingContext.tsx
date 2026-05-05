@@ -96,6 +96,13 @@ function findNearestGps(timestamp: number, points: GpsPoint[]): GpsPoint | null 
   return nearest;
 }
 
+function csvEscape(value: string): string {
+  if (value.includes(',') || value.includes('"') || value.includes('\n')) {
+    return '"' + value.replace(/"/g, '""') + '"';
+  }
+  return value;
+}
+
 function makeSessionId(): string {
   const now = new Date();
   const pad = (n: number) => String(n).padStart(2, '0');
@@ -512,7 +519,7 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
             const lat = gpsLat.toFixed(7);
             const lon = gpsLon.toFixed(7);
             const ts = new Date(absTimestamp).toISOString();
-            csvAppend += `${filename},${ts},${lat},${lon},${segmentName},${destPath},${videoDestPath},${currentSession},,${snapshotJobName ?? ''}\n`;
+            csvAppend += `${filename},${ts},${lat},${lon},${segmentName},${destPath},${videoDestPath},${currentSession},,${csvEscape(snapshotJobName ?? '')}\n`;
 
             frameIndex++;
             setProcessingProgress(Math.min((t / durationMs) * 100, 99));
@@ -616,7 +623,7 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
         const lat = gpsLat.toFixed(7);
         const lon = gpsLon.toFixed(7);
         const ts = new Date(timestamp).toISOString();
-        const csvRow = `${filename},${ts},${lat},${lon},photo,${destPath},,${currentPhotoSession},,${snapshotPhotoJobName ?? ''}\n`;
+        const csvRow = `${filename},${ts},${lat},${lon},photo,${destPath},,${currentPhotoSession},,${csvEscape(snapshotPhotoJobName ?? '')}\n`;
 
         const existing = await FileSystem.readAsStringAsync(csvPath).catch(() => CSV_HEADER);
         await FileSystem.writeAsStringAsync(csvPath, existing + csvRow);
@@ -696,7 +703,7 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
           const parts = line.split(',');
           // CSV columns (0-based): 0=filename, 7=session_id, 8=supabase_url, 9=job_name
           if (parts.length >= 10 && parts[7] === sessionId) {
-            parts[9] = newName || '';
+            parts[9] = csvEscape(newName || '');
             return parts.join(',');
           }
           return line;

@@ -374,7 +374,7 @@ export default function CaptureScreen() {
   useEffect(() => {
     if (captureMode !== 'manual') return;
     setManualPhotoCount(0);
-    startGps();
+    startGps(settingsRef.current.jobName || undefined);
     return () => {
       // Stop any active GPX track before leaving manual mode
       if (isGpxTrackingRef.current) {
