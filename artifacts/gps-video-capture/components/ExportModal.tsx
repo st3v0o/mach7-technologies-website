@@ -4,9 +4,10 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import JSZip from 'jszip';
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Animated,
   Modal,
   Platform,
   Pressable,
@@ -236,6 +237,32 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
   const [newAtlasTokens, setNewAtlasTokens] = useState<{ sessionId: string; claimToken: string }[]>([]);
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
   const [atlasEmail, setAtlasEmail] = useState<string>('');
+  const [atlasConfirmOpen, setAtlasConfirmOpen] = useState(false);
+  const confirmAnim = useRef(new Animated.Value(0)).current;
+
+  function openAtlasConfirm() {
+    setAtlasConfirmOpen(true);
+    Animated.spring(confirmAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+      tension: 120,
+      friction: 10,
+    }).start();
+  }
+
+  function closeAtlasConfirm() {
+    Animated.timing(confirmAnim, {
+      toValue: 0,
+      duration: 160,
+      useNativeDriver: true,
+    }).start(() => setAtlasConfirmOpen(false));
+  }
+
+  function handleClose() {
+    setAtlasConfirmOpen(false);
+    confirmAnim.setValue(0);
+    onClose();
+  }
 
   const { publishSession, portalUrl, atlasSubmissions, importAtlasSubmissions } = usePortalConfig();
 
@@ -548,7 +575,7 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
       visible={visible}
       animationType="slide"
       presentationStyle="pageSheet"
-      onRequestClose={onClose}
+      onRequestClose={handleClose}
     >
       <View style={styles.root}>
         {/* Header */}
@@ -562,7 +589,7 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
             </Text>
           </View>
           <Pressable
-            onPress={onClose}
+            onPress={handleClose}
             style={({ pressed }) => [styles.closeBtn, pressed && { opacity: 0.6 }]}
             hitSlop={12}
           >
@@ -634,11 +661,18 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
             return (
               <React.Fragment key={opt.id}>
                 <Pressable
-                  onPress={() => run(opt.id, opt.handler)}
-                  disabled={isDisabled}
+                  onPress={() => {
+                    if (opt.id === 'atlas') {
+                      openAtlasConfirm();
+                    } else {
+                      run(opt.id, opt.handler);
+                    }
+                  }}
+                  disabled={isDisabled || (opt.id === 'atlas' && atlasConfirmOpen)}
                   style={({ pressed }) => [
                     styles.card,
-                    pressed && !isDisabled && { opacity: 0.8 },
+                    opt.id === 'atlas' && atlasConfirmOpen && styles.cardConfirmOpen,
+                    pressed && !isDisabled && !(opt.id === 'atlas' && atlasConfirmOpen) && { opacity: 0.8 },
                     isDisabled && !isLoading && { opacity: 0.4 },
                   ]}
                 >
@@ -673,12 +707,24 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
 
                   {/* Arrow */}
                   {!isLoading && (
-                    <Ionicons name="chevron-forward" size={16} color={Colors.textTertiary} />
+                    <Ionicons
+                      name={opt.id === 'atlas' && atlasConfirmOpen ? 'chevron-down' : 'chevron-forward'}
+                      size={16}
+                      color={Colors.textTertiary}
+                    />
                   )}
                 </Pressable>
 
-                {opt.id === 'atlas' && (
-                  <View style={styles.atlasEmailSection}>
+                {opt.id === 'atlas' && atlasConfirmOpen && (
+                  <Animated.View
+                    style={[
+                      styles.atlasConfirmPanel,
+                      {
+                        opacity: confirmAnim,
+                        transform: [{ translateY: confirmAnim.interpolate({ inputRange: [0, 1], outputRange: [-8, 0] }) }],
+                      },
+                    ]}
+                  >
                     <Text style={styles.atlasEmailLabel}>Your email (optional)</Text>
                     <TextInput
                       style={styles.atlasEmailInput}
@@ -688,12 +734,31 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
                       keyboardType="email-address"
                       autoCapitalize="none"
                       autoCorrect={false}
+                      autoFocus
                       placeholderTextColor={Colors.textTertiary}
                     />
                     <Text style={styles.atlasEmailHint}>
-                      Provide your email so you can request a delete link from the portal later — no delete code required.
+                      Enter your email so you can request a delete link from the portal later — no delete code required.
                     </Text>
-                  </View>
+                    <View style={styles.atlasConfirmButtons}>
+                      <Pressable
+                        onPress={closeAtlasConfirm}
+                        style={({ pressed }) => [styles.atlasConfirmCancel, pressed && { opacity: 0.6 }]}
+                      >
+                        <Text style={styles.atlasConfirmCancelText}>Cancel</Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => {
+                          closeAtlasConfirm();
+                          run(opt.id, opt.handler);
+                        }}
+                        style={({ pressed }) => [styles.atlasConfirmSubmit, pressed && { opacity: 0.85 }]}
+                      >
+                        <Ionicons name="globe-outline" size={15} color="#fff" />
+                        <Text style={styles.atlasConfirmSubmitText}>Submit to Atlas</Text>
+                      </Pressable>
+                    </View>
+                  </Animated.View>
                 )}
               </React.Fragment>
             );
@@ -917,18 +982,24 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_600SemiBold',
     fontSize: 12,
   },
-  atlasEmailSection: {
-    marginTop: -4,
+  cardConfirmOpen: {
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    borderBottomColor: 'transparent',
+  },
+  atlasConfirmPanel: {
+    marginTop: 0,
     marginBottom: 2,
     paddingHorizontal: 14,
-    paddingVertical: 12,
-    backgroundColor: 'rgba(10, 132, 255, 0.05)',
+    paddingTop: 14,
+    paddingBottom: 12,
+    backgroundColor: 'rgba(10, 132, 255, 0.06)',
     borderWidth: 1,
     borderTopWidth: 0,
-    borderColor: 'rgba(10, 132, 255, 0.15)',
-    borderBottomLeftRadius: 12,
-    borderBottomRightRadius: 12,
-    gap: 6,
+    borderColor: 'rgba(10, 132, 255, 0.2)',
+    borderBottomLeftRadius: 14,
+    borderBottomRightRadius: 14,
+    gap: 8,
   },
   atlasEmailLabel: {
     color: Colors.textSecondary,
@@ -942,7 +1013,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
     borderRadius: 8,
     paddingHorizontal: 10,
-    paddingVertical: 8,
+    paddingVertical: 9,
     color: Colors.text,
     fontFamily: 'Inter_400Regular',
     fontSize: 14,
@@ -952,5 +1023,38 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_400Regular',
     fontSize: 11,
     lineHeight: 15,
+  },
+  atlasConfirmButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 2,
+  },
+  atlasConfirmCancel: {
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 9,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  atlasConfirmCancelText: {
+    color: Colors.textSecondary,
+    fontFamily: 'Inter_500Medium',
+    fontSize: 14,
+  },
+  atlasConfirmSubmit: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 9,
+    borderRadius: 9,
+    backgroundColor: Colors.blue,
+  },
+  atlasConfirmSubmitText: {
+    color: '#fff',
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 14,
   },
 });
