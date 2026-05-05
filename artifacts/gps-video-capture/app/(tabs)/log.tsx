@@ -431,7 +431,7 @@ function SessionHeader({
     setSharing(false);
   };
 
-  const handlePublish = async () => {
+  const handlePublish = async (email?: string) => {
     if (publishing) return;
     if (!portalUrl) {
       Alert.alert(t('log.portalNotConfigured'), t('log.setPortalUrl'));
@@ -443,7 +443,8 @@ function SessionHeader({
       const { alreadyPublished: wasAlready } = await publishSession(
         section.sessionId,
         fullData,
-        section.jobName || undefined
+        section.jobName || undefined,
+        email,
       );
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setPublishMsg(wasAlready ? 'Already in portal' : 'Published!');
@@ -454,6 +455,28 @@ function SessionHeader({
     } finally {
       setPublishing(false);
       setTimeout(() => setPublishMsg(null), 3000);
+    }
+  };
+
+  const handlePublishTap = () => {
+    if (publishing || !portalUrl) {
+      if (!portalUrl) Alert.alert(t('log.portalNotConfigured'), t('log.setPortalUrl'));
+      return;
+    }
+    if (Platform.OS === 'ios') {
+      Alert.prompt(
+        'Submit to Atlas',
+        'Enter your email so you can request a delete link from the portal later (optional).',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Submit', onPress: (email: string | undefined) => handlePublish(email?.trim() || undefined) },
+        ],
+        'plain-text',
+        '',
+        'email-address',
+      );
+    } else {
+      handlePublish(undefined);
     }
   };
 
@@ -560,7 +583,7 @@ function SessionHeader({
         <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
           {!!portalUrl && !alreadyPublished && (
             <Pressable
-              onPress={(e) => { e.stopPropagation(); handlePublish(); }}
+              onPress={(e) => { e.stopPropagation(); handlePublishTap(); }}
               disabled={publishing || Platform.OS === 'web'}
               style={({ pressed }) => [sessionStyles.publishBtn, pressed && { opacity: 0.7 }]}
             >
@@ -707,7 +730,7 @@ export default function LogScreen() {
     });
   };
 
-  const handleBulkPublish = async () => {
+  const handleBulkPublish = async (email?: string) => {
     if (!portalUrl) {
       Alert.alert(t('log.portalNotConfigured'), t('log.setPortalUrl'));
       return;
@@ -720,7 +743,7 @@ export default function LogScreen() {
       const section = sections.find((s) => s.sessionId === sid);
       if (!section) continue;
       try {
-        await publishSession(sid, section.data, section.jobName || undefined);
+        await publishSession(sid, section.data, section.jobName || undefined, email);
         successCount++;
       } catch {
         errorCount++;
@@ -737,6 +760,30 @@ export default function LogScreen() {
       ? `Published ${successCount} sessions. ${errorCount} failed.`
       : `Published ${successCount} session${successCount !== 1 ? 's' : ''} to portal.`;
     Alert.alert('Bulk Publish', msg);
+  };
+
+  const handleBulkPublishTap = () => {
+    if (!portalUrl) {
+      Alert.alert(t('log.portalNotConfigured'), t('log.setPortalUrl'));
+      return;
+    }
+    if (selectedSessionIds.size === 0) return;
+    const count = selectedSessionIds.size;
+    if (Platform.OS === 'ios') {
+      Alert.prompt(
+        `Publish ${count} session${count !== 1 ? 's' : ''} to Atlas`,
+        'Enter your email so you can request a delete link from the portal later (optional).',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Publish', onPress: (email: string | undefined) => handleBulkPublish(email?.trim() || undefined) },
+        ],
+        'plain-text',
+        '',
+        'email-address',
+      );
+    } else {
+      handleBulkPublish(undefined);
+    }
   };
 
   // Hide the tab bar while the frame preview sheet is open
@@ -1071,7 +1118,7 @@ export default function LogScreen() {
       {isBulkMode && viewMode === 'list' && (
         <View style={[styles.bulkFooter, { bottom: insets.bottom + 49 + 8 }]}>
           <Pressable
-            onPress={handleBulkPublish}
+            onPress={handleBulkPublishTap}
             disabled={bulkPublishing || selectedSessionIds.size === 0}
             style={({ pressed }) => [
               styles.bulkPublishBtn,
