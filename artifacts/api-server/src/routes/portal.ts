@@ -27,6 +27,16 @@ import { XMLParser } from "fast-xml-parser";
 
 const router = Router();
 
+// ── Helper: strip claimToken before sending sessions to clients ──────────────
+
+function omitClaimToken<T extends { claimToken?: string | null }>(
+  session: T
+): Omit<T, "claimToken"> {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { claimToken: _ct, ...rest } = session;
+  return rest;
+}
+
 // ── Helper: compute session metrics from frames ─────────────────────────────
 
 function computeMetrics(frames: Array<{ latitude: number; longitude: number; speedMph: number | null; capturedAt: Date }>) {
@@ -93,7 +103,7 @@ router.get("/sessions", async (req, res) => {
     .limit(limit)
     .offset(offset);
 
-  res.json(sessions);
+  res.json(sessions.map(omitClaimToken));
 });
 
 // ── GET /portal/sessions/:id ─────────────────────────────────────────────────
@@ -115,7 +125,7 @@ router.get("/sessions/:id", async (req, res) => {
     return;
   }
 
-  res.json(session);
+  res.json(omitClaimToken(session));
 });
 
 // ── GET /portal/sessions/:id/frames ─────────────────────────────────────────
@@ -257,7 +267,7 @@ router.get("/share/:token", async (req, res) => {
     return;
   }
 
-  res.json(session);
+  res.json(omitClaimToken(session));
 });
 
 // ── POST /portal/import/mock ─────────────────────────────────────────────────
@@ -406,6 +416,7 @@ router.post("/import/session-json", async (req, res) => {
   const s = rawSession as Record<string, unknown>;
   const sessionId = String(s["session_id"] ?? s["sessionId"] ?? randomUUID());
   const shareToken = randomUUID();
+  const claimToken = randomUUID();
   const makePublic = s["isPublic"] === true || s["is_public"] === true;
 
   const [session] = await db
@@ -420,8 +431,9 @@ router.post("/import/session-json", async (req, res) => {
       uploadedFrames: mappedFrames.filter((f) => f.uploadStatus === "uploaded").length,
       ...metrics,
       routeGeojson: geojson as unknown as Record<string, unknown>,
-      sourceType: "import",
+      sourceType: "atlas",
       publicShareToken: shareToken,
+      claimToken,
       status: "active",
       thumbnailUrl: mappedFrames[0]?.imageUrl ?? null,
       isPublic: makePublic,
@@ -450,7 +462,8 @@ router.post("/import/session-json", async (req, res) => {
 
   await db.insert(portalFramesTable).values(frameValues);
 
-  res.json(session);
+  // Return claimToken once — client must persist it to delete later
+  res.json({ ...omitClaimToken(session), claimToken });
 });
 
 // ── POST /portal/import/gpx ──────────────────────────────────────────────────
@@ -608,7 +621,7 @@ router.get("/feed", async (req, res) => {
   ]);
 
   res.json({
-    sessions,
+    sessions: sessions.map(omitClaimToken),
     totalPublic: statsRow?.totalPublic ?? 0,
     totalPublicDistanceMiles: Number(statsRow?.totalPublicDistanceMiles ?? 0),
   });
@@ -645,7 +658,45 @@ router.patch("/sessions/:id/publish", async (req, res) => {
     return;
   }
 
-  res.json(session);
+  res.json(omitClaimToken(session));
+});
+
+// ── DELETE /portal/sessions/:id ─────────────────────────────────────────────
+// Accountless delete: caller must supply the claimToken issued at submit-time.
+
+router.delete("/sessions/:id", async (req, res) => {
+  const paramParsed = GetPortalSessionParams.safeParse({ id: Number(req.params.id) });
+  if (!paramParsed.success) {
+    res.status(400).json({ error: "Invalid session id" });
+    return;
+  }
+
+  const token = req.query["token"];
+  if (!token || typeof token !== "string") {
+    res.status(400).json({ error: "token query param is required" });
+    return;
+  }
+
+  const [session] = await db
+    .select()
+    .from(portalSessionsTable)
+    .where(eq(portalSessionsTable.id, paramParsed.data.id));
+
+  if (!session) {
+    res.status(404).json({ error: "Session not found" });
+    return;
+  }
+
+  if (!session.claimToken || session.claimToken !== token) {
+    res.status(401).json({ error: "Invalid claim token" });
+    return;
+  }
+
+  await db
+    .delete(portalSessionsTable)
+    .where(eq(portalSessionsTable.id, session.id));
+
+  res.json({ deleted: true, id: session.id });
 });
 
 // ── TODO: Future publish endpoints ───────────────────────────────────────────

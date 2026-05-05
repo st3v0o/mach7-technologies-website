@@ -16,6 +16,7 @@ import {
 
 import Colors from '@/constants/colors';
 import { LogEntry } from '@/contexts/RecordingContext';
+import { usePortalConfig } from '@/contexts/PortalConfigContext';
 
 interface Props {
   visible: boolean;
@@ -226,6 +227,9 @@ async function addGpxToZip(zip: JSZip, sessionIds: string[], folder = 'gpx_track
 export default function ExportModal({ visible, onClose, logEntries, sessionIds }: Props) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [atlasResult, setAtlasResult] = useState<{ success: boolean; message: string } | null>(null);
+
+  const { publishSession, portalUrl } = usePortalConfig();
 
   const photoCount = useMemo(
     () => logEntries.filter((e) => e.localPath).length,
@@ -239,6 +243,7 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
   async function run(id: string, fn: () => Promise<void>) {
     setActiveId(id);
     setError(null);
+    setAtlasResult(null);
     try {
       await fn();
     } catch (e) {
@@ -249,6 +254,50 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
   }
 
   const options: ExportOption[] = [
+    {
+      id: 'atlas',
+      icon: 'globe-outline',
+      iconColor: Colors.blue,
+      title: 'Submit to Geospector Atlas',
+      badge: 'Live',
+      badgeColor: Colors.blue,
+      description:
+        'Publish all sessions to the public Geospector Atlas map. A claim token is saved on-device so you can remove them later.',
+      tags: ['Portal', 'Live Map', 'Atlas'],
+      handler: async () => {
+        if (!portalUrl) {
+          throw new Error('Portal URL not configured. Set it in Settings → Portal URL.');
+        }
+        const bySession = new Map<string, LogEntry[]>();
+        for (const e of logEntries) {
+          if (!bySession.has(e.sessionId)) bySession.set(e.sessionId, []);
+          bySession.get(e.sessionId)!.push(e);
+        }
+        let successCount = 0;
+        let alreadyCount = 0;
+        const errors: string[] = [];
+        for (const [sid, entries] of bySession) {
+          try {
+            const { alreadyPublished } = await publishSession(sid, entries, entries[0]?.jobName);
+            if (alreadyPublished) alreadyCount++;
+            else successCount++;
+          } catch (e) {
+            errors.push(e instanceof Error ? e.message : 'Unknown error');
+          }
+        }
+        if (errors.length > 0 && successCount === 0 && alreadyCount === 0) {
+          throw new Error(errors[0]!);
+        }
+        const parts: string[] = [];
+        if (successCount > 0) parts.push(`${successCount} submitted`);
+        if (alreadyCount > 0) parts.push(`${alreadyCount} already in Atlas`);
+        if (errors.length > 0) parts.push(`${errors.length} failed`);
+        setAtlasResult({
+          success: errors.length === 0,
+          message: parts.join(', '),
+        });
+      },
+    },
     {
       id: 'full_archive',
       icon: 'archive-outline',
@@ -425,11 +474,24 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
           </View>
         )}
 
+        {atlasResult && (
+          <View style={[styles.errorBanner, atlasResult.success ? styles.successBanner : undefined]}>
+            <Ionicons
+              name={atlasResult.success ? 'checkmark-circle-outline' : 'warning-outline'}
+              size={14}
+              color={atlasResult.success ? Colors.gpsGreen : Colors.accent}
+            />
+            <Text style={[styles.errorText, atlasResult.success && { color: Colors.gpsGreen }]}>
+              {atlasResult.message}
+            </Text>
+          </View>
+        )}
+
         <ScrollView
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
         >
-          {options.map((opt, i) => {
+          {options.map((opt) => {
             const isLoading = activeId === opt.id;
             const isDisabled = !!activeId;
 
@@ -542,6 +604,10 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
     borderColor: 'rgba(255,59,48,0.25)',
+  },
+  successBanner: {
+    backgroundColor: 'rgba(48,209,88,0.08)',
+    borderColor: 'rgba(48,209,88,0.25)',
   },
   errorText: {
     color: Colors.accent,

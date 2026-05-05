@@ -399,7 +399,8 @@ function SessionHeader({
   const [sharing, setSharing] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [publishMsg, setPublishMsg] = useState<string | null>(null);
-  const { isPublished, publishSession, portalUrl } = usePortalConfig();
+  const { isPublished, publishSession, portalUrl, atlasSubmissions, removeFromAtlas } = usePortalConfig();
+  const atlasSubmission = atlasSubmissions[section.sessionId];
 
   const d = new Date(section.startMs);
   const dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -487,13 +488,43 @@ function SessionHeader({
               <Ionicons name="pencil-outline" size={11} color={Colors.textTertiary} />
             </Pressable>
           )}
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
             <Text style={sessionStyles.dateText}>{dateStr} · {timeStr}</Text>
             {alreadyPublished && (
               <View style={sessionStyles.publishedBadge}>
                 <Ionicons name="cloud-done-outline" size={10} color={Colors.gpsGreen} />
                 <Text style={sessionStyles.publishedBadgeText}>Published</Text>
               </View>
+            )}
+            {!!atlasSubmission && (
+              <Pressable
+                onPress={(e) => {
+                  e.stopPropagation();
+                  Alert.alert(
+                    'Remove from Atlas',
+                    'This will permanently remove this session from the public Geospector Atlas feed.',
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      {
+                        text: 'Remove',
+                        style: 'destructive',
+                        onPress: async () => {
+                          try {
+                            await removeFromAtlas(section.sessionId);
+                          } catch (err) {
+                            Alert.alert('Error', err instanceof Error ? err.message : 'Failed to remove from Atlas');
+                          }
+                        },
+                      },
+                    ]
+                  );
+                }}
+                style={({ pressed }) => [sessionStyles.atlasBadge, pressed && { opacity: 0.7 }]}
+                hitSlop={4}
+              >
+                <Ionicons name="globe-outline" size={10} color={Colors.blue} />
+                <Text style={sessionStyles.atlasBadgeText}>Atlas</Text>
+              </Pressable>
             )}
           </View>
           <Text style={sessionStyles.countText}>
@@ -1672,6 +1703,23 @@ const sessionStyles = StyleSheet.create({
     fontFamily: 'Inter_400Regular',
     fontSize: 11,
     marginTop: 2,
+  },
+  atlasBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 5,
+    borderWidth: 1,
+    borderColor: 'rgba(10,132,255,0.3)',
+    backgroundColor: 'rgba(10,132,255,0.08)',
+  },
+  atlasBadgeText: {
+    color: Colors.blue,
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 9,
+    letterSpacing: 0.3,
   },
   jobNameText: {
     color: Colors.text,

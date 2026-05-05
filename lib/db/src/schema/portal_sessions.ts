@@ -26,8 +26,9 @@ export const portalSessionsTable = pgTable("portal_sessions", {
   averageSpeedMph: real("average_speed_mph"),
   maxSpeedMph: real("max_speed_mph"),
   routeGeojson: jsonb("route_geojson"), // GeoJSON LineString or null; derived from frame coords if not provided
-  sourceType: text("source_type").notNull().default("import"), // 'supabase' | 'webhook' | 'import'
+  sourceType: text("source_type").notNull().default("import"), // 'supabase' | 'webhook' | 'import' | 'atlas'
   publicShareToken: text("public_share_token").unique(), // random UUID for /share/:token links
+  claimToken: text("claim_token").unique(), // secret UUID issued at submit-time; bearer can delete the session
   status: text("status").notNull().default("active"), // 'active' | 'archived'
   thumbnailUrl: text("thumbnail_url"), // URL of first frame image used as preview
   isPublic: boolean("is_public").notNull().default(false), // whether this session appears on the public feed

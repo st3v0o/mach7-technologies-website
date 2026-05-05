@@ -66,7 +66,7 @@ Express 5 API server. Routes live in `src/routes/` and use `@workspace/api-zod` 
 - Entry: `src/index.ts` — reads `PORT`, starts Express
 - App setup: `src/app.ts` — mounts CORS, JSON/urlencoded parsing, routes at `/api`
 - Routes: `src/routes/index.ts` mounts sub-routers; `src/routes/health.ts` exposes `GET /health`; `src/routes/portal.ts` exposes all Geospector Portal endpoints under `/api/portal/`
-- Portal API: sessions CRUD, frames, route GeoJSON, share token lookup, import from JSON/GPX, mock seed
+- Portal API: sessions CRUD, frames, route GeoJSON, share token lookup, import from JSON/GPX, mock seed; Atlas submit (POST /import/session-json — returns claimToken once); accountless delete (DELETE /sessions/:id?token=claimToken)
 - Geo helpers: `src/lib/geo.ts` — Haversine distance, GeoJSON LineString builder
 - Depends on: `@workspace/db`, `@workspace/api-zod`
 - `pnpm --filter @workspace/api-server run dev` — run the dev server
@@ -80,12 +80,18 @@ Geospector iOS app built with Expo SDK 54. Key contexts:
 - `SettingsContext` — frame capture settings, persisted to AsyncStorage at `@gps_capture_settings`
 - `RecordingContext` — live GPS capture, log entries (`LogEntry`), session tracking
 - `StorageConfigContext` — Supabase / webhook cloud storage connection
-- `PortalConfigContext` — Geospector Portal URL (default from `EXPO_PUBLIC_PORTAL_URL` env var, user-overridable via `@portal_url` in AsyncStorage) + published session ID tracking (`@portal_published_ids`). Exposes `publishSession(sessionId, entries, jobName)` which POSTs to `/api/portal/import/session-json`.
+- `PortalConfigContext` — Geospector Portal URL (default from `EXPO_PUBLIC_PORTAL_URL` env var, user-overridable via `@portal_url` in AsyncStorage) + published session ID tracking (`@portal_published_ids`) + Atlas submission tracking (`@atlas_submissions`). Exposes `publishSession`, `atlasSubmissions`, and `removeFromAtlas`.
+  - `publishSession(sessionId, entries, jobName)` — POSTs to `/api/portal/import/session-json`. On success, stores `{ atlasId, claimToken }` to `@atlas_submissions` keyed by sessionId.
+  - `removeFromAtlas(sessionId)` — DELETEs `/api/portal/sessions/:atlasId?token=<claimToken>` and clears from both `@atlas_submissions` and `@portal_published_ids`.
 
 Log tab (`app/(tabs)/log.tsx`) features:
 - Per-session **Publish** button in each `SessionHeader` — visible when `portalUrl` is set and session not yet published
 - **Published** badge on already-published sessions
+- **Atlas** badge (blue, tappable) on sessions submitted to Atlas — tapping shows a confirmation alert to remove from Atlas
 - **Bulk Select & Publish** mode with time-period chips (Today / This Week / This Month / This Year) and a sticky confirm button
+
+ExportModal (`components/ExportModal.tsx`) features:
+- **Submit to Geospector Atlas** card — first option, blue globe icon, submits all sessions and shows inline success/error feedback
 
 Settings screen (`app/(tabs)/settings.tsx`) features a **GEOSPECTOR PORTAL** section with a Portal URL text input.
 
@@ -99,7 +105,7 @@ Database layer using Drizzle ORM with PostgreSQL. Exports a Drizzle client insta
 
 - `src/index.ts` — creates a `Pool` + Drizzle instance, exports schema
 - `src/schema/index.ts` — barrel re-export of all models
-- `src/schema/portal_sessions.ts` — `portal_sessions` table (Geospector sessions: GPS route, metrics, share token)
+- `src/schema/portal_sessions.ts` — `portal_sessions` table (Geospector sessions: GPS route, metrics, share token, `claim_token` for accountless delete)
 - `src/schema/portal_frames.ts` — `portal_frames` table (individual GPS-tagged frames with image URLs)
 - `drizzle.config.ts` — Drizzle Kit config (requires `DATABASE_URL`, automatically provided by Replit)
 - Exports: `.` (pool, db, schema), `./schema` (schema only)
