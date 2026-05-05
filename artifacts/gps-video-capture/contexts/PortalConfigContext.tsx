@@ -160,7 +160,7 @@ export function PortalConfigProvider({ children }: { children: React.ReactNode }
       if (!baseUrl) throw new Error('Portal URL is not configured.');
 
       const response = await fetch(
-        `${baseUrl}/api/portal/sessions/${submission.atlasId}?token=${submission.claimToken}`,
+        `${baseUrl}/api/portal/sessions/${submission.atlasId}?token=${encodeURIComponent(submission.claimToken)}`,
         { method: 'DELETE' }
       );
 
