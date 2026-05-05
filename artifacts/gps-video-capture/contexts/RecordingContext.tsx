@@ -103,6 +103,24 @@ function csvEscape(value: string): string {
   return value;
 }
 
+function generateCsvFromEntries(entries: LogEntry[]): string {
+  const rows = entries.map((e) =>
+    [
+      csvEscape(e.filename),
+      new Date(e.timestamp).toISOString(),
+      e.latitude.toFixed(7),
+      e.longitude.toFixed(7),
+      csvEscape(e.videoSegment),
+      csvEscape(e.localPath),
+      csvEscape(e.videoPath),
+      csvEscape(e.sessionId),
+      csvEscape(e.supabaseUrl ?? ''),
+      csvEscape(e.jobName ?? ''),
+    ].join(',')
+  );
+  return CSV_HEADER + rows.join('\n') + (rows.length > 0 ? '\n' : '');
+}
+
 function makeSessionId(): string {
   const now = new Date();
   const pad = (n: number) => String(n).padStart(2, '0');
@@ -642,37 +660,24 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
   );
 
   const updateFrameUrl = useCallback(async (id: string, url: string) => {
-    let updatedFilename = '';
+    let updatedEntries: LogEntry[] = [];
+    let found = false;
 
     setLogEntries((prev) => {
-      const updated = prev.map((e) => {
-        if (e.id === id) {
-          updatedFilename = e.filename;
-          return { ...e, supabaseUrl: url };
-        }
+      updatedEntries = prev.map((e) => {
+        if (e.id === id) { found = true; return { ...e, supabaseUrl: url }; }
         return e;
       });
-      saveLog(updated);
-      return updated;
+      saveLog(updatedEntries);
+      return updatedEntries;
     });
 
-    if (!updatedFilename || Platform.OS === 'web' || !nativePathsRef.current) return;
+    if (!found || Platform.OS === 'web' || !nativePathsRef.current) return;
 
     try {
       const FileSystem = await import('expo-file-system/legacy');
       const { csvPath } = nativePathsRef.current;
-      const content = await FileSystem.readAsStringAsync(csvPath).catch(() => '');
-      const lines = content.split('\n');
-      const updated = lines.map((line) => {
-        const parts = line.split(',');
-        // CSV columns (0-based): 0=filename, 7=session_id, 8=supabase_url, 9=job_name
-        if (parts.length >= 9 && parts[0] === updatedFilename && parts[8] === '') {
-          parts[8] = url;
-          return parts.join(',');
-        }
-        return line;
-      });
-      await FileSystem.writeAsStringAsync(csvPath, updated.join('\n'));
+      await FileSystem.writeAsStringAsync(csvPath, generateCsvFromEntries(updatedEntries));
     } catch {}
   }, []);
 
@@ -683,13 +688,16 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
 
   const renameSessionJobName = useCallback(async (sessionId: string, newName: string) => {
     sessionJobNameMapRef.current.set(sessionId, newName || undefined);
+    let updatedEntries: LogEntry[] = [];
+
     setLogEntries((prev) => {
-      const updated = prev.map((e) =>
+      updatedEntries = prev.map((e) =>
         e.sessionId === sessionId ? { ...e, jobName: newName || undefined } : e
       );
-      saveLog(updated);
-      return updated;
+      saveLog(updatedEntries);
+      return updatedEntries;
     });
+
     if (Platform.OS !== 'web') {
       try {
         if (!nativePathsRef.current) {
@@ -697,18 +705,7 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
         }
         const FileSystem = await import('expo-file-system/legacy');
         const { csvPath } = nativePathsRef.current;
-        const content = await FileSystem.readAsStringAsync(csvPath).catch(() => '');
-        const lines = content.split('\n');
-        const updatedLines = lines.map((line) => {
-          const parts = line.split(',');
-          // CSV columns (0-based): 0=filename, 7=session_id, 8=supabase_url, 9=job_name
-          if (parts.length >= 10 && parts[7] === sessionId) {
-            parts[9] = csvEscape(newName || '');
-            return parts.join(',');
-          }
-          return line;
-        });
-        await FileSystem.writeAsStringAsync(csvPath, updatedLines.join('\n'));
+        await FileSystem.writeAsStringAsync(csvPath, generateCsvFromEntries(updatedEntries));
       } catch {}
     }
   }, []);
