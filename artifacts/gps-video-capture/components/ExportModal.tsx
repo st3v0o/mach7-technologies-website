@@ -231,7 +231,7 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
   const [error, setError] = useState<string | null>(null);
   const [atlasResult, setAtlasResult] = useState<{ success: boolean; message: string } | null>(null);
 
-  const { publishSession, portalUrl } = usePortalConfig();
+  const { publishSession, portalUrl, atlasSubmissions } = usePortalConfig();
 
   const photoCount = useMemo(
     () => logEntries.filter((e) => e.localPath).length,
@@ -264,7 +264,7 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
       badge: 'Live',
       badgeColor: Colors.blue,
       description:
-        'Publish all sessions to the public Geospector Atlas map. A claim token is saved on-device so you can remove them later.',
+        'Publish sessions to the public Geospector Atlas map. Claim tokens are stored on this device only — use "Backup Atlas Tokens" below to save them so you can remove sessions after reinstalling the app.',
       tags: ['Portal', 'Live Map', 'Atlas'],
       handler: async () => {
         if (!portalUrl) {
@@ -301,6 +301,31 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
       },
     },
     {
+      id: 'atlas_backup',
+      icon: 'key-outline',
+      iconColor: Colors.amber,
+      title: 'Backup Atlas Tokens',
+      description:
+        'Export your Atlas claim tokens as a JSON file. Store it safely — you need these to remove sessions from the Atlas if you reinstall the app or clear app storage.',
+      tags: ['Atlas', 'JSON', 'Backup'],
+      handler: async () => {
+        const entries = Object.entries(atlasSubmissions);
+        if (entries.length === 0) {
+          throw new Error('No Atlas submissions found. Submit sessions to the Atlas first.');
+        }
+        const backup = {
+          exported: new Date().toISOString(),
+          note: 'Keep this file safe. These tokens let you remove sessions from the Geospector Atlas. They are device-only and cannot be recovered if lost.',
+          sessions: atlasSubmissions,
+        };
+        await writeAndShare(
+          `geospector_atlas_tokens_${isoNow()}.json`,
+          JSON.stringify(backup, null, 2),
+          'application/json'
+        );
+      },
+    },
+    {
       id: 'full_archive',
       icon: 'archive-outline',
       iconColor: Colors.gpsGreen,
@@ -316,6 +341,16 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
           zip.file('frame_log.csv', generateCSV(logEntries));
           zip.file('geospector.geojson', generateGeoJSON(logEntries));
           zip.file('geospector.kml', generateKML(logEntries));
+          const sessionAtlasTokens = Object.fromEntries(
+            Object.entries(atlasSubmissions).filter(([sid]) => sessionIds.includes(sid))
+          );
+          if (Object.keys(sessionAtlasTokens).length > 0) {
+            zip.file('atlas_tokens.json', JSON.stringify({
+              exported: new Date().toISOString(),
+              note: 'Keep this file safe. These tokens let you remove sessions from the Geospector Atlas. They are device-only and cannot be recovered if lost.',
+              sessions: sessionAtlasTokens,
+            }, null, 2));
+          }
           zip.file('README.txt', [
             'Geospector Export',
             `Exported: ${new Date().toISOString()}`,
@@ -323,11 +358,14 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
             `Frames: ${logEntries.length} (${geotaggedCount} geotagged)`,
             '',
             'Contents:',
-            '  photos/        — all captured frames as JPEG',
-            '  gpx_tracks/    — per-session GPX route files',
-            '  frame_log.csv  — full frame database with coordinates',
+            '  photos/           — all captured frames as JPEG',
+            '  gpx_tracks/       — per-session GPX route files',
+            '  frame_log.csv     — full frame database with coordinates',
             '  geospector.geojson — GIS point layer (QGIS, ArcGIS, Mapbox)',
-            '  geospector.kml — Google Earth / Google Maps',
+            '  geospector.kml    — Google Earth / Google Maps',
+            ...(Object.keys(sessionAtlasTokens).length > 0
+              ? ['  atlas_tokens.json — Atlas claim tokens (keep safe — needed to remove sessions from Atlas)']
+              : []),
           ].join('\n'));
         });
       },
