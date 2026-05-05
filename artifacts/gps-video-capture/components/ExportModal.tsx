@@ -63,12 +63,17 @@ type ShareMapResult =
   | { type: 'url'; url: string }
   | { type: 'sent_no_url' };
 
-const PERIOD_CUTOFFS: Record<PeriodFilter, number> = {
-  all: 0,
-  today: 86_400_000,
-  week: 7 * 86_400_000,
-  month: 30 * 86_400_000,
-};
+function getPeriodCutoffMs(period: PeriodFilter): number {
+  if (period === 'all') return 0;
+  const now = new Date();
+  if (period === 'today') {
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  }
+  if (period === 'week') {
+    return now.getTime() - 7 * 24 * 60 * 60 * 1000;
+  }
+  return new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+}
 
 const THUMBNAIL_KB = 20;
 const MAX_MAP_KB = 10 * 1024;
@@ -133,7 +138,7 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
   const filteredEntries = useMemo(() => {
     let entries = logEntries;
     if (periodFilter !== 'all') {
-      const since = Date.now() - PERIOD_CUTOFFS[periodFilter];
+      const since = getPeriodCutoffMs(periodFilter);
       entries = entries.filter((e) => e.timestamp >= since);
     }
     if (selectedSessionIds !== null) {
@@ -296,9 +301,15 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
           try {
             const info = await FileSystem.getInfoAsync(entry.localPath);
             if (!info.exists) continue;
+            const probe = await ImageManipulator.manipulateAsync(
+              entry.localPath,
+              [],
+              { compress: 1, format: ImageManipulator.SaveFormat.JPEG }
+            );
+            const isPortrait = probe.height > probe.width;
             const result = await ImageManipulator.manipulateAsync(
               entry.localPath,
-              [{ resize: { width: 320 } }],
+              [{ resize: isPortrait ? { height: 320 } : { width: 320 } }],
               {
                 compress: 0.5,
                 format: ImageManipulator.SaveFormat.JPEG,
@@ -694,14 +705,10 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
   ];
 
   const filterBadgeLabel = isFilterActive
-    ? selectedSessionIds !== null
-      ? t('shareMap.filterBadge', {
-          selected: filteredSessionIds.length,
-          total: derivedSessions.length,
-        })
-      : periodFilter !== 'all'
-      ? filteredEntries.length + ' frames'
-      : null
+    ? t('shareMap.filterBadge', {
+        selected: filteredSessionIds.length,
+        total: derivedSessions.length,
+      })
     : null;
 
   return (
