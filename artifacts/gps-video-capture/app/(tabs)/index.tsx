@@ -112,7 +112,6 @@ export default function CaptureScreen() {
     processSegment,
     savePhoto,
     exportManualGpxTrack,
-    snapshotSessionJobName,
   } = useRecording();
 
   const { pendingCount, failedCount, isCloudConfigured } = useUpload();
@@ -592,10 +591,9 @@ export default function CaptureScreen() {
 
   const handleStartRecording = useCallback(async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-    snapshotSessionJobName(settingsRef.current.jobName || undefined);
     isRecordingRef.current = true;
     setIsRecording(true);
-    startGps();
+    startGps(settingsRef.current.jobName || undefined);
 
     if (settingsRef.current.captureMode === 'photo') {
       setElapsedSeconds(0);
@@ -613,7 +611,7 @@ export default function CaptureScreen() {
       currentSegNumRef.current = segmentCount;
       runRecordingLoop();
     }
-  }, [micPermission, requestMicPermission, startGps, runRecordingLoop, startPhotoLoop, segmentCount, snapshotSessionJobName]);
+  }, [micPermission, requestMicPermission, startGps, runRecordingLoop, startPhotoLoop, segmentCount]);
 
   const handleStopRecording = useCallback(async () => {
     await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);

@@ -50,7 +50,7 @@ interface RecordingContextType {
   logEntries: LogEntry[];
   sessionId: string;
   gpsPointsRef: React.MutableRefObject<GpsPoint[]>;
-  startGps: () => Promise<void>;
+  startGps: (jobName?: string) => Promise<void>;
   stopGps: (mode?: 'video' | 'photo' | 'manual') => void;
   pauseGps: () => void;
   resumeGps: () => void;
@@ -225,7 +225,7 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const startGps = useCallback(async () => {
+  const startGps = useCallback(async (jobName?: string) => {
     if (Platform.OS === 'web') return;
     setGpsStatus('searching');
     // Reset all segment tracking
@@ -237,6 +237,7 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
     const sid = makeSessionId();
     sessionIdRef.current = sid;
     setSessionId(sid);
+    sessionJobNameMapRef.current.set(sid, jobName || undefined);
 
     const fgPerm = await Location.requestForegroundPermissionsAsync();
     if (!fgPerm.granted) {
@@ -656,8 +657,11 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
       const content = await FileSystem.readAsStringAsync(csvPath).catch(() => '');
       const lines = content.split('\n');
       const updated = lines.map((line) => {
-        if (line.startsWith(updatedFilename + ',') && line.endsWith(',')) {
-          return line.slice(0, -1) + url;
+        const parts = line.split(',');
+        // CSV columns (0-based): 0=filename, 7=session_id, 8=supabase_url, 9=job_name
+        if (parts.length >= 9 && parts[0] === updatedFilename && parts[8] === '') {
+          parts[8] = url;
+          return parts.join(',');
         }
         return line;
       });
@@ -679,6 +683,27 @@ export function RecordingProvider({ children }: { children: React.ReactNode }) {
       saveLog(updated);
       return updated;
     });
+    if (Platform.OS !== 'web') {
+      try {
+        if (!nativePathsRef.current) {
+          nativePathsRef.current = await getOrCreatePaths();
+        }
+        const FileSystem = await import('expo-file-system/legacy');
+        const { csvPath } = nativePathsRef.current;
+        const content = await FileSystem.readAsStringAsync(csvPath).catch(() => '');
+        const lines = content.split('\n');
+        const updatedLines = lines.map((line) => {
+          const parts = line.split(',');
+          // CSV columns (0-based): 0=filename, 7=session_id, 8=supabase_url, 9=job_name
+          if (parts.length >= 10 && parts[7] === sessionId) {
+            parts[9] = newName || '';
+            return parts.join(',');
+          }
+          return line;
+        });
+        await FileSystem.writeAsStringAsync(csvPath, updatedLines.join('\n'));
+      } catch {}
+    }
   }, []);
 
   const shareLog = useCallback(async () => {
