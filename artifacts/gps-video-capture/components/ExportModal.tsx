@@ -599,7 +599,7 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
             </Text>
             {newAtlasTokens.map(({ sessionId, claimToken }) => (
               <View key={sessionId} style={styles.tokenRow}>
-                <Text style={styles.tokenText} numberOfLines={1} selectable>
+                <Text style={styles.tokenText} selectable>
                   {claimToken}
                 </Text>
                 <Pressable

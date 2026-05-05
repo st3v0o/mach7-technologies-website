@@ -141,7 +141,7 @@ export default function SessionDetail() {
         { method: "DELETE" }
       );
       if (res.status === 401) {
-        setDeleteError("Invalid delete code. Check that you copied it correctly.");
+        setDeleteError("Invalid delete code.");
         return;
       }
       if (res.status === 404) {
