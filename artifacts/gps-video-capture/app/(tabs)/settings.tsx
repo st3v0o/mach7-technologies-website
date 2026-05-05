@@ -356,7 +356,14 @@ export default function SettingsScreen() {
                 <TextInput
                   style={[styles.sliderValue, styles.sliderValueInput, isFeetFocused && styles.sliderValueInputFocused]}
                   value={feetInputText}
-                  onChangeText={setFeetInputText}
+                  onChangeText={(text) => {
+                    setFeetInputText(text);
+                    const parsed = parseInt(text, 10);
+                    if (!isNaN(parsed) && text.trim() !== '') {
+                      const clamped = Math.max(DYNAMIC_FEET_MIN, Math.min(DYNAMIC_FEET_MAX, parsed));
+                      updateSettings({ dynamicMeters: feetToMeters(clamped) });
+                    }
+                  }}
                   keyboardType="number-pad"
                   returnKeyType="done"
                   maxLength={4}
