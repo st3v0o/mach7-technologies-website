@@ -4,10 +4,10 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import FeedPage from "@/pages/FeedPage";
-import SessionList from "@/pages/SessionList";
 import SessionDetail from "@/pages/SessionDetail";
 import SharePage from "@/pages/SharePage";
 import ImportPage from "@/pages/ImportPage";
+import { DarkModeCtx, useDarkModeInit } from "@/hooks/useDarkMode";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -19,7 +19,6 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={FeedPage} />
-      <Route path="/sessions" component={SessionList} />
       <Route path="/sessions/:id" component={SessionDetail} />
       <Route path="/share/:token" component={SharePage} />
       <Route path="/import" component={ImportPage} />
@@ -28,15 +27,24 @@ function Router() {
   );
 }
 
-export default function App() {
+function AppShell() {
+  const darkMode = useDarkModeInit();
   return (
-    <QueryClientProvider client={queryClient}>
+    <DarkModeCtx.Provider value={darkMode}>
       <TooltipProvider>
         <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
           <Router />
         </WouterRouter>
         <Toaster />
       </TooltipProvider>
+    </DarkModeCtx.Provider>
+  );
+}
+
+export default function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <AppShell />
     </QueryClientProvider>
   );
 }

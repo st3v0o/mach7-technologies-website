@@ -13,10 +13,10 @@ interface MetricItemProps {
 
 function MetricItem({ label, value, sub }: MetricItemProps) {
   return (
-    <div className="flex flex-col items-center px-4 py-3 bg-slate-800 rounded-lg min-w-[100px]">
-      <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">{label}</span>
-      <span className="text-xl font-bold text-white mt-1">{value}</span>
-      {sub && <span className="text-xs text-slate-500 mt-0.5">{sub}</span>}
+    <div className="flex flex-col items-center px-4 py-3 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg min-w-[100px] shadow-sm">
+      <span className="text-xs font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wider">{label}</span>
+      <span className="text-xl font-bold text-gray-900 dark:text-white mt-1">{value}</span>
+      {sub && <span className="text-xs text-gray-400 dark:text-slate-500 mt-0.5">{sub}</span>}
     </div>
   );
 }

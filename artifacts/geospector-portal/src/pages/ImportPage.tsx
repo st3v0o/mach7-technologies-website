@@ -4,9 +4,11 @@ import {
   useImportMockPortalSession,
   useImportPortalSessionJson,
   getListPortalSessionsQueryKey,
+  getGetPortalFeedQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, MapPin, Plus, Upload } from "lucide-react";
+import { Plus, Upload } from "lucide-react";
+import Layout from "@/components/Layout";
 
 export default function ImportPage() {
   const [, navigate] = useLocation();
@@ -19,6 +21,7 @@ export default function ImportPage() {
     mutation: {
       onSuccess(data) {
         qc.invalidateQueries({ queryKey: getListPortalSessionsQueryKey() });
+        qc.invalidateQueries({ queryKey: getGetPortalFeedQueryKey() });
         navigate(`/sessions/${data.id}`);
       },
     },
@@ -28,6 +31,7 @@ export default function ImportPage() {
     mutation: {
       onSuccess(data) {
         qc.invalidateQueries({ queryKey: getListPortalSessionsQueryKey() });
+        qc.invalidateQueries({ queryKey: getGetPortalFeedQueryKey() });
         navigate(`/sessions/${data.id}`);
       },
       onError(err) {
@@ -55,46 +59,34 @@ export default function ImportPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 text-white">
-      <header className="border-b border-slate-700 bg-slate-800/80 backdrop-blur sticky top-0 z-10">
-        <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
-          <button
-            onClick={() => navigate("/")}
-            className="flex items-center gap-1.5 text-slate-400 hover:text-white transition-colors text-sm"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Sessions
-          </button>
-          <div className="h-4 w-px bg-slate-600" />
-          <div className="flex items-center gap-2">
-            <MapPin className="h-4 w-4 text-blue-400" />
-            <h1 className="font-semibold">Import Session</h1>
-          </div>
+    <Layout>
+      <div className="max-w-3xl mx-auto px-4 py-8 w-full flex flex-col gap-8">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Import Session</h1>
+          <p className="text-gray-500 dark:text-slate-400 text-sm mt-1">Add GPS session data to the portal.</p>
         </div>
-      </header>
 
-      <main className="max-w-3xl mx-auto px-4 py-8 flex flex-col gap-8">
-        <section className="bg-slate-800 rounded-xl border border-slate-700 p-6">
-          <h2 className="font-semibold text-lg mb-1">Demo Session</h2>
-          <p className="text-slate-400 text-sm mb-4">
-            Generate a realistic demo GPS session along the Guadalupe River Trail in San Jose, CA. Great for exploring the portal's map view and frame features.
+        <section className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200 dark:border-slate-700 p-6 shadow-sm">
+          <h2 className="font-semibold text-lg text-gray-900 dark:text-white mb-1">Demo Session</h2>
+          <p className="text-gray-500 dark:text-slate-400 text-sm mb-5">
+            Generate a realistic demo GPS session along the Guadalupe River Trail in San Jose, CA.
           </p>
           <button
             onClick={() => importMock()}
             disabled={mockPending}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-50 transition-colors font-medium"
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-50 transition-colors font-medium shadow-sm"
           >
             <Plus className="h-4 w-4" />
             {mockPending ? "Generating…" : "Generate demo session"}
           </button>
         </section>
 
-        <section className="bg-slate-800 rounded-xl border border-slate-700 p-6">
-          <h2 className="font-semibold text-lg mb-1">Import Session JSON</h2>
-          <p className="text-slate-400 text-sm mb-4">
+        <section className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200 dark:border-slate-700 p-6 shadow-sm">
+          <h2 className="font-semibold text-lg text-gray-900 dark:text-white mb-1">Import Session JSON</h2>
+          <p className="text-gray-500 dark:text-slate-400 text-sm mb-5">
             Paste a Geospector session export in JSON format. The JSON must have a{" "}
-            <code className="text-blue-300 bg-slate-700 px-1 py-0.5 rounded text-xs">session</code> object
-            and a <code className="text-blue-300 bg-slate-700 px-1 py-0.5 rounded text-xs">frames</code> array.
+            <code className="text-blue-600 dark:text-blue-300 bg-blue-50 dark:bg-slate-700 px-1 py-0.5 rounded text-xs">session</code> object
+            and a <code className="text-blue-600 dark:text-blue-300 bg-blue-50 dark:bg-slate-700 px-1 py-0.5 rounded text-xs">frames</code> array.
           </p>
 
           <form onSubmit={handleJsonSubmit} className="flex flex-col gap-3">
@@ -103,22 +95,22 @@ export default function ImportPage() {
               onChange={(e) => setJsonText(e.target.value)}
               placeholder={`{\n  "session": { "sessionId": "...", "title": "..." },\n  "frames": [\n    { "latitude": 37.33, "longitude": -121.89 }\n  ]\n}`}
               rows={10}
-              className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2.5 text-sm font-mono text-slate-200 placeholder-slate-600 focus:outline-none focus:border-blue-500 resize-y"
+              className="w-full bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-600 rounded-xl px-3 py-2.5 text-sm font-mono text-gray-900 dark:text-slate-200 placeholder-gray-400 dark:placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-y"
             />
             {jsonError && (
-              <p className="text-red-400 text-sm">{jsonError}</p>
+              <p className="text-red-500 dark:text-red-400 text-sm">{jsonError}</p>
             )}
             <button
               type="submit"
               disabled={jsonPending || !jsonText.trim()}
-              className="self-start flex items-center gap-2 px-5 py-2.5 rounded-lg bg-green-700 hover:bg-green-600 disabled:opacity-50 transition-colors font-medium"
+              className="self-start flex items-center gap-2 px-5 py-2.5 rounded-xl bg-green-600 hover:bg-green-500 text-white disabled:opacity-50 transition-colors font-medium shadow-sm"
             >
               <Upload className="h-4 w-4" />
               {jsonPending ? "Importing…" : "Import session"}
             </button>
           </form>
         </section>
-      </main>
-    </div>
+      </div>
+    </Layout>
   );
 }

@@ -16,13 +16,9 @@ export default function FrameFilmstrip({ frames, selectedFrameId, onSelectFrame 
     el?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
   }, [selectedFrameId]);
 
-  function handleClick(frame: PortalFrame) {
-    onSelectFrame(frame);
-  }
-
   if (frames.length === 0) {
     return (
-      <div className="flex items-center justify-center h-24 bg-slate-800/50 rounded-lg text-slate-500 text-sm">
+      <div className="flex items-center justify-center h-24 bg-gray-100 dark:bg-slate-800/50 rounded-lg text-gray-400 dark:text-slate-500 text-sm">
         No frames available
       </div>
     );
@@ -32,7 +28,7 @@ export default function FrameFilmstrip({ frames, selectedFrameId, onSelectFrame 
     <div
       ref={stripRef}
       className="flex gap-2 overflow-x-auto pb-2 scroll-smooth"
-      style={{ scrollbarWidth: "thin", scrollbarColor: "#334155 transparent" }}
+      style={{ scrollbarWidth: "thin", scrollbarColor: "#cbd5e1 transparent" }}
     >
       {frames.map((frame) => {
         const isSelected = frame.id === selectedFrameId;
@@ -40,10 +36,12 @@ export default function FrameFilmstrip({ frames, selectedFrameId, onSelectFrame 
           <button
             key={frame.id}
             data-frame-id={frame.id}
-            onClick={() => handleClick(frame)}
+            onClick={() => onSelectFrame(frame)}
             className={`
               flex-none relative rounded overflow-hidden border-2 transition-all cursor-pointer
-              ${isSelected ? "border-blue-400 ring-1 ring-blue-400" : "border-slate-700 hover:border-slate-400"}
+              ${isSelected
+                ? "border-blue-500 ring-2 ring-blue-400/40"
+                : "border-gray-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-slate-400"}
             `}
             style={{ width: 96, height: 72 }}
           >
@@ -55,8 +53,8 @@ export default function FrameFilmstrip({ frames, selectedFrameId, onSelectFrame 
                 loading="lazy"
               />
             ) : (
-              <div className="w-full h-full bg-slate-700 flex items-center justify-center">
-                <span className="text-xs text-slate-400">#{frame.frameIndex}</span>
+              <div className="w-full h-full bg-gray-100 dark:bg-slate-700 flex items-center justify-center">
+                <span className="text-xs text-gray-400 dark:text-slate-400">#{frame.frameIndex}</span>
               </div>
             )}
             <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[10px] px-1 py-0.5 text-center">

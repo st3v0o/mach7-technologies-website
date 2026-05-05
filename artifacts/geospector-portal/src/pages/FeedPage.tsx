@@ -1,8 +1,14 @@
+import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { useGetPortalFeed, useImportMockPortalSession, getGetPortalFeedQueryKey } from "@workspace/api-client-react";
-import { MapPin, Route, Clock, Plus, Globe, ArrowRight, Layers } from "lucide-react";
+import {
+  useGetPortalFeed,
+  useImportMockPortalSession,
+  getGetPortalFeedQueryKey,
+} from "@workspace/api-client-react";
+import { MapPin, Route, Clock, Plus, Globe, ArrowRight, Layers, Search, Map, AlertCircle } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { PortalSession } from "@workspace/api-client-react";
+import Layout from "@/components/Layout";
 
 function formatDate(dateStr: string): string {
   try {
@@ -24,8 +30,8 @@ function formatDuration(seconds: number | null | undefined): string {
 
 function FeedCard({ session }: { session: PortalSession }) {
   return (
-    <div className="bg-slate-800 rounded-xl border border-slate-700 hover:border-blue-500/50 transition-all group overflow-hidden flex flex-col">
-      <div className="relative overflow-hidden bg-slate-700" style={{ height: 160 }}>
+    <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-500/50 hover:shadow-md transition-all group overflow-hidden flex flex-col">
+      <div className="relative overflow-hidden bg-gray-100 dark:bg-slate-700" style={{ height: 160 }}>
         {session.thumbnailUrl ? (
           <img
             src={session.thumbnailUrl}
@@ -33,12 +39,13 @@ function FeedCard({ session }: { session: PortalSession }) {
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <MapPin className="h-10 w-10 text-slate-500" />
+          <div className="w-full h-full flex flex-col items-center justify-center gap-2">
+            <Map className="h-10 w-10 text-gray-300 dark:text-slate-500" />
+            <span className="text-xs text-gray-400 dark:text-slate-500">No preview</span>
           </div>
         )}
         <div className="absolute top-2 left-2">
-          <span className="flex items-center gap-1 bg-green-600/90 text-white text-xs px-2 py-0.5 rounded-full font-medium backdrop-blur">
+          <span className="flex items-center gap-1 bg-green-500/90 text-white text-xs px-2 py-0.5 rounded-full font-medium backdrop-blur shadow-sm">
             <Globe className="h-3 w-3" />
             Public
           </span>
@@ -47,27 +54,27 @@ function FeedCard({ session }: { session: PortalSession }) {
 
       <div className="p-4 flex flex-col flex-1 gap-3">
         <div>
-          <h3 className="font-semibold text-white group-hover:text-blue-300 transition-colors line-clamp-2 leading-snug">
+          <h3 className="font-semibold text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-300 transition-colors line-clamp-2 leading-snug">
             {session.title ?? session.sessionId}
           </h3>
-          <p className="text-xs text-slate-400 mt-1">{formatDate(session.createdAt)}</p>
+          <p className="text-xs text-gray-400 dark:text-slate-400 mt-1">{formatDate(session.createdAt)}</p>
         </div>
 
-        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-400">
+        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500 dark:text-slate-400">
           {session.totalDistanceMiles != null && (
             <span className="flex items-center gap-1">
-              <Route className="h-3 w-3" />
+              <Route className="h-3 w-3 text-blue-500" />
               {session.totalDistanceMiles.toFixed(2)} mi
             </span>
           )}
           {session.durationSeconds != null && (
             <span className="flex items-center gap-1">
-              <Clock className="h-3 w-3" />
+              <Clock className="h-3 w-3 text-blue-500" />
               {formatDuration(session.durationSeconds)}
             </span>
           )}
           <span className="flex items-center gap-1">
-            <Layers className="h-3 w-3" />
+            <Layers className="h-3 w-3 text-blue-500" />
             {session.totalFrames} frames
           </span>
         </div>
@@ -75,7 +82,7 @@ function FeedCard({ session }: { session: PortalSession }) {
         <div className="mt-auto pt-1">
           <Link
             href={`/sessions/${session.id}`}
-            className="flex items-center justify-center gap-1.5 w-full py-1.5 rounded-lg bg-blue-600/20 text-blue-300 hover:bg-blue-600/40 hover:text-white transition-colors text-sm font-medium"
+            className="flex items-center justify-center gap-1.5 w-full py-2 rounded-xl bg-blue-50 dark:bg-blue-600/20 text-blue-600 dark:text-blue-300 hover:bg-blue-600 hover:text-white dark:hover:bg-blue-600/40 dark:hover:text-white transition-colors text-sm font-medium border border-blue-100 dark:border-blue-700/30"
           >
             View Map
             <ArrowRight className="h-3.5 w-3.5" />
@@ -90,6 +97,7 @@ export default function FeedPage() {
   const { data, isLoading, error } = useGetPortalFeed();
   const qc = useQueryClient();
   const [, navigate] = useLocation();
+  const [search, setSearch] = useState("");
 
   const { mutate: importMock, isPending: importing } = useImportMockPortalSession({
     mutation: {
@@ -104,106 +112,132 @@ export default function FeedPage() {
   const totalPublic = data?.totalPublic ?? 0;
   const totalMiles = data?.totalPublicDistanceMiles ?? 0;
 
+  const filtered = search.trim()
+    ? sessions.filter((s) =>
+        (s.title ?? s.sessionId).toLowerCase().includes(search.trim().toLowerCase())
+      )
+    : sessions;
+
   return (
-    <div className="min-h-screen bg-slate-900 text-white">
-      <header className="border-b border-slate-700 bg-slate-800/80 backdrop-blur sticky top-0 z-10">
-        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <MapPin className="h-5 w-5 text-blue-400" />
-            <span className="font-bold text-lg tracking-tight">Geospector Portal</span>
+    <Layout showDemoButton={false}>
+      <section className="bg-gradient-to-br from-blue-600 to-blue-700 dark:from-blue-700 dark:to-slate-900 text-white py-14 px-4">
+        <div className="max-w-6xl mx-auto">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="bg-white/20 rounded-lg p-1.5">
+              <MapPin className="h-5 w-5" />
+            </div>
+            <span className="text-blue-100 text-sm font-medium uppercase tracking-widest">Geospector Portal</span>
           </div>
-          <div className="flex items-center gap-2">
-            <Link
-              href="/sessions"
-              className="text-sm px-3 py-1.5 rounded-lg border border-slate-600 text-slate-300 hover:border-blue-500 hover:text-white transition-colors"
-            >
-              Manage Sessions →
-            </Link>
+          <h1 className="text-4xl sm:text-5xl font-bold leading-tight mb-4">
+            Explore the World,<br />
+            <span className="text-blue-200">One Frame at a Time</span>
+          </h1>
+          <p className="text-blue-100 text-lg max-w-xl mb-8">
+            GPS survey sessions captured with the Geospector app — browse real-world routes, frame-by-frame.
+          </p>
+          <div className="flex flex-wrap gap-3">
             <button
               onClick={() => importMock()}
               disabled={importing}
-              className="text-sm px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-50 transition-colors flex items-center gap-1.5"
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white text-blue-600 hover:bg-blue-50 disabled:opacity-60 transition-colors font-semibold shadow-md"
             >
-              <Plus className="h-3.5 w-3.5" />
-              {importing ? "Generating…" : "Demo Session"}
+              <Plus className="h-4 w-4" />
+              {importing ? "Generating…" : "Generate Demo Session"}
             </button>
           </div>
         </div>
-      </header>
+      </section>
 
-      <main className="max-w-6xl mx-auto px-4 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-white mb-2">Community Map Feed</h1>
-          <p className="text-slate-400 text-base max-w-xl">
-            GPS survey sessions published by the Geospector community. Each map shows a real-world route captured with the Geospector app.
-          </p>
-        </div>
-
-        {!isLoading && !error && (
+      <section className="max-w-6xl mx-auto px-4 py-8 w-full flex-1">
+        {!isLoading && !error && (sessions.length > 0) && (
           <div className="flex gap-4 mb-8 flex-wrap">
-            <div className="bg-slate-800 rounded-lg px-5 py-3 flex items-center gap-3 border border-slate-700">
-              <Globe className="h-5 w-5 text-green-400" />
+            <div className="bg-white dark:bg-slate-800 rounded-xl px-5 py-3 flex items-center gap-3 border border-gray-200 dark:border-slate-700 shadow-sm">
+              <Globe className="h-5 w-5 text-green-500" />
               <div>
-                <p className="text-xs text-slate-400 uppercase tracking-wide">Maps Shared</p>
-                <p className="text-2xl font-bold text-white">{totalPublic}</p>
+                <p className="text-xs text-gray-400 dark:text-slate-400 uppercase tracking-wide font-medium">Maps Shared</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">{totalPublic}</p>
               </div>
             </div>
-            <div className="bg-slate-800 rounded-lg px-5 py-3 flex items-center gap-3 border border-slate-700">
-              <Route className="h-5 w-5 text-blue-400" />
+            <div className="bg-white dark:bg-slate-800 rounded-xl px-5 py-3 flex items-center gap-3 border border-gray-200 dark:border-slate-700 shadow-sm">
+              <Route className="h-5 w-5 text-blue-500" />
               <div>
-                <p className="text-xs text-slate-400 uppercase tracking-wide">Total Distance</p>
-                <p className="text-2xl font-bold text-white">{totalMiles.toFixed(1)} mi</p>
+                <p className="text-xs text-gray-400 dark:text-slate-400 uppercase tracking-wide font-medium">Total Distance</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">{totalMiles.toFixed(1)} mi</p>
               </div>
             </div>
+          </div>
+        )}
+
+        {!isLoading && !error && sessions.length > 0 && (
+          <div className="relative mb-6">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-slate-500" />
+            <input
+              type="search"
+              placeholder="Search by project name…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm shadow-sm"
+            />
           </div>
         )}
 
         {isLoading && (
-          <div className="flex items-center justify-center py-24 text-slate-400">
-            Loading feed…
+          <div className="flex items-center justify-center py-24 text-gray-400 dark:text-slate-500">
+            <div className="flex flex-col items-center gap-3">
+              <div className="animate-spin rounded-full h-8 w-8 border-2 border-blue-500 border-t-transparent" />
+              <span className="text-sm">Loading sessions…</span>
+            </div>
           </div>
         )}
 
         {error && (
-          <div className="rounded-lg bg-red-900/30 border border-red-700 p-4 text-red-300 text-sm">
-            Failed to load feed. Make sure the API server is running.
+          <div className="rounded-xl bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 p-5 flex items-start gap-3 text-red-600 dark:text-red-300">
+            <AlertCircle className="h-5 w-5 flex-none mt-0.5" />
+            <div>
+              <p className="font-medium text-sm">Failed to load sessions</p>
+              <p className="text-xs mt-1 text-red-500 dark:text-red-400">Make sure the API server is running.</p>
+            </div>
           </div>
         )}
 
         {!isLoading && !error && sessions.length === 0 && (
           <div className="flex flex-col items-center justify-center py-24 text-center">
-            <Globe className="h-16 w-16 text-slate-700 mb-5" />
-            <h2 className="text-xl font-semibold text-slate-300 mb-2">No published maps yet</h2>
-            <p className="text-slate-500 max-w-sm mb-6">
-              Generate a demo session, then publish it to make it appear here on the public feed.
-            </p>
-            <div className="flex gap-3 flex-wrap justify-center">
-              <button
-                onClick={() => importMock()}
-                disabled={importing}
-                className="px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-50 transition-colors flex items-center gap-2"
-              >
-                <Plus className="h-4 w-4" />
-                {importing ? "Generating…" : "Generate demo session"}
-              </button>
-              <Link
-                href="/sessions"
-                className="px-5 py-2 rounded-lg border border-slate-600 text-slate-300 hover:border-blue-500 hover:text-white transition-colors"
-              >
-                Manage Sessions
-              </Link>
+            <div className="bg-blue-50 dark:bg-blue-900/20 rounded-full p-6 mb-5">
+              <Map className="h-12 w-12 text-blue-300 dark:text-blue-500" />
             </div>
+            <h2 className="text-2xl font-semibold text-gray-700 dark:text-slate-300 mb-2">No maps published yet</h2>
+            <p className="text-gray-500 dark:text-slate-500 max-w-sm mb-8">
+              Generate a demo session to see how the portal looks with real GPS data.
+            </p>
+            <button
+              onClick={() => importMock()}
+              disabled={importing}
+              className="flex items-center gap-2 px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-50 transition-colors font-semibold shadow-md"
+            >
+              <Plus className="h-4 w-4" />
+              {importing ? "Generating…" : "Generate demo session"}
+            </button>
           </div>
         )}
 
-        {!isLoading && sessions.length > 0 && (
+        {!isLoading && !error && sessions.length > 0 && filtered.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <Search className="h-10 w-10 text-gray-300 dark:text-slate-600 mb-3" />
+            <p className="text-gray-500 dark:text-slate-400">No sessions match "{search}"</p>
+            <button onClick={() => setSearch("")} className="mt-3 text-blue-500 text-sm hover:underline">
+              Clear search
+            </button>
+          </div>
+        )}
+
+        {!isLoading && filtered.length > 0 && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {sessions.map((session) => (
+            {filtered.map((session) => (
               <FeedCard key={session.id} session={session} />
             ))}
           </div>
         )}
-      </main>
-    </div>
+      </section>
+    </Layout>
   );
 }

@@ -3,12 +3,15 @@ import { MapContainer, TileLayer, Polyline, Marker, Popup, useMap } from "react-
 import type { PortalFrame } from "@workspace/api-client-react";
 import L from "leaflet";
 
-interface SessionMapProps {
+export interface SessionMapProps {
   routeGeojson?: { [key: string]: unknown } | null;
   frames: PortalFrame[];
   selectedFrameId?: number;
   onMarkerClick: (frame: PortalFrame) => void;
   sessionTitle?: string | null;
+  showRoute?: boolean;
+  tileLayer?: "osm" | "satellite";
+  fitBoundsTrigger?: number;
 }
 
 function extractLineStringCoords(geojson: { [key: string]: unknown } | null | undefined): [number, number][] {
@@ -19,18 +22,30 @@ function extractLineStringCoords(geojson: { [key: string]: unknown } | null | un
   return coords.map(([lon, lat]) => [lat, lon] as [number, number]);
 }
 
-function FitBounds({ positions }: { positions: [number, number][] }) {
+function FitBounds({ positions, trigger }: { positions: [number, number][]; trigger?: number }) {
   const map = useMap();
-  const fitted = useRef(false);
+  const prevTrigger = useRef<number | undefined>(undefined);
+  const initialFit = useRef(false);
+
   useEffect(() => {
-    if (!fitted.current && positions.length >= 2) {
+    if (positions.length < 2) return;
+    if (!initialFit.current) {
       try {
         map.fitBounds(positions as L.LatLngBoundsExpression, { padding: [40, 40] });
-        fitted.current = true;
-      } catch {
-      }
+        initialFit.current = true;
+      } catch {}
     }
   }, [map, positions]);
+
+  useEffect(() => {
+    if (trigger == null || trigger === prevTrigger.current) return;
+    prevTrigger.current = trigger;
+    if (positions.length < 2) return;
+    try {
+      map.fitBounds(positions as L.LatLngBoundsExpression, { padding: [40, 40], animate: true });
+    } catch {}
+  }, [trigger, map, positions]);
+
   return null;
 }
 
@@ -111,7 +126,21 @@ function FrameMarkers({
   );
 }
 
-export default function SessionMap({ routeGeojson, frames, selectedFrameId, onMarkerClick, sessionTitle }: SessionMapProps) {
+const OSM_TILE = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
+const OSM_ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
+const SAT_TILE = "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
+const SAT_ATTR = "Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community";
+
+export default function SessionMap({
+  routeGeojson,
+  frames,
+  selectedFrameId,
+  onMarkerClick,
+  sessionTitle,
+  showRoute = true,
+  tileLayer = "osm",
+  fitBoundsTrigger,
+}: SessionMapProps) {
   const linePositions = extractLineStringCoords(routeGeojson);
   const center: [number, number] = linePositions[0] ?? [37.3387, -121.8853];
 
@@ -121,19 +150,21 @@ export default function SessionMap({ routeGeojson, frames, selectedFrameId, onMa
       zoom={15}
       style={{ height: "100%", width: "100%" }}
     >
-      <TileLayer
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-      />
+      {tileLayer === "satellite" ? (
+        <TileLayer url={SAT_TILE} attribution={SAT_ATTR} maxZoom={18} />
+      ) : (
+        <TileLayer url={OSM_TILE} attribution={OSM_ATTR} />
+      )}
 
       {linePositions.length >= 2 && (
-        <>
-          <FitBounds positions={linePositions} />
-          <Polyline
-            positions={linePositions as L.LatLngExpression[]}
-            pathOptions={{ color: "#3b82f6", weight: 4, opacity: 0.85 }}
-          />
-        </>
+        <FitBounds positions={linePositions} trigger={fitBoundsTrigger} />
+      )}
+
+      {showRoute && linePositions.length >= 2 && (
+        <Polyline
+          positions={linePositions as L.LatLngExpression[]}
+          pathOptions={{ color: "#3b82f6", weight: 4, opacity: 0.85 }}
+        />
       )}
 
       <FrameMarkers
