@@ -27,7 +27,8 @@ export default function SignInScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [verifyCode, setVerifyCode] = useState('');
-  const [ssoLoading, setSsoLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [appleLoading, setAppleLoading] = useState(false);
 
   useEffect(() => {
     if (Platform.OS !== 'android') return;
@@ -50,10 +51,9 @@ export default function SignInScreen() {
             return;
           }
           const url = decorateUrl('/');
-          if (url.startsWith('http')) {
-            return;
+          if (!url.startsWith('http')) {
+            router.push(url as Href);
           }
-          router.push(url as Href);
         },
       });
     } else if (signIn.status === 'needs_client_trust') {
@@ -64,7 +64,6 @@ export default function SignInScreen() {
         await signIn.mfa.sendEmailCode();
       }
     } else if (signIn.status === 'needs_second_factor') {
-      // MFA — not yet handled
       console.log('MFA required:', signIn.status);
     }
   };
@@ -87,11 +86,12 @@ export default function SignInScreen() {
     }
   };
 
-  const handleGoogle = useCallback(async () => {
+  const handleSSO = useCallback(async (strategy: 'oauth_google' | 'oauth_apple') => {
+    const setLoading = strategy === 'oauth_google' ? setGoogleLoading : setAppleLoading;
     try {
-      setSsoLoading(true);
+      setLoading(true);
       const { createdSessionId, setActive } = await startSSOFlow({
-        strategy: 'oauth_google',
+        strategy,
         redirectUrl: AuthSession.makeRedirectUri(),
       });
       if (createdSessionId) {
@@ -107,13 +107,14 @@ export default function SignInScreen() {
         });
       }
     } catch (e) {
-      console.error('Google SSO error:', JSON.stringify(e, null, 2));
+      console.error(`${strategy} SSO error:`, JSON.stringify(e, null, 2));
     } finally {
-      setSsoLoading(false);
+      setLoading(false);
     }
   }, [startSSOFlow, router]);
 
-  const isLoading = fetchStatus === 'fetching' || ssoLoading;
+  const isPasswordLoading = fetchStatus === 'fetching';
+  const anySsoLoading = googleLoading || appleLoading;
 
   if (signIn.status === 'needs_client_trust') {
     return (
@@ -130,11 +131,13 @@ export default function SignInScreen() {
         />
         {errors.fields.code && <Text style={styles.error}>{errors.fields.code.message}</Text>}
         <Pressable
-          style={[styles.primaryBtn, isLoading && styles.disabled]}
+          style={[styles.primaryBtn, isPasswordLoading && styles.disabled]}
           onPress={handleVerify}
-          disabled={isLoading}
+          disabled={isPasswordLoading}
         >
-          {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryBtnText}>Verify</Text>}
+          {isPasswordLoading
+            ? <ActivityIndicator color="#fff" />
+            : <Text style={styles.primaryBtnText}>Verify</Text>}
         </Pressable>
         <Pressable onPress={() => signIn.mfa.sendEmailCode()}>
           <Text style={styles.link}>Resend code</Text>
@@ -156,18 +159,28 @@ export default function SignInScreen() {
         <Text style={styles.subtitle}>Access your Atlas maps on any device</Text>
 
         <Pressable
-          style={[styles.socialBtn, ssoLoading && styles.disabled]}
-          onPress={handleGoogle}
-          disabled={isLoading}
+          style={[styles.socialBtn, (anySsoLoading || isPasswordLoading) && styles.disabled]}
+          onPress={() => handleSSO('oauth_google')}
+          disabled={anySsoLoading || isPasswordLoading}
         >
-          {ssoLoading
-            ? <ActivityIndicator color="#fff" size="small" />
+          {googleLoading
+            ? <ActivityIndicator color="#e2e8f0" size="small" />
             : <Text style={styles.socialBtnText}>Continue with Google</Text>}
+        </Pressable>
+
+        <Pressable
+          style={[styles.socialBtn, styles.appleSocialBtn, (anySsoLoading || isPasswordLoading) && styles.disabled]}
+          onPress={() => handleSSO('oauth_apple')}
+          disabled={anySsoLoading || isPasswordLoading}
+        >
+          {appleLoading
+            ? <ActivityIndicator color="#000" size="small" />
+            : <Text style={[styles.socialBtnText, styles.appleBtnText]}>Continue with Apple</Text>}
         </Pressable>
 
         <View style={styles.dividerRow}>
           <View style={styles.dividerLine} />
-          <Text style={styles.dividerText}>or</Text>
+          <Text style={styles.dividerText}>or sign in with email</Text>
           <View style={styles.dividerLine} />
         </View>
 
@@ -196,11 +209,11 @@ export default function SignInScreen() {
         {errors.fields.password && <Text style={styles.error}>{errors.fields.password.message}</Text>}
 
         <Pressable
-          style={[styles.primaryBtn, (isLoading || !email || !password) && styles.disabled]}
+          style={[styles.primaryBtn, (isPasswordLoading || anySsoLoading || !email || !password) && styles.disabled]}
           onPress={handleEmailSignIn}
-          disabled={isLoading || !email || !password}
+          disabled={isPasswordLoading || anySsoLoading || !email || !password}
         >
-          {fetchStatus === 'fetching'
+          {isPasswordLoading
             ? <ActivityIndicator color="#fff" />
             : <Text style={styles.primaryBtnText}>Sign in</Text>}
         </Pressable>
@@ -266,13 +279,18 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     alignItems: 'center',
   },
+  appleSocialBtn: {
+    backgroundColor: '#fff',
+    borderColor: '#fff',
+  },
   socialBtnText: { color: '#e2e8f0', fontWeight: '600', fontSize: 15 },
+  appleBtnText: { color: '#000' },
   disabled: { opacity: 0.5 },
   dividerRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   dividerLine: { flex: 1, height: 1, backgroundColor: '#1e293b' },
-  dividerText: { color: '#64748b', fontSize: 13 },
+  dividerText: { color: '#64748b', fontSize: 12 },
   error: { color: '#ef4444', fontSize: 12, marginTop: -4 },
   footer: { flexDirection: 'row', justifyContent: 'center', marginTop: 8 },
   footerText: { color: '#94a3b8', fontSize: 14 },
-  link: { color: '#3b82f6', fontSize: 14, fontWeight: '500' },
+  link: { color: '#3b82f6', fontSize: 14, fontWeight: '500', textAlign: 'center', marginTop: 4 },
 });

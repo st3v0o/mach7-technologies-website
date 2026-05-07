@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, type Request, type Response, type NextFunction } from "express";
 import { randomUUID } from "crypto";
 import { getAuth } from "@clerk/express";
 import { db } from "@workspace/db";
@@ -28,11 +28,16 @@ import {
 import { haversineDistanceMiles, buildLineString } from "../lib/geo.js";
 import { XMLParser } from "fast-xml-parser";
 
+/** Express Request extended with the Clerk userId resolved by auth middleware. */
+interface AuthedRequest extends Request {
+  userId?: string | null;
+}
+
 const router = Router();
 
 // ── Auth helpers ─────────────────────────────────────────────────────────────
 
-function optionalAuth(req: any, _res: any, next: any) {
+function optionalAuth(req: AuthedRequest, _res: Response, next: NextFunction): void {
   try {
     const auth = getAuth(req);
     req.userId = auth?.userId ?? null;
@@ -42,7 +47,7 @@ function optionalAuth(req: any, _res: any, next: any) {
   next();
 }
 
-function requireAuth(req: any, res: any, next: any) {
+function requireAuth(req: AuthedRequest, res: Response, next: NextFunction): void {
   try {
     const auth = getAuth(req);
     if (!auth?.userId) {
@@ -511,7 +516,7 @@ router.post("/import/session-json", async (req, res) => {
       thumbnailUrl: mappedFrames[0]?.imageUrl ?? null,
       isPublic: makePublic,
       publishedAt: makePublic ? new Date() : null,
-      userId: (req as any).userId ?? undefined,
+      userId: (req as AuthedRequest).userId ?? undefined,
     } satisfies InsertPortalSession)
     .returning();
 
@@ -914,15 +919,17 @@ router.delete("/sessions/:id", async (req, res) => {
 // ── Authenticated user endpoints ─────────────────────────────────────────────
 
 router.get("/my-sessions", requireAuth, async (req, res) => {
+  const authedReq = req as AuthedRequest;
   const sessions = await db
     .select()
     .from(portalSessionsTable)
-    .where(eq(portalSessionsTable.userId, (req as any).userId))
+    .where(eq(portalSessionsTable.userId, authedReq.userId!))
     .orderBy(desc(portalSessionsTable.createdAt));
   res.json(sessions.map(omitSensitiveFields));
 });
 
 router.delete("/my-sessions/:id", requireAuth, async (req, res) => {
+  const authedReq = req as AuthedRequest;
   const id = Number(req.params.id);
   if (isNaN(id)) {
     res.status(400).json({ error: "Invalid session id" });
@@ -935,7 +942,7 @@ router.delete("/my-sessions/:id", requireAuth, async (req, res) => {
     .where(
       and(
         eq(portalSessionsTable.id, id),
-        eq(portalSessionsTable.userId, (req as any).userId)
+        eq(portalSessionsTable.userId, authedReq.userId!)
       )
     );
 

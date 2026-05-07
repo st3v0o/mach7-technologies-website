@@ -3,8 +3,11 @@
   "compilerOptions": {
     "baseUrl": ".",
     "strict": true,
+    "skipLibCheck": true,
+    "customConditions": [],
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./*"],
+      "expo-modules-core": ["./node_modules/expo-modules-core"]
     }
   },
   "include": [

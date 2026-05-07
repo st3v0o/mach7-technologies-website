@@ -19,7 +19,9 @@ import type {
 import type {
   ContactRequest,
   ContactResponse,
+  DeleteMyPortalSession200,
   ErrorResponse,
+  GetMyPortalSessionsParams,
   GetPortalFeed200,
   GetPortalFeedParams,
   GetPortalSessionFrames200,
@@ -206,6 +208,195 @@ export function useHealthCheck<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * Returns sessions where user_id matches the authenticated Clerk user. Requires Bearer token.
+ * @summary List sessions owned by the authenticated user
+ */
+export const getGetMyPortalSessionsUrl = (
+  params?: GetMyPortalSessionsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/portal/my-sessions?${stringifiedParams}`
+    : `/api/portal/my-sessions`;
+};
+
+export const getMyPortalSessions = async (
+  params?: GetMyPortalSessionsParams,
+  options?: RequestInit,
+): Promise<PortalSession[]> => {
+  return customFetch<PortalSession[]>(getGetMyPortalSessionsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetMyPortalSessionsQueryKey = (
+  params?: GetMyPortalSessionsParams,
+) => {
+  return [`/api/portal/my-sessions`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetMyPortalSessionsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getMyPortalSessions>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params?: GetMyPortalSessionsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getMyPortalSessions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetMyPortalSessionsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getMyPortalSessions>>
+  > = ({ signal }) =>
+    getMyPortalSessions(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getMyPortalSessions>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetMyPortalSessionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getMyPortalSessions>>
+>;
+export type GetMyPortalSessionsQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary List sessions owned by the authenticated user
+ */
+
+export function useGetMyPortalSessions<
+  TData = Awaited<ReturnType<typeof getMyPortalSessions>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  params?: GetMyPortalSessionsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getMyPortalSessions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetMyPortalSessionsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Permanently deletes the session and its frames. Requires Bearer token and ownership.
+ * @summary Delete a session owned by the authenticated user
+ */
+export const getDeleteMyPortalSessionUrl = (id: number) => {
+  return `/api/portal/my-sessions/${id}`;
+};
+
+export const deleteMyPortalSession = async (
+  id: number,
+  options?: RequestInit,
+): Promise<DeleteMyPortalSession200> => {
+  return customFetch<DeleteMyPortalSession200>(
+    getDeleteMyPortalSessionUrl(id),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
+
+export const getDeleteMyPortalSessionMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteMyPortalSession>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteMyPortalSession>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteMyPortalSession"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteMyPortalSession>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteMyPortalSession(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteMyPortalSessionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteMyPortalSession>>
+>;
+
+export type DeleteMyPortalSessionMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Delete a session owned by the authenticated user
+ */
+export const useDeleteMyPortalSession = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteMyPortalSession>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteMyPortalSession>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteMyPortalSessionMutationOptions(options));
+};
 
 /**
  * Returns all public sessions ordered by publishedAt descending

@@ -115,6 +115,16 @@ export interface ImportGpxRequest {
   title?: string;
 }
 
+export type GetMyPortalSessionsParams = {
+  limit?: number;
+  offset?: number;
+};
+
+export type DeleteMyPortalSession200 = {
+  deleted: boolean;
+  id: number;
+};
+
 export type GetPortalFeedParams = {
   limit?: number;
   offset?: number;

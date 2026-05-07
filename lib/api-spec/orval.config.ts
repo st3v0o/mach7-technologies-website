@@ -48,12 +48,13 @@ export default defineConfig({
       },
     },
     output: {
-      workspace: apiZodSrc,
+      // No `workspace` here — targets the file directly so Orval does NOT
+      // generate a barrel index.ts at the src/ level (which causes TS2308
+      // duplicate-export conflicts with the types/ directory).
+      target: path.join(apiZodSrc, "generated", "api.ts"),
       client: "zod",
-      target: "generated",
-      schemas: { path: "generated/types", type: "typescript" },
-      mode: "split",
-      clean: true,
+      mode: "single",
+      clean: false,
       prettier: true,
       override: {
         zod: {
