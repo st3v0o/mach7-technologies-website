@@ -10,10 +10,13 @@ export interface AtlasShareInput {
   authToken?: string | null;
 }
 
+export const LOCAL_PHOTO_RELAY_LIMIT = 50;
+
 export interface AtlasShareResult {
   shareUrl: string;
   atlasId: number;
   alreadyPublished: boolean;
+  skippedLocalPhotos: number;
 }
 
 async function getLocalImageBase64(localPath: string): Promise<string | null> {
@@ -55,11 +58,19 @@ export async function shareViaAtlas(input: AtlasShareInput): Promise<AtlasShareR
 
   const title = jobName ? `${jobName} — ${dateLabel}` : null;
 
+  let localRelayCount = 0;
+  let skippedLocalPhotos = 0;
+
   const frames = await Promise.all(
     sorted.map(async (e, i) => {
       let imageData: string | null = null;
       if (!e.supabaseUrl && e.localPath) {
-        imageData = await getLocalImageBase64(e.localPath);
+        if (localRelayCount < LOCAL_PHOTO_RELAY_LIMIT) {
+          localRelayCount++;
+          imageData = await getLocalImageBase64(e.localPath);
+        } else {
+          skippedLocalPhotos++;
+        }
       }
       return {
         frameIndex: i,
@@ -103,7 +114,7 @@ export async function shareViaAtlas(input: AtlasShareInput): Promise<AtlasShareR
   if (data.alreadyPublished) {
     const shareToken: string = data.publicShareToken ?? '';
     const shareUrl = shareToken ? `${baseUrl}/share/${shareToken}` : '';
-    return { shareUrl, atlasId: typeof data.id === 'number' ? data.id : 0, alreadyPublished: true };
+    return { shareUrl, atlasId: typeof data.id === 'number' ? data.id : 0, alreadyPublished: true, skippedLocalPhotos };
   }
 
   const shareToken: string = data.publicShareToken ?? '';
@@ -114,5 +125,5 @@ export async function shareViaAtlas(input: AtlasShareInput): Promise<AtlasShareR
   const shareUrl = `${baseUrl}/share/${shareToken}`;
   const atlasId: number = typeof data.id === 'number' ? data.id : 0;
 
-  return { shareUrl, atlasId, alreadyPublished: false };
+  return { shareUrl, atlasId, alreadyPublished: false, skippedLocalPhotos };
 }

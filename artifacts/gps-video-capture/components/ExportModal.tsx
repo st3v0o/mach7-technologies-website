@@ -246,6 +246,7 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
         }
         let successCount = 0;
         let alreadyCount = 0;
+        let totalSkippedPhotos = 0;
         const errors: string[] = [];
         for (const [sid, entries] of bySession) {
           try {
@@ -255,6 +256,7 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
             } else {
               successCount++;
             }
+            totalSkippedPhotos += result.skippedLocalPhotos;
           } catch (e) {
             errors.push(e instanceof Error ? e.message : 'Unknown error');
           }
@@ -266,9 +268,10 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
         if (successCount > 0) parts.push(`${successCount} submitted`);
         if (alreadyCount > 0) parts.push(`${alreadyCount} already in Atlas`);
         if (errors.length > 0) parts.push(`${errors.length} failed`);
+        if (totalSkippedPhotos > 0) parts.push(`${totalSkippedPhotos} photo${totalSkippedPhotos === 1 ? '' : 's'} not relayed — connect to upload first`);
         setAtlasResult({
           success: errors.length === 0,
-          message: parts.join(', '),
+          message: parts.join(' · '),
         });
       },
     },

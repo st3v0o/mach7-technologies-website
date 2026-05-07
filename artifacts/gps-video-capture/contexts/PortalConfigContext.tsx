@@ -31,7 +31,7 @@ interface PortalConfigContextType {
     sessionId: string,
     entries: LogEntry[],
     jobName?: string,
-  ) => Promise<{ alreadyPublished: boolean; atlasId?: number; shareUrl?: string }>;
+  ) => Promise<{ alreadyPublished: boolean; atlasId?: number; shareUrl?: string; skippedLocalPhotos: number }>;
 }
 
 const PortalConfigContext = createContext<PortalConfigContextType | null>(null);
@@ -84,7 +84,7 @@ export function PortalConfigProvider({ children }: { children: React.ReactNode }
       sessionId: string,
       entries: LogEntry[],
       jobName?: string,
-    ): Promise<{ alreadyPublished: boolean; atlasId?: number; shareUrl?: string }> => {
+    ): Promise<{ alreadyPublished: boolean; atlasId?: number; shareUrl?: string; skippedLocalPhotos: number }> => {
       if (!isSignedIn) {
         throw new Error('You must be signed in to publish to Atlas.');
       }
@@ -113,6 +113,7 @@ export function PortalConfigProvider({ children }: { children: React.ReactNode }
         alreadyPublished: result.alreadyPublished,
         atlasId: result.atlasId || undefined,
         shareUrl: result.shareUrl || undefined,
+        skippedLocalPhotos: result.skippedLocalPhotos,
       };
     },
     [portalUrl, markPublished, getToken, isSignedIn]
