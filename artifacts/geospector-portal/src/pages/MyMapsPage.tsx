@@ -1,7 +1,7 @@
 import { useAuth, useClerk, useUser, Show } from "@clerk/react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, Redirect } from "wouter";
-import { MapPin, Share2, Trash2, ExternalLink, LogOut, ChevronLeft, UserCircle2 } from "lucide-react";
+import { MapPin, Share2, Trash2, ExternalLink, LogOut, ChevronLeft, UserCircle2, List } from "lucide-react";
 import { useState } from "react";
 
 const apiBase = import.meta.env.BASE_URL.replace(/\/$/, "").replace(/\/geospector-portal$/, "");
@@ -80,6 +80,13 @@ export default function MyMapsPage() {
               <MapPin className="h-5 w-5 text-blue-400" />
               <span className="font-semibold text-white">My Maps</span>
             </div>
+            <Link
+              href="/my-sessions"
+              className="flex items-center gap-1.5 text-sm text-slate-400 hover:text-white transition-colors"
+            >
+              <List className="h-4 w-4" />
+              <span className="hidden sm:inline">My Sessions</span>
+            </Link>
           </div>
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">

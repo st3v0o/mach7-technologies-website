@@ -11,6 +11,7 @@ import DeleteConfirmPage from "@/pages/DeleteConfirmPage";
 import SignInPage from "@/pages/SignInPage";
 import SignUpPage from "@/pages/SignUpPage";
 import MyMapsPage from "@/pages/MyMapsPage";
+import MySessionsPage from "@/pages/MySessionsPage";
 import { DarkModeCtx, useDarkModeInit } from "@/hooks/useDarkMode";
 import { ClerkProvider, useClerk } from "@clerk/react";
 import { publishableKeyFromHost } from "@clerk/react/internal";
@@ -68,6 +69,7 @@ function Router() {
       <Route path="/sign-in/*?" component={SignInPage} />
       <Route path="/sign-up/*?" component={SignUpPage} />
       <Route path="/my-maps" component={MyMapsPage} />
+      <Route path="/my-sessions" component={MySessionsPage} />
       <Route path="/sessions/:id" component={SessionDetail} />
       <Route path="/share/:token" component={SharePage} />
       <Route path="/import" component={ImportPage} />

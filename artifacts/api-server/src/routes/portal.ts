@@ -722,7 +722,9 @@ router.get("/feed", async (req, res) => {
 
 // ── PATCH /portal/sessions/:id/publish ───────────────────────────────────────
 
-router.patch("/sessions/:id/publish", async (req, res) => {
+router.patch("/sessions/:id/publish", requireAuth, async (req, res) => {
+  const authedReq = req as AuthedRequest;
+
   const paramParsed = PublishPortalSessionParams.safeParse({ id: Number(req.params.id) });
   if (!paramParsed.success) {
     res.status(400).json({ error: "Invalid session id" });
@@ -737,6 +739,21 @@ router.patch("/sessions/:id/publish", async (req, res) => {
 
   const { isPublic } = bodyParsed.data;
 
+  const [existing] = await db
+    .select()
+    .from(portalSessionsTable)
+    .where(
+      and(
+        eq(portalSessionsTable.id, paramParsed.data.id),
+        eq(portalSessionsTable.userId, authedReq.userId!)
+      )
+    );
+
+  if (!existing) {
+    res.status(404).json({ error: "Session not found or not owned by you" });
+    return;
+  }
+
   const [session] = await db
     .update(portalSessionsTable)
     .set({
@@ -745,11 +762,6 @@ router.patch("/sessions/:id/publish", async (req, res) => {
     })
     .where(eq(portalSessionsTable.id, paramParsed.data.id))
     .returning();
-
-  if (!session) {
-    res.status(404).json({ error: "Session not found" });
-    return;
-  }
 
   res.json(omitClaimToken(session));
 });
