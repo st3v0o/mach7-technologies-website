@@ -28,7 +28,6 @@ export const portalSessionsTable = pgTable("portal_sessions", {
   routeGeojson: jsonb("route_geojson"), // GeoJSON LineString or null; derived from frame coords if not provided
   sourceType: text("source_type").notNull().default("import"), // 'supabase' | 'webhook' | 'import' | 'atlas'
   publicShareToken: text("public_share_token").unique(), // random UUID for /share/:token links
-  claimToken: text("claim_token").unique(), // secret UUID issued at submit-time; bearer can delete the session
   submitterEmail: text("submitter_email"), // optional email provided at Atlas submit time; used for email-based delete
   deleteToken: text("delete_token").unique(), // short-lived token emailed for delete-link flow
   deleteTokenExpiresAt: timestamp("delete_token_expires_at", { withTimezone: true }), // expiry for deleteToken

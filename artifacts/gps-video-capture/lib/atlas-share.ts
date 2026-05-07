@@ -1,26 +1,39 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as ImageManipulator from 'expo-image-manipulator';
+import * as FileSystem from 'expo-file-system/legacy';
 import { LogEntry } from '@/contexts/RecordingContext';
-
-const ATLAS_SUBMISSIONS_KEY = '@atlas_submissions';
 
 export interface AtlasShareInput {
   portalBaseUrl: string;
   sessionId: string;
   entries: LogEntry[];
   jobName?: string;
-  submitterEmail?: string | null;
   authToken?: string | null;
 }
 
 export interface AtlasShareResult {
   shareUrl: string;
-  claimToken: string;
   atlasId: number;
   alreadyPublished: boolean;
 }
 
+async function getLocalImageBase64(localPath: string): Promise<string | null> {
+  try {
+    const result = await ImageManipulator.manipulateAsync(
+      localPath,
+      [{ resize: { width: 1024 } }],
+      { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
+    );
+    const base64 = await FileSystem.readAsStringAsync(result.uri, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+    return base64;
+  } catch {
+    return null;
+  }
+}
+
 export async function shareViaAtlas(input: AtlasShareInput): Promise<AtlasShareResult> {
-  const { portalBaseUrl, sessionId, entries, jobName, submitterEmail, authToken } = input;
+  const { portalBaseUrl, sessionId, entries, jobName, authToken } = input;
   const baseUrl = portalBaseUrl.replace(/\/+$/, '');
 
   const sorted = [...entries].sort((a, b) => a.timestamp - b.timestamp);
@@ -34,15 +47,24 @@ export async function shareViaAtlas(input: AtlasShareInput): Promise<AtlasShareR
 
   const title = jobName ? `${jobName} — ${dateLabel}` : null;
 
-  const frames = sorted.map((e, i) => ({
-    frameIndex: i,
-    capturedAt: new Date(e.timestamp).toISOString(),
-    latitude: e.latitude,
-    longitude: e.longitude,
-    imageUrl: e.supabaseUrl ?? null,
-    thumbnailUrl: e.supabaseUrl ?? null,
-    uploadStatus: e.supabaseUrl ? 'uploaded' : 'local',
-  }));
+  const frames = await Promise.all(
+    sorted.map(async (e, i) => {
+      let imageData: string | null = null;
+      if (!e.supabaseUrl && e.localPath) {
+        imageData = await getLocalImageBase64(e.localPath);
+      }
+      return {
+        frameIndex: i,
+        capturedAt: new Date(e.timestamp).toISOString(),
+        latitude: e.latitude,
+        longitude: e.longitude,
+        imageUrl: e.supabaseUrl ?? null,
+        thumbnailUrl: e.supabaseUrl ?? null,
+        uploadStatus: e.supabaseUrl ? 'uploaded' : imageData ? 'relayed' : 'local',
+        ...(imageData ? { imageData } : {}),
+      };
+    })
+  );
 
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (authToken) {
@@ -58,7 +80,6 @@ export async function shareViaAtlas(input: AtlasShareInput): Promise<AtlasShareR
         title,
         captureMode: null,
         isPublic: true,
-        submitterEmail: submitterEmail ?? null,
       },
       frames,
     }),
@@ -74,12 +95,7 @@ export async function shareViaAtlas(input: AtlasShareInput): Promise<AtlasShareR
   if (data.alreadyPublished) {
     const shareToken: string = data.publicShareToken ?? '';
     const shareUrl = shareToken ? `${baseUrl}/share/${shareToken}` : '';
-    return {
-      shareUrl,
-      claimToken: '',
-      atlasId: typeof data.id === 'number' ? data.id : 0,
-      alreadyPublished: true,
-    };
+    return { shareUrl, atlasId: typeof data.id === 'number' ? data.id : 0, alreadyPublished: true };
   }
 
   const shareToken: string = data.publicShareToken ?? '';
@@ -88,21 +104,7 @@ export async function shareViaAtlas(input: AtlasShareInput): Promise<AtlasShareR
   }
 
   const shareUrl = `${baseUrl}/share/${shareToken}`;
-  const claimToken: string = typeof data.claimToken === 'string' ? data.claimToken : '';
   const atlasId: number = typeof data.id === 'number' ? data.id : 0;
 
-  if (claimToken && atlasId) {
-    try {
-      const existing = await AsyncStorage.getItem(ATLAS_SUBMISSIONS_KEY);
-      const submissions: Record<string, { atlasId: number; claimToken: string }> = existing
-        ? JSON.parse(existing)
-        : {};
-      submissions[sessionId] = { atlasId, claimToken };
-      await AsyncStorage.setItem(ATLAS_SUBMISSIONS_KEY, JSON.stringify(submissions));
-    } catch {
-      // non-fatal — token also returned to caller
-    }
-  }
-
-  return { shareUrl, claimToken, atlasId, alreadyPublished: false };
+  return { shareUrl, atlasId, alreadyPublished: false };
 }

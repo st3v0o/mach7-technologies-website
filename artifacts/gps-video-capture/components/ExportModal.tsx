@@ -1,6 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
-import * as Clipboard from 'expo-clipboard';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { useRouter } from 'expo-router';
@@ -16,7 +14,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -76,9 +73,6 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
   const [activeId, setActiveId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [atlasResult, setAtlasResult] = useState<{ success: boolean; message: string } | null>(null);
-  const [newAtlasTokens, setNewAtlasTokens] = useState<{ sessionId: string; claimToken: string }[]>([]);
-  const [copiedToken, setCopiedToken] = useState<string | null>(null);
-  const [atlasEmail, setAtlasEmail] = useState<string>('');
   const [atlasConfirmOpen, setAtlasConfirmOpen] = useState(false);
   const confirmAnim = useRef(new Animated.Value(0)).current;
 
@@ -87,15 +81,8 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
   const [periodFilter, setPeriodFilter] = useState<PeriodFilter>('all');
   const [selectedJobNames, setSelectedJobNames] = useState<Set<string> | null>(null);
 
-  const { publishSession, portalUrl, atlasSubmissions } = usePortalConfig();
+  const { publishSession, portalUrl } = usePortalConfig();
 
-  useEffect(() => {
-    if (visible) {
-      AsyncStorage.getItem('atlas_email').then((saved) => {
-        setAtlasEmail(saved ?? '');
-      }).catch(() => {});
-    }
-  }, [visible]);
 
   const derivedSessions = useMemo(() => {
     const map = new Map<string, { jobName?: string; count: number; firstAt: number; lastAt: number }>();
@@ -227,8 +214,6 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
     setActiveId(id);
     setError(null);
     setAtlasResult(null);
-    setNewAtlasTokens([]);
-    setCopiedToken(null);
     try {
       await fn();
     } catch (e) {
@@ -238,11 +223,6 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
     }
   }
 
-  async function copyToken(token: string) {
-    await Clipboard.setStringAsync(token);
-    setCopiedToken(token);
-    setTimeout(() => setCopiedToken(null), 2000);
-  }
 
   const options: ExportOption[] = [
     {
@@ -253,7 +233,7 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
       badge: 'Live',
       badgeColor: Colors.blue,
       description:
-        'Publish sessions to the public Geospector Atlas map. Your claim token is stored on this device — tap the Atlas badge on any session to copy your delete code.',
+        'Publish sessions to the public Geospector Atlas map. Sign in with your account to link sessions to your profile and manage them from the portal.',
       tags: ['Portal', 'Live Map', 'Atlas'],
       handler: async () => {
         if (!portalUrl) {
@@ -267,17 +247,13 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
         let successCount = 0;
         let alreadyCount = 0;
         const errors: string[] = [];
-        const freshTokens: { sessionId: string; claimToken: string }[] = [];
         for (const [sid, entries] of bySession) {
           try {
-            const result = await publishSession(sid, entries, entries[0]?.jobName, isSignedIn ? undefined : atlasEmail.trim() || undefined);
+            const result = await publishSession(sid, entries, entries[0]?.jobName);
             if (result.alreadyPublished) {
               alreadyCount++;
             } else {
               successCount++;
-              if (result.claimToken) {
-                freshTokens.push({ sessionId: sid, claimToken: result.claimToken });
-              }
             }
           } catch (e) {
             errors.push(e instanceof Error ? e.message : 'Unknown error');
@@ -286,21 +262,10 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
         if (errors.length > 0 && successCount === 0 && alreadyCount === 0) {
           throw new Error(errors[0]!);
         }
-        if (!isSignedIn) {
-          const trimmedEmail = atlasEmail.trim();
-          try {
-            if (trimmedEmail) {
-              await AsyncStorage.setItem('atlas_email', trimmedEmail);
-            } else {
-              await AsyncStorage.removeItem('atlas_email');
-            }
-          } catch {}
-        }
         const parts: string[] = [];
         if (successCount > 0) parts.push(`${successCount} submitted`);
         if (alreadyCount > 0) parts.push(`${alreadyCount} already in Atlas`);
         if (errors.length > 0) parts.push(`${errors.length} failed`);
-        if (freshTokens.length > 0) setNewAtlasTokens(freshTokens);
         setAtlasResult({
           success: errors.length === 0,
           message: parts.join(', '),
@@ -323,23 +288,6 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
           zip.file('frame_log.csv', generateCSV(filteredEntries));
           zip.file('geospector.geojson', generateGeoJSON(filteredEntries));
           zip.file('geospector.kml', generateKML(filteredEntries));
-          const sessionAtlasTokens = Object.fromEntries(
-            Object.entries(atlasSubmissions).filter(([sid]) => filteredSessionIds.includes(sid))
-          );
-          if (Object.keys(sessionAtlasTokens).length > 0) {
-            zip.file(
-              'atlas_tokens.json',
-              JSON.stringify(
-                {
-                  exported: new Date().toISOString(),
-                  note: 'Keep this file safe. These tokens let you remove sessions from the Geospector Atlas. They are device-only and cannot be recovered if lost.',
-                  sessions: sessionAtlasTokens,
-                },
-                null,
-                2
-              )
-            );
-          }
           zip.file(
             'README.txt',
             [
@@ -354,9 +302,6 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
               '  frame_log.csv     — full frame database with coordinates',
               '  geospector.geojson — GIS point layer (QGIS, ArcGIS, Mapbox)',
               '  geospector.kml    — Google Earth / Google Maps',
-              ...(Object.keys(sessionAtlasTokens).length > 0
-                ? ['  atlas_tokens.json — Atlas claim tokens (keep safe — needed to remove sessions from Atlas)']
-                : []),
             ].join('\n')
           );
         });
@@ -538,45 +483,6 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
           </View>
         )}
 
-        {newAtlasTokens.length > 0 && (
-          <View style={styles.tokenPanel}>
-            <View style={styles.tokenPanelHeader}>
-              <Ionicons name="key-outline" size={14} color={Colors.amber} />
-              <Text style={styles.tokenPanelTitle}>
-                Save your delete code{newAtlasTokens.length > 1 ? 's' : ''}
-              </Text>
-            </View>
-            <Text style={styles.tokenPanelDesc}>
-              Keep this code safe — you'll need it to remove your session from the Atlas via the portal website.
-            </Text>
-            {newAtlasTokens.map(({ sessionId, claimToken }) => (
-              <View key={sessionId} style={styles.tokenRow}>
-                <Text style={styles.tokenText} selectable>
-                  {claimToken}
-                </Text>
-                <Pressable
-                  onPress={() => copyToken(claimToken)}
-                  style={({ pressed }) => [styles.copyBtn, pressed && { opacity: 0.6 }]}
-                  hitSlop={8}
-                >
-                  <Ionicons
-                    name={copiedToken === claimToken ? 'checkmark-outline' : 'copy-outline'}
-                    size={15}
-                    color={copiedToken === claimToken ? Colors.gpsGreen : Colors.amber}
-                  />
-                  <Text
-                    style={[
-                      styles.copyBtnText,
-                      copiedToken === claimToken && { color: Colors.gpsGreen },
-                    ]}
-                  >
-                    {copiedToken === claimToken ? 'Copied!' : 'Copy'}
-                  </Text>
-                </Pressable>
-              </View>
-            ))}
-          </View>
-        )}
 
         <ScrollView
           contentContainerStyle={styles.list}
@@ -823,76 +729,54 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
                       },
                     ]}
                   >
-                    {!isSignedIn && (
+                    {!isSignedIn ? (
                       <>
-                        <Text style={styles.atlasEmailLabel}>Your email (optional)</Text>
-                        <TextInput
-                          style={styles.atlasEmailInput}
-                          value={atlasEmail}
-                          onChangeText={setAtlasEmail}
-                          placeholder="you@example.com"
-                          keyboardType="email-address"
-                          autoCapitalize="none"
-                          autoCorrect={false}
-                          autoFocus
-                          placeholderTextColor={Colors.textTertiary}
-                        />
                         <Text style={styles.atlasEmailHint}>
-                          Enter your email so you can request a delete link from the portal later — no delete code required.
+                          A Geospector account is required to publish to Atlas.
                         </Text>
+                        <View style={styles.confirmButtons}>
+                          <Pressable
+                            onPress={closeAtlasConfirm}
+                            style={({ pressed }) => [styles.confirmCancel, pressed && { opacity: 0.6 }]}
+                          >
+                            <Text style={styles.confirmCancelText}>Cancel</Text>
+                          </Pressable>
+                          <Pressable
+                            onPress={() => { closeAtlasConfirm(); router.push('/(auth)/sign-in'); }}
+                            style={({ pressed }) => [
+                              styles.confirmSubmit,
+                              styles.atlasSubmitBg,
+                              pressed && { opacity: 0.85 },
+                            ]}
+                          >
+                            <Ionicons name="person-outline" size={15} color="#fff" />
+                            <Text style={styles.confirmSubmitText}>Sign In</Text>
+                          </Pressable>
+                        </View>
                       </>
+                    ) : (
+                      <View style={styles.confirmButtons}>
+                        <Pressable
+                          onPress={closeAtlasConfirm}
+                          style={({ pressed }) => [styles.confirmCancel, pressed && { opacity: 0.6 }]}
+                        >
+                          <Text style={styles.confirmCancelText}>Cancel</Text>
+                        </Pressable>
+                        <Pressable
+                          onPress={() => { closeAtlasConfirm(); run(opt.id, opt.handler); }}
+                          disabled={!!activeId}
+                          style={({ pressed }) => [
+                            styles.confirmSubmit,
+                            styles.atlasSubmitBg,
+                            pressed && !activeId && { opacity: 0.85 },
+                            !!activeId && { opacity: 0.5 },
+                          ]}
+                        >
+                          <Ionicons name="globe-outline" size={15} color="#fff" />
+                          <Text style={styles.confirmSubmitText}>Submit to Atlas</Text>
+                        </Pressable>
+                      </View>
                     )}
-                    <View style={styles.confirmButtons}>
-                      <Pressable
-                        onPress={closeAtlasConfirm}
-                        style={({ pressed }) => [
-                          styles.confirmCancel,
-                          pressed && { opacity: 0.6 },
-                        ]}
-                      >
-                        <Text style={styles.confirmCancelText}>Cancel</Text>
-                      </Pressable>
-                      <Pressable
-                        onPress={() => {
-                          if (isSignedIn) {
-                            closeAtlasConfirm();
-                            run(opt.id, opt.handler);
-                          } else {
-                            Alert.alert(
-                              'Sign in to Atlas',
-                              'Sign in to link this session to your account, or continue as a guest.',
-                              [
-                                { text: 'Cancel', style: 'cancel' },
-                                {
-                                  text: 'Continue as Guest',
-                                  onPress: () => {
-                                    closeAtlasConfirm();
-                                    run(opt.id, opt.handler);
-                                  },
-                                },
-                                {
-                                  text: 'Sign In',
-                                  onPress: () => {
-                                    closeAtlasConfirm();
-                                    router.push('/(auth)/sign-in');
-                                  },
-                                },
-                              ],
-                            );
-                          }
-                        }}
-                        disabled={!!activeId}
-                        style={({ pressed }) => [
-                          styles.confirmSubmit,
-                          styles.atlasSubmitBg,
-                          pressed && !activeId && { opacity: 0.85 },
-                          !!activeId && { opacity: 0.5 },
-                        ]}
-                      >
-                        <Ionicons name="globe-outline" size={15} color="#fff" />
-                        <Text style={styles.confirmSubmitText}>Submit to Atlas</Text>
-                      </Pressable>
-                    </View>
                   </Animated.View>
                 )}
               </React.Fragment>

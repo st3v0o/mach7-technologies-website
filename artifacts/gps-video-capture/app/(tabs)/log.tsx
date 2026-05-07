@@ -1,5 +1,4 @@
 import { Ionicons } from '@expo/vector-icons';
-import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { useNavigation } from 'expo-router';
@@ -396,8 +395,7 @@ function SessionHeader({
   isCollapsed?: boolean;
 }) {
   const { t } = useTranslation();
-  const { isPublished, atlasSubmissions, removeFromAtlas } = usePortalConfig();
-  const atlasSubmission = atlasSubmissions[section.sessionId];
+  const { isPublished } = usePortalConfig();
 
   const d = new Date(section.startMs);
   const locale = getCurrentLocale();
@@ -450,43 +448,6 @@ function SessionHeader({
                 <Ionicons name="cloud-done-outline" size={10} color={Colors.gpsGreen} />
                 <Text style={sessionStyles.publishedBadgeText}>{t('log.published')}</Text>
               </View>
-            )}
-            {!!atlasSubmission && (
-              <Pressable
-                onPress={(e) => {
-                  e.stopPropagation();
-                  Alert.alert(
-                    t('log.removeFromAtlas'),
-                    t('log.removeFromAtlasDesc'),
-                    [
-                      { text: t('log.cancel'), style: 'cancel' },
-                      {
-                        text: 'Copy delete code',
-                        onPress: async () => {
-                          await Clipboard.setStringAsync(atlasSubmission.claimToken);
-                          Alert.alert('Copied', 'Your delete code has been copied to the clipboard. You can use it on the portal website to remove this session.');
-                        },
-                      },
-                      {
-                        text: t('log.remove'),
-                        style: 'destructive',
-                        onPress: async () => {
-                          try {
-                            await removeFromAtlas(section.sessionId);
-                          } catch (err) {
-                            Alert.alert(t('error.title'), err instanceof Error ? err.message : t('log.removeFromAtlasError'));
-                          }
-                        },
-                      },
-                    ]
-                  );
-                }}
-                style={({ pressed }) => [sessionStyles.atlasBadge, pressed && { opacity: 0.7 }]}
-                hitSlop={4}
-              >
-                <Ionicons name="globe-outline" size={10} color={Colors.blue} />
-                <Text style={sessionStyles.atlasBadgeText}>Atlas</Text>
-              </Pressable>
             )}
           </View>
           <Text style={sessionStyles.countText}>

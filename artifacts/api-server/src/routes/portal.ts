@@ -68,13 +68,12 @@ router.use(optionalAuth);
 // ── Helper: strip sensitive fields before sending sessions to clients ────────
 
 function omitSensitiveFields<T extends {
-  claimToken?: string | null;
   submitterEmail?: string | null;
   deleteToken?: string | null;
   deleteTokenExpiresAt?: Date | null;
-}>(session: T): Omit<T, "claimToken" | "submitterEmail" | "deleteToken" | "deleteTokenExpiresAt"> {
+}>(session: T): Omit<T, "submitterEmail" | "deleteToken" | "deleteTokenExpiresAt"> {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { claimToken: _ct, submitterEmail: _se, deleteToken: _dt, deleteTokenExpiresAt: _dtea, ...rest } = session;
+  const { submitterEmail: _se, deleteToken: _dt, deleteTokenExpiresAt: _dtea, ...rest } = session;
   return rest;
 }
 
@@ -441,7 +440,7 @@ router.post("/import/mock", async (req, res) => {
 // Accepts { session, frames } JSON — mirrors the shape Geospector mobile app
 // will eventually use for direct publishing via /portal/publish/session.
 
-router.post("/import/session-json", async (req, res) => {
+router.post("/import/session-json", requireAuth, async (req, res) => {
   const parsed = ImportPortalSessionJsonBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Invalid request body" });
@@ -465,17 +464,27 @@ router.post("/import/session-json", async (req, res) => {
   }
 
   // Map raw frame objects to typed frames
-  const mappedFrames = (rawFrames as Array<Record<string, unknown>>).map((f, i) => ({
-    lat: Number(f["latitude"] ?? f["lat"] ?? 0),
-    lon: Number(f["longitude"] ?? f["lon"] ?? 0),
-    speed: f["speed_mph"] ?? f["speedMph"] ?? f["speed"] ?? null,
-    heading: f["heading"] ?? null,
-    imageUrl: (f["image_url"] ?? f["imageUrl"] ?? null) as string | null,
-    thumbnailUrl: (f["thumbnail_url"] ?? f["thumbnailUrl"] ?? null) as string | null,
-    capturedAt: new Date(String(f["timestamp"] ?? f["captured_at"] ?? f["capturedAt"] ?? new Date())),
-    frameIndex: Number(f["frame_index"] ?? f["frameIndex"] ?? i),
-    uploadStatus: String(f["upload_status"] ?? f["uploadStatus"] ?? "uploaded"),
-  }));
+  const mappedFrames = (rawFrames as Array<Record<string, unknown>>).map((f, i) => {
+    const rawImageUrl = (f["image_url"] ?? f["imageUrl"] ?? null) as string | null;
+    const rawImageData = (f["image_data"] ?? f["imageData"] ?? null) as string | null;
+    let imageUrl: string | null = rawImageUrl;
+    if (!imageUrl && rawImageData) {
+      imageUrl = rawImageData.startsWith("data:")
+        ? rawImageData
+        : `data:image/jpeg;base64,${rawImageData}`;
+    }
+    return {
+      lat: Number(f["latitude"] ?? f["lat"] ?? 0),
+      lon: Number(f["longitude"] ?? f["lon"] ?? 0),
+      speed: f["speed_mph"] ?? f["speedMph"] ?? f["speed"] ?? null,
+      heading: f["heading"] ?? null,
+      imageUrl,
+      thumbnailUrl: imageUrl ?? (f["thumbnail_url"] ?? f["thumbnailUrl"] ?? null) as string | null,
+      capturedAt: new Date(String(f["timestamp"] ?? f["captured_at"] ?? f["capturedAt"] ?? new Date())),
+      frameIndex: Number(f["frame_index"] ?? f["frameIndex"] ?? i),
+      uploadStatus: String(f["upload_status"] ?? f["uploadStatus"] ?? "uploaded"),
+    };
+  });
 
   const coords = mappedFrames.map((f): [number, number] => [f.lat, f.lon]);
   const geojson = buildLineString(coords);
@@ -492,7 +501,6 @@ router.post("/import/session-json", async (req, res) => {
   const s = rawSession as Record<string, unknown>;
   const sessionId = String(s["session_id"] ?? s["sessionId"] ?? randomUUID());
   const shareToken = randomUUID();
-  const claimToken = randomUUID();
   const makePublic = s["isPublic"] === true || s["is_public"] === true;
   const submitterEmail = (s["submitterEmail"] ?? s["submitter_email"] ?? null) as string | null;
 
@@ -510,7 +518,6 @@ router.post("/import/session-json", async (req, res) => {
       routeGeojson: geojson as unknown as Record<string, unknown>,
       sourceType: "atlas",
       publicShareToken: shareToken,
-      claimToken,
       submitterEmail: submitterEmail ?? undefined,
       status: "active",
       thumbnailUrl: mappedFrames[0]?.imageUrl ?? null,
@@ -541,8 +548,7 @@ router.post("/import/session-json", async (req, res) => {
 
   await db.insert(portalFramesTable).values(frameValues);
 
-  // Return claimToken once — client must persist it to delete later
-  res.json({ ...omitClaimToken(session), claimToken });
+  res.json(omitClaimToken(session));
 });
 
 // ── POST /portal/import/gpx ──────────────────────────────────────────────────
@@ -857,9 +863,8 @@ router.post("/sessions/:id/request-delete", async (req, res) => {
 });
 
 // ── DELETE /portal/sessions/:id ─────────────────────────────────────────────
-// Atlas sessions: caller must supply the claimToken issued at submit-time via
-//   ?token=<claimToken>
-// Import/demo sessions (no claimToken): deleted directly with no token required.
+// Sessions with a userId (atlas): require matching Clerk auth.
+// Import/demo sessions (no userId): deleted directly with no auth required.
 
 router.delete("/sessions/:id", async (req, res) => {
   const paramParsed = GetPortalSessionParams.safeParse({ id: Number(req.params.id) });
@@ -878,15 +883,11 @@ router.delete("/sessions/:id", async (req, res) => {
     return;
   }
 
-  // Atlas sessions require a valid claim token
-  if (session.claimToken) {
-    const token = req.query["token"];
-    if (!token || typeof token !== "string") {
-      res.status(400).json({ error: "token query param is required for atlas sessions" });
-      return;
-    }
-    if (session.claimToken !== token) {
-      res.status(401).json({ error: "Invalid claim token" });
+  // Sessions with an owner require matching Clerk auth
+  if (session.userId) {
+    const authedReq = req as AuthedRequest;
+    if (!authedReq.userId || authedReq.userId !== session.userId) {
+      res.status(401).json({ error: "Unauthorized" });
       return;
     }
   }

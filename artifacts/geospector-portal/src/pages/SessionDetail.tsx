@@ -19,6 +19,7 @@ import {
   Route, SlidersHorizontal, X, CheckCircle, Smartphone,
   ChevronDown, ChevronRight, Trash2, Mail, MailCheck,
 } from "lucide-react";
+import { useAuth } from "@clerk/react";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -39,6 +40,7 @@ export default function SessionDetail() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const qc = useQueryClient();
+  const { isSignedIn, getToken } = useAuth();
   const [selectedFrame, setSelectedFrame] = useState<PortalFrame | null>(null);
 
   const [showRoute, setShowRoute] = useState(true);
@@ -50,13 +52,12 @@ export default function SessionDetail() {
   const [dateTo, setDateTo] = useState<string>("");
 
   const [showRemovePanel, setShowRemovePanel] = useState(false);
-  const [deleteCode, setDeleteCode] = useState("");
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [confirmDirectDelete, setConfirmDirectDelete] = useState(false);
   const [deleteEmail, setDeleteEmail] = useState("");
   const [deleteEmailSent, setDeleteEmailSent] = useState(false);
-  const [showTokenFallback, setShowTokenFallback] = useState(false);
+  const [showEmailFallback, setShowEmailFallback] = useState(false);
 
   const { data: session, isLoading: sessionLoading, error: sessionError } = useGetPortalSession(sessionId);
   const { data: framesData, isLoading: framesLoading } = useGetPortalSessionFrames(sessionId, { limit: 500 });
@@ -130,25 +131,21 @@ export default function SessionDetail() {
     });
   }
 
-  async function handleAtlasDelete() {
-    const code = deleteCode.trim();
-    if (!code) {
-      setDeleteError("Please enter your delete code.");
-      return;
-    }
+  async function handleAuthDelete() {
     setDeleteLoading(true);
     setDeleteError(null);
     try {
-      const res = await fetch(
-        `/api/portal/sessions/${sessionId}?token=${encodeURIComponent(code)}`,
-        { method: "DELETE" }
-      );
-      if (res.status === 401) {
-        setDeleteError("Invalid delete code.");
+      const token = await getToken();
+      const res = await fetch(`/api/portal/my-sessions/${sessionId}`, {
+        method: "DELETE",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (res.status === 401 || res.status === 403) {
+        setDeleteError("Not authorized. Try requesting a delete link by email instead.");
         return;
       }
       if (res.status === 404) {
-        setDeleteError("Session not found.");
+        setDeleteError("Session not found or you don't own it. Try requesting a delete link by email instead.");
         return;
       }
       if (!res.ok) {
@@ -465,6 +462,7 @@ export default function SessionDetail() {
                 setShowRemovePanel((v) => !v);
                 setDeleteError(null);
                 setConfirmDirectDelete(false);
+                setShowEmailFallback(false);
               }}
               className="flex items-center gap-2 text-sm text-gray-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 transition-colors"
             >
@@ -487,15 +485,42 @@ export default function SessionDetail() {
                     <p className="text-sm text-gray-600 dark:text-slate-300">
                       Check your inbox for a delete link. It expires in 1 hour.
                     </p>
-                    <button
-                      onClick={() => { setDeleteEmailSent(false); setShowTokenFallback(true); }}
-                      className="text-xs text-gray-400 dark:text-slate-500 hover:text-gray-600 dark:hover:text-slate-300 underline transition-colors"
-                    >
-                      Didn't get an email? Use a delete code instead.
-                    </button>
                   </div>
-                ) : !showTokenFallback ? (
-                  /* ── Email-first flow ── */
+                ) : isSignedIn && !showEmailFallback ? (
+                  /* ── Authenticated delete ── */
+                  <>
+                    <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-slate-200 font-medium">
+                      <Trash2 className="h-4 w-4 text-red-500 flex-none" />
+                      Delete this session
+                    </div>
+                    <p className="text-sm text-gray-600 dark:text-slate-300">
+                      This will permanently delete the session and all its frame data. This cannot be undone.
+                    </p>
+                    <div className="flex gap-2 flex-wrap">
+                      <button
+                        onClick={handleAuthDelete}
+                        disabled={deleteLoading}
+                        className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        {deleteLoading ? "Deleting…" : "Delete permanently"}
+                      </button>
+                    </div>
+                    <button
+                      onClick={() => { setShowEmailFallback(true); setDeleteError(null); }}
+                      className="self-start text-xs text-gray-400 dark:text-slate-500 hover:text-gray-600 dark:hover:text-slate-300 underline transition-colors"
+                    >
+                      Don't own this? Request a delete link by email instead.
+                    </button>
+                    {deleteError && (
+                      <p className="text-sm text-red-600 dark:text-red-400 flex items-center gap-1.5">
+                        <X className="h-3.5 w-3.5 flex-none" />
+                        {deleteError}
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  /* ── Email delete flow ── */
                   <>
                     <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-slate-200 font-medium">
                       <Mail className="h-4 w-4 text-red-500 flex-none" />
@@ -523,51 +548,14 @@ export default function SessionDetail() {
                         {deleteLoading ? "Sending…" : "Send delete link"}
                       </button>
                     </div>
-                    <button
-                      onClick={() => { setShowTokenFallback(true); setDeleteError(null); }}
-                      className="self-start text-xs text-gray-400 dark:text-slate-500 hover:text-gray-600 dark:hover:text-slate-300 underline transition-colors"
-                    >
-                      I have a delete code instead
-                    </button>
-                    {deleteError && (
-                      <p className="text-sm text-red-600 dark:text-red-400 flex items-center gap-1.5">
-                        <X className="h-3.5 w-3.5 flex-none" />
-                        {deleteError}
-                      </p>
-                    )}
-                  </>
-                ) : (
-                  /* ── Token fallback flow ── */
-                  <>
-                    <p className="text-sm text-gray-600 dark:text-slate-300">
-                      Enter the delete code you received when you submitted this session. You can find it by tapping the{" "}
-                      <span className="font-medium text-violet-600 dark:text-violet-400">Atlas</span> badge in your Frame Log and choosing "Copy delete code".
-                    </p>
-                    <div className="flex gap-2 items-center flex-wrap">
-                      <input
-                        type="text"
-                        value={deleteCode}
-                        onChange={(e) => { setDeleteCode(e.target.value); setDeleteError(null); }}
-                        placeholder="Paste your delete code here"
-                        className="flex-1 min-w-0 px-3 py-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-gray-900 dark:text-white text-sm font-mono focus:outline-none focus:ring-2 focus:ring-red-400 dark:focus:ring-red-600 placeholder-gray-400 dark:placeholder-slate-500"
-                        disabled={deleteLoading}
-                        onKeyDown={(e) => { if (e.key === "Enter") handleAtlasDelete(); }}
-                      />
+                    {isSignedIn && (
                       <button
-                        onClick={handleAtlasDelete}
-                        disabled={deleteLoading || !deleteCode.trim()}
-                        className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                        onClick={() => { setShowEmailFallback(false); setDeleteError(null); }}
+                        className="self-start text-xs text-gray-400 dark:text-slate-500 hover:text-gray-600 dark:hover:text-slate-300 underline transition-colors"
                       >
-                        <Trash2 className="h-3.5 w-3.5" />
-                        {deleteLoading ? "Removing…" : "Remove session"}
+                        ← Back
                       </button>
-                    </div>
-                    <button
-                      onClick={() => { setShowTokenFallback(false); setDeleteError(null); }}
-                      className="self-start text-xs text-gray-400 dark:text-slate-500 hover:text-gray-600 dark:hover:text-slate-300 underline transition-colors"
-                    >
-                      ← Back to email delete
-                    </button>
+                    )}
                     {deleteError && (
                       <p className="text-sm text-red-600 dark:text-red-400 flex items-center gap-1.5">
                         <X className="h-3.5 w-3.5 flex-none" />
