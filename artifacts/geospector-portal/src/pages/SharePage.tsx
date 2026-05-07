@@ -5,7 +5,7 @@ import type { PortalFrame } from "@workspace/api-client-react";
 import MetricsBar from "@/components/MetricsBar";
 import SessionMap from "@/components/SessionMap";
 import FrameFilmstrip from "@/components/FrameFilmstrip";
-import { MapPin, AlertCircle, Layers, Map as MapIcon, Smartphone, Trash2, X, ChevronDown } from "lucide-react";
+import { MapPin, AlertCircle, Map as MapIcon, Smartphone, Trash2, X, ChevronDown } from "lucide-react";
 
 function formatDate(dateStr: string | null | undefined): string {
   if (!dateStr) return "";
@@ -28,7 +28,6 @@ export default function SharePage() {
 
   const [selectedFrame, setSelectedFrame] = useState<PortalFrame | null>(null);
   const [showRoute, setShowRoute] = useState(true);
-  const [tileLayer, setTileLayer] = useState<"osm" | "satellite">("osm");
   const [fitTrigger, setFitTrigger] = useState(0);
 
   const [showRemovePanel, setShowRemovePanel] = useState(false);
@@ -159,17 +158,6 @@ export default function SharePage() {
             >
               <MapIcon className="h-4 w-4" />
             </button>
-            <button
-              onClick={() => setTileLayer((l) => l === "osm" ? "satellite" : "osm")}
-              title="Toggle satellite/street"
-              className={`p-2 rounded-lg transition-colors ${
-                tileLayer === "satellite"
-                  ? "text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30"
-                  : "text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-slate-800"
-              }`}
-            >
-              <Layers className="h-4 w-4" />
-            </button>
             {session.sourceType === "atlas" && (
               <button
                 onClick={() => { setShowRemovePanel((v) => !v); setDeleteError(null); }}
@@ -266,7 +254,6 @@ export default function SharePage() {
           selectedFrameId={selectedFrame?.id}
           onMarkerClick={setSelectedFrame}
           showRoute={showRoute}
-          tileLayer={tileLayer}
           fitBoundsTrigger={fitTrigger}
         />
         <button

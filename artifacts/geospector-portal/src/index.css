@@ -392,3 +392,49 @@
     inset: -1px;
   }
 }
+
+/* ── Leaflet map overrides ─────────────────────────────────────── */
+.leaflet-container {
+  font-family: system-ui, sans-serif;
+  z-index: 0;
+}
+
+/* Polished popup */
+.geospector-popup .leaflet-popup-content-wrapper {
+  border-radius: 10px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.18);
+  padding: 0;
+  overflow: hidden;
+}
+.geospector-popup .leaflet-popup-content {
+  margin: 12px 14px;
+}
+.geospector-popup .leaflet-popup-tip {
+  box-shadow: none;
+}
+
+/* Layer control */
+.leaflet-control-layers {
+  border-radius: 8px !important;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.15) !important;
+  border: 1px solid rgba(0,0,0,0.08) !important;
+  font-size: 13px;
+}
+.leaflet-control-layers-toggle {
+  width: 34px !important;
+  height: 34px !important;
+}
+
+/* Scale bar */
+.leaflet-control-scale-line {
+  border-radius: 0 0 4px 4px;
+  font-size: 10px;
+  color: #374151;
+  background: rgba(255,255,255,0.85);
+}
+
+/* Cluster group default overrides — we use custom icons so just hide leftovers */
+.leaflet-cluster-anim .leaflet-marker-icon,
+.leaflet-cluster-anim .leaflet-marker-shadow {
+  transition: transform 0.3s ease-out, opacity 0.3s ease-in;
+}

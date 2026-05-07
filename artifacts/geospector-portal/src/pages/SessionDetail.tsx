@@ -16,7 +16,7 @@ import FrameFilmstrip from "@/components/FrameFilmstrip";
 import Layout from "@/components/Layout";
 import {
   ArrowLeft, Share2, MapPin, Globe, EyeOff, Map as MapIcon,
-  Layers, Route, SlidersHorizontal, X, CheckCircle, Smartphone,
+  Route, SlidersHorizontal, X, CheckCircle, Smartphone,
   ChevronDown, ChevronRight, Trash2, Mail, MailCheck,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -42,7 +42,6 @@ export default function SessionDetail() {
   const [selectedFrame, setSelectedFrame] = useState<PortalFrame | null>(null);
 
   const [showRoute, setShowRoute] = useState(true);
-  const [tileLayer, setTileLayer] = useState<"osm" | "satellite">("osm");
   const [fitTrigger, setFitTrigger] = useState(0);
   const [showFilters, setShowFilters] = useState(false);
   const [minSpeed, setMinSpeed] = useState<string>("");
@@ -397,7 +396,6 @@ export default function SessionDetail() {
                 selectedFrameId={selectedFrame?.id}
                 onMarkerClick={setSelectedFrame}
                 showRoute={showRoute}
-                tileLayer={tileLayer}
                 fitBoundsTrigger={fitTrigger}
                 sessionTitle={session.title ?? session.sessionId}
               />
@@ -417,17 +415,6 @@ export default function SessionDetail() {
                 className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 rounded-lg p-2 shadow-md hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors text-gray-700 dark:text-slate-300"
               >
                 <MapIcon className="h-4 w-4" />
-              </button>
-              <button
-                onClick={() => setTileLayer((l) => l === "osm" ? "satellite" : "osm")}
-                title={tileLayer === "osm" ? "Switch to satellite" : "Switch to street map"}
-                className={`border rounded-lg p-2 shadow-md transition-colors ${
-                  tileLayer === "satellite"
-                    ? "bg-blue-600 border-blue-600 text-white"
-                    : "bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-600 text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700"
-                }`}
-              >
-                <Layers className="h-4 w-4" />
               </button>
               <button
                 onClick={() => setShowRoute((v) => !v)}
