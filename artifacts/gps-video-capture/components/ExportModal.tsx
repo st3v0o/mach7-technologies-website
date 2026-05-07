@@ -13,6 +13,7 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   TextInput,
@@ -23,6 +24,7 @@ import { useTranslation } from 'react-i18next';
 import Colors from '@/constants/colors';
 import { LogEntry } from '@/contexts/RecordingContext';
 import { usePortalConfig } from '@/contexts/PortalConfigContext';
+import { shareViaAtlas } from '@/lib/atlas-share';
 import { useStorageConfig, ShareProjectPayload } from '@/contexts/StorageConfigContext';
 import { generateMapHtml } from '@/lib/map-share-generator';
 import {
@@ -60,7 +62,7 @@ type PeriodFilter = 'all' | 'today' | 'week' | 'month';
 
 type ShareMapResult =
   | { type: 'local_done' }
-  | { type: 'url'; url: string }
+  | { type: 'url'; url: string; ownerUrl?: string }
   | { type: 'sent_no_url' };
 
 function getPeriodCutoffMs(period: PeriodFilter): number {
@@ -176,6 +178,7 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
   }, [filteredEntries]);
 
   const useCloud = (providerType === 'supabase' || providerType === 'webhook') && isCloudConfigured;
+  const useAtlas = !!portalUrl;
 
   function openAtlasConfirm() {
     setAtlasConfirmOpen(true);
@@ -288,6 +291,55 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
     setShareMapWorking(true);
     setError(null);
     try {
+      // Atlas path: upload to portal and share hosted URL
+      if (useAtlas) {
+        const bySession = new Map<string, LogEntry[]>();
+        for (const e of filteredEntries) {
+          if (!bySession.has(e.sessionId)) bySession.set(e.sessionId, []);
+          bySession.get(e.sessionId)!.push(e);
+        }
+
+        const results: Array<{ shareUrl: string; claimToken: string }> = [];
+        const errors: string[] = [];
+
+        for (const [sid, entries] of bySession) {
+          const meta = derivedSessions.find((s) => s.id === sid);
+          try {
+            const result = await shareViaAtlas({
+              portalBaseUrl: portalUrl,
+              sessionId: sid,
+              entries,
+              jobName: meta?.jobName,
+            });
+            if (result.shareUrl) {
+              results.push({ shareUrl: result.shareUrl, claimToken: result.claimToken });
+            }
+          } catch (e) {
+            errors.push(e instanceof Error ? e.message : 'Upload failed');
+          }
+        }
+
+        if (results.length === 0) {
+          throw new Error(errors[0] ?? 'Upload failed. No share link was created.');
+        }
+
+        const { shareUrl, claimToken } = results[0]!;
+        const ownerUrl = claimToken ? `${shareUrl}?claimToken=${encodeURIComponent(claimToken)}` : undefined;
+        setShareMapResult({ type: 'url', url: shareUrl, ownerUrl });
+
+        // Open native share sheet automatically
+        try {
+          await Share.share(
+            { message: shareUrl, url: shareUrl },
+            { dialogTitle: 'Share Atlas Map Link' }
+          );
+        } catch {
+          // User dismissed — URL is still shown in result panel
+        }
+        return;
+      }
+
+      // Local HTML path (no portal configured)
       if (!useCloud) {
         const embedPhotos = new Map<string, string>();
         const withPhotos = [...filteredEntries]
@@ -341,6 +393,7 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
         });
         setShareMapResult({ type: 'local_done' });
       } else {
+        // Cloud (supabase / webhook) path
         const html = generateMapHtml(filteredEntries, { mode: 'cloud' });
         const sessionsMeta = derivedSessions
           .filter((s) => filteredSessionIds.includes(s.id))
@@ -403,10 +456,11 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
   }
 
   const shareMapDesc = useMemo(() => {
+    if (useAtlas) return 'Upload this session to Geospector Atlas and get a shareable hosted map link. Anyone with the link can view the map — no app required.';
     if (providerType === 'supabase' && isCloudConfigured) return t('shareMap.descSupabase');
     if (providerType === 'webhook' && isCloudConfigured) return t('shareMap.descWebhook');
     return t('shareMap.descLocal');
-  }, [providerType, isCloudConfigured, t]);
+  }, [useAtlas, providerType, isCloudConfigured, t]);
 
   const options: ExportOption[] = [
     {
@@ -541,11 +595,11 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
       id: 'shareMap',
       icon: 'map-outline',
       iconColor: '#4FC3F7',
-      title: t('shareMap.title'),
-      badge: t('shareMap.badge'),
+      title: useAtlas ? 'Share as Atlas link' : t('shareMap.title'),
+      badge: useAtlas ? 'Atlas' : t('shareMap.badge'),
       badgeColor: '#4FC3F7',
       description: shareMapDesc,
-      tags: [t('shareMap.tags'), 'HTML', 'Browser'],
+      tags: useAtlas ? ['Atlas', 'Hosted link'] : [t('shareMap.tags'), 'HTML', 'Browser'],
       handler: async () => {},
     },
     {
@@ -1148,7 +1202,9 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
                     {shareMapWorking ? (
                       <View style={styles.shareMapWorking}>
                         <ActivityIndicator size="small" color="#4FC3F7" />
-                        <Text style={styles.shareMapWorkingText}>{t('shareMap.generatingMap')}</Text>
+                        <Text style={styles.shareMapWorkingText}>
+                          {useAtlas ? 'Uploading to Atlas…' : t('shareMap.generatingMap')}
+                        </Text>
                       </View>
                     ) : shareMapResult ? (
                       <ShareMapResultPanel
@@ -1226,7 +1282,9 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
                           <View style={styles.shareMapStatRow}>
                             <Ionicons name="cloud-outline" size={13} color={Colors.textTertiary} />
                             <Text style={styles.shareMapStatText}>
-                              {useCloud && providerType === 'supabase'
+                              {useAtlas
+                                ? 'Uploads to Geospector Atlas — generates a hosted link'
+                                : useCloud && providerType === 'supabase'
                                 ? t('shareMap.providerSupabase')
                                 : useCloud && providerType === 'webhook'
                                 ? t('shareMap.providerWebhook')
@@ -1253,9 +1311,9 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
                               pressed && { opacity: 0.85 },
                             ]}
                           >
-                            <Ionicons name="map-outline" size={15} color="#fff" />
+                            <Ionicons name={useAtlas ? 'cloud-upload-outline' : 'map-outline'} size={15} color="#fff" />
                             <Text style={styles.confirmSubmitText}>
-                              {t('shareMap.confirmButton')}
+                              {useAtlas ? 'Create Atlas link' : t('shareMap.confirmButton')}
                             </Text>
                           </Pressable>
                         </View>
@@ -1353,6 +1411,23 @@ function ShareMapResultPanel({
             <Text style={styles.resultDismissText}>{t('shareMap.done')}</Text>
           </Pressable>
         </View>
+        {result.ownerUrl && (
+          <View style={styles.ownerUrlSection}>
+            <Text style={styles.ownerUrlLabel}>
+              Save your delete link (owner only)
+            </Text>
+            <Text style={styles.ownerUrlNote}>
+              Open this link from your device to remove the map from Atlas later.
+            </Text>
+            <Pressable
+              onPress={() => onCopy(result.ownerUrl!)}
+              style={({ pressed }) => [styles.ownerUrlBtn, pressed && { opacity: 0.6 }]}
+            >
+              <Ionicons name="key-outline" size={13} color={Colors.amber} />
+              <Text style={styles.ownerUrlBtnText}>Copy delete link</Text>
+            </Pressable>
+          </View>
+        )}
       </View>
     );
   }
@@ -1883,6 +1958,42 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,159,10,0.1)',
   },
   copyBtnText: {
+    color: Colors.amber,
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 12,
+  },
+  ownerUrlSection: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+    gap: 4,
+  },
+  ownerUrlLabel: {
+    color: Colors.textSecondary,
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 12,
+  },
+  ownerUrlNote: {
+    color: Colors.textTertiary,
+    fontFamily: 'Inter_400Regular',
+    fontSize: 11,
+    lineHeight: 15,
+  },
+  ownerUrlBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    alignSelf: 'flex-start',
+    marginTop: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255,159,10,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,159,10,0.25)',
+  },
+  ownerUrlBtnText: {
     color: Colors.amber,
     fontFamily: 'Inter_600SemiBold',
     fontSize: 12,

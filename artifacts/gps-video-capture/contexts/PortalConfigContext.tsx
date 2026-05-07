@@ -9,6 +9,7 @@ import React, {
 
 import { LogEntry } from '@/contexts/RecordingContext';
 import { getCurrentLocale } from '@/src/i18n';
+import { shareViaAtlas } from '@/lib/atlas-share';
 
 const PORTAL_URL_KEY = '@portal_url';
 const PORTAL_PUBLISHED_IDS_KEY = '@portal_published_ids';
@@ -37,7 +38,7 @@ interface PortalConfigContextType {
     entries: LogEntry[],
     jobName?: string,
     submitterEmail?: string
-  ) => Promise<{ alreadyPublished: boolean; claimToken?: string; atlasId?: number }>;
+  ) => Promise<{ alreadyPublished: boolean; claimToken?: string; atlasId?: number; shareUrl?: string }>;
   atlasSubmissions: Record<string, AtlasSubmission>;
   removeFromAtlas: (sessionId: string) => Promise<void>;
   importAtlasSubmissions: (incoming: Record<string, AtlasSubmission>) => Promise<{ added: number; skipped: number }>;
@@ -109,52 +110,32 @@ export function PortalConfigProvider({ children }: { children: React.ReactNode }
       entries: LogEntry[],
       jobName?: string,
       submitterEmail?: string
-    ): Promise<{ alreadyPublished: boolean; claimToken?: string; atlasId?: number }> => {
+    ): Promise<{ alreadyPublished: boolean; claimToken?: string; atlasId?: number; shareUrl?: string }> => {
       const baseUrl = portalUrl.replace(/\/+$/, '');
       if (!baseUrl) throw new Error('Portal URL is not configured. Set it in Settings.');
 
-      const sorted = [...entries].sort((a, b) => a.timestamp - b.timestamp);
-
-      const frames = sorted.map((e, i) => ({
-        frameIndex: i,
-        capturedAt: new Date(e.timestamp).toISOString(),
-        latitude: e.latitude,
-        longitude: e.longitude,
-        imageUrl: e.supabaseUrl ?? null,
-        thumbnailUrl: e.supabaseUrl ?? null,
-        uploadStatus: e.supabaseUrl ? 'uploaded' : 'local',
-      }));
-
-      const session = {
+      const result = await shareViaAtlas({
+        portalBaseUrl: baseUrl,
         sessionId,
-        title: jobName ? `${jobName} — ${new Date(sorted[0]?.timestamp ?? Date.now()).toLocaleDateString(getCurrentLocale(), { month: 'short', day: 'numeric', year: 'numeric' })}` : null,
-        captureMode: null,
-        isPublic: true,
-        submitterEmail: submitterEmail ?? null,
-      };
-
-      const response = await fetch(`${baseUrl}/api/portal/import/session-json`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ session, frames }),
+        entries,
+        jobName,
+        submitterEmail,
       });
 
-      if (!response.ok) {
-        const text = await response.text().catch(() => response.statusText);
-        throw new Error(`Portal returned ${response.status}: ${text}`);
-      }
-
-      const data = await response.json();
       await markPublished(sessionId);
 
-      if (data.claimToken && typeof data.id === 'number') {
-        await storeAtlasSubmission(sessionId, { atlasId: data.id, claimToken: data.claimToken });
+      if (result.claimToken && result.atlasId) {
+        await storeAtlasSubmission(sessionId, {
+          atlasId: result.atlasId,
+          claimToken: result.claimToken,
+        });
       }
 
       return {
-        alreadyPublished: data.alreadyPublished === true,
-        claimToken: typeof data.claimToken === 'string' ? data.claimToken : undefined,
-        atlasId: typeof data.id === 'number' ? data.id : undefined,
+        alreadyPublished: result.alreadyPublished,
+        claimToken: result.claimToken || undefined,
+        atlasId: result.atlasId || undefined,
+        shareUrl: result.shareUrl || undefined,
       };
     },
     [portalUrl, markPublished, storeAtlasSubmission]

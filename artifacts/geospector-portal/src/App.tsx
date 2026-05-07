@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
-import FeedPage from "@/pages/FeedPage";
+import AtlasLandingPage from "@/pages/AtlasLandingPage";
 import SessionDetail from "@/pages/SessionDetail";
 import SharePage from "@/pages/SharePage";
 import ImportPage from "@/pages/ImportPage";
@@ -19,7 +19,7 @@ const queryClient = new QueryClient({
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={FeedPage} />
+      <Route path="/" component={AtlasLandingPage} />
       <Route path="/sessions/:id" component={SessionDetail} />
       <Route path="/share/:token" component={SharePage} />
       <Route path="/import" component={ImportPage} />
