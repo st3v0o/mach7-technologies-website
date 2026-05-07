@@ -18,9 +18,17 @@ export interface AtlasShareResult {
 
 async function getLocalImageBase64(localPath: string): Promise<string | null> {
   try {
+    const info = await ImageManipulator.manipulateAsync(localPath, [], {
+      format: ImageManipulator.SaveFormat.JPEG,
+      compress: 1.0,
+    });
+    const longEdge = Math.max(info.width, info.height);
+    const resizeActions = longEdge > 1024
+      ? [info.width >= info.height ? { resize: { width: 1024 } } : { resize: { height: 1024 } }]
+      : [];
     const result = await ImageManipulator.manipulateAsync(
       localPath,
-      [{ resize: { width: 1024 } }],
+      resizeActions,
       { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
     );
     const base64 = await FileSystem.readAsStringAsync(result.uri, {

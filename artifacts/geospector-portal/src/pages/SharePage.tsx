@@ -106,7 +106,7 @@ export default function SharePage() {
   }
 
   const sessionDate = formatDate(session.startedAt ?? session.createdAt);
-  const canDelete = isSignedIn && session.sourceType === "atlas";
+  const canDelete = isSignedIn && session.sourceType === "atlas" && session.isOwnedByCurrentUser === true;
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-slate-900 text-gray-900 dark:text-white flex flex-col">

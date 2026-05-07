@@ -346,7 +346,11 @@ router.get("/share/:token", async (req, res) => {
     return;
   }
 
-  res.json(omitClaimToken(session));
+  const authedUserId = (req as AuthedRequest).userId;
+  res.json({
+    ...omitClaimToken(session),
+    isOwnedByCurrentUser: authedUserId != null ? session.userId === authedUserId : false,
+  });
 });
 
 // ── POST /portal/import/mock ─────────────────────────────────────────────────
