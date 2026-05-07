@@ -203,8 +203,8 @@ export default function SharePage() {
         )}
       </div>
 
-      {/* Map — fills viewport */}
-      <div className="flex-1 relative" style={{ minHeight: "55vh" }}>
+      {/* Map — explicit height so Leaflet can resolve height:100% */}
+      <div className="relative" style={{ height: "calc(100vh - 280px)", minHeight: "300px" }}>
         <SessionMap
           routeGeojson={routeGeojson}
           frames={frames}
