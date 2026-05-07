@@ -17,7 +17,6 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.mach7technologies.geospector",
       "buildNumber": "1",
-      "deploymentTarget": "17.0",
       "infoPlist": {
         "NSCameraUsageDescription": "Geospector uses the camera to record GPS-tagged video and capture photos.",
         "NSLocationWhenInUseUsageDescription": "Geospector uses your location to tag each video frame and photo with precise GPS coordinates.",
