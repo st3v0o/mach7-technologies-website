@@ -1,7 +1,7 @@
-import { useAuth, useClerk, Show } from "@clerk/react";
+import { useAuth, useClerk, useUser, Show } from "@clerk/react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, Redirect } from "wouter";
-import { MapPin, Share2, Trash2, ExternalLink, LogOut, ChevronLeft } from "lucide-react";
+import { MapPin, Share2, Trash2, ExternalLink, LogOut, ChevronLeft, UserCircle2 } from "lucide-react";
 import { useState } from "react";
 
 const apiBase = import.meta.env.BASE_URL.replace(/\/$/, "").replace(/\/geospector-portal$/, "");
@@ -32,6 +32,7 @@ interface PortalSession {
 export default function MyMapsPage() {
   const { getToken } = useAuth();
   const { signOut } = useClerk();
+  const { user } = useUser();
   const qc = useQueryClient();
   const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
   const [copied, setCopied] = useState<number | null>(null);
@@ -80,13 +81,30 @@ export default function MyMapsPage() {
               <span className="font-semibold text-white">My Maps</span>
             </div>
           </div>
-          <button
-            onClick={() => signOut({ redirectUrl: `${basePath}/` })}
-            className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-sm"
-          >
-            <LogOut className="h-4 w-4" />
-            Sign out
-          </button>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              {user?.imageUrl ? (
+                <img
+                  src={user.imageUrl}
+                  alt="avatar"
+                  className="h-7 w-7 rounded-full object-cover"
+                />
+              ) : (
+                <UserCircle2 className="h-7 w-7 text-slate-500" />
+              )}
+              <span className="text-sm text-slate-300 hidden sm:block">
+                {user?.primaryEmailAddress?.emailAddress ?? user?.fullName ?? ""}
+              </span>
+            </div>
+            <button
+              onClick={() => signOut({ redirectUrl: `${basePath}/` })}
+              className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-sm"
+              title="Sign out"
+            >
+              <LogOut className="h-4 w-4" />
+              <span className="hidden sm:inline">Sign out</span>
+            </button>
+          </div>
         </header>
 
         <main className="max-w-3xl mx-auto px-6 py-8">
