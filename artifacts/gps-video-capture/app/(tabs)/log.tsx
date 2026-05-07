@@ -2,7 +2,8 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
-import { useNavigation } from 'expo-router';
+import { useNavigation, useRouter } from 'expo-router';
+import { useAuth } from '@clerk/expo';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -408,6 +409,8 @@ function SessionHeader({
   const [publishing, setPublishing] = useState(false);
   const [publishMsg, setPublishMsg] = useState<string | null>(null);
   const { isPublished, publishSession, portalUrl, atlasSubmissions, removeFromAtlas } = usePortalConfig();
+  const { isSignedIn } = useAuth();
+  const router = useRouter();
   const atlasSubmission = atlasSubmissions[section.sessionId];
 
   const d = new Date(section.startMs);
@@ -458,11 +461,8 @@ function SessionHeader({
     }
   };
 
-  const handlePublishTap = () => {
-    if (publishing || !portalUrl) {
-      if (!portalUrl) Alert.alert(t('log.portalNotConfigured'), t('log.setPortalUrl'));
-      return;
-    }
+  /** Prompt for optional email then publish (guest / anonymous path). */
+  const promptAndPublish = () => {
     if (Platform.OS === 'ios') {
       Alert.prompt(
         'Submit to Atlas',
@@ -478,6 +478,30 @@ function SessionHeader({
     } else {
       handlePublish(undefined);
     }
+  };
+
+  const handlePublishTap = () => {
+    if (publishing || !portalUrl) {
+      if (!portalUrl) Alert.alert(t('log.portalNotConfigured'), t('log.setPortalUrl'));
+      return;
+    }
+
+    if (isSignedIn) {
+      // Already signed in — publish directly; account ownership replaces email link
+      handlePublish(undefined);
+      return;
+    }
+
+    // Auth gate: prompt to sign in or continue as guest
+    Alert.alert(
+      'Sign in to Atlas',
+      'Sign in to link this session to your account so you can manage it from any device. Or share anonymously.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Continue as Guest', onPress: promptAndPublish },
+        { text: 'Sign In', onPress: () => router.push('/(auth)/sign-in') },
+      ],
+    );
   };
 
   return (
@@ -640,6 +664,8 @@ export default function LogScreen() {
   const { t } = useTranslation();
   const periodLabels = usePeriodLabels();
   const navigation = useNavigation();
+  const router = useRouter();
+  const { isSignedIn } = useAuth();
   const { logEntries, shareGpx, clearLog, processingStatus, totalFrames, segmentCount, renameSessionJobName } = useRecording();
   const { publishSession, portalUrl } = usePortalConfig();
   const [selectedEntry, setSelectedEntry] = useState<LogEntry | null>(null);
@@ -762,13 +788,8 @@ export default function LogScreen() {
     Alert.alert('Bulk Publish', msg);
   };
 
-  const handleBulkPublishTap = () => {
-    if (!portalUrl) {
-      Alert.alert(t('log.portalNotConfigured'), t('log.setPortalUrl'));
-      return;
-    }
-    if (selectedSessionIds.size === 0) return;
-    const count = selectedSessionIds.size;
+  /** Prompt for optional email then bulk publish (guest / anonymous path). */
+  const promptAndBulkPublish = (count: number) => {
     if (Platform.OS === 'ios') {
       Alert.prompt(
         `Publish ${count} session${count !== 1 ? 's' : ''} to Atlas`,
@@ -784,6 +805,32 @@ export default function LogScreen() {
     } else {
       handleBulkPublish(undefined);
     }
+  };
+
+  const handleBulkPublishTap = () => {
+    if (!portalUrl) {
+      Alert.alert(t('log.portalNotConfigured'), t('log.setPortalUrl'));
+      return;
+    }
+    if (selectedSessionIds.size === 0) return;
+    const count = selectedSessionIds.size;
+
+    if (isSignedIn) {
+      // Already signed in — publish directly without email prompt
+      handleBulkPublish(undefined);
+      return;
+    }
+
+    // Auth gate: prompt to sign in or continue as guest
+    Alert.alert(
+      'Sign in to Atlas',
+      'Sign in to link these sessions to your account so you can manage them from any device. Or share anonymously.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Continue as Guest', onPress: () => promptAndBulkPublish(count) },
+        { text: 'Sign In', onPress: () => router.push('/(auth)/sign-in') },
+      ],
+    );
   };
 
   // Hide the tab bar while the frame preview sheet is open
