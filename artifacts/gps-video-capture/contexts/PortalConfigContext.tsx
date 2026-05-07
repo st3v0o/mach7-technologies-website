@@ -6,6 +6,7 @@ import React, {
   useEffect,
   useState,
 } from 'react';
+import { useAuth } from '@clerk/expo';
 
 import { LogEntry } from '@/contexts/RecordingContext';
 import { getCurrentLocale } from '@/src/i18n';
@@ -50,6 +51,9 @@ export function PortalConfigProvider({ children }: { children: React.ReactNode }
   const [portalUrl, setPortalUrlState] = useState<string>(DEFAULT_PORTAL_URL);
   const [publishedSessionIds, setPublishedSessionIds] = useState<Set<string>>(new Set());
   const [atlasSubmissions, setAtlasSubmissions] = useState<Record<string, AtlasSubmission>>({});
+
+  // Clerk auth — optional. getToken() returns null when not signed in.
+  const { getToken, isSignedIn } = useAuth();
 
   useEffect(() => {
     Promise.all([
@@ -114,12 +118,23 @@ export function PortalConfigProvider({ children }: { children: React.ReactNode }
       const baseUrl = portalUrl.replace(/\/+$/, '');
       if (!baseUrl) throw new Error('Portal URL is not configured. Set it in Settings.');
 
+      // Attach auth token if the user is signed in (anonymous sharing still works without it)
+      let authToken: string | null = null;
+      if (isSignedIn) {
+        try {
+          authToken = await getToken();
+        } catch {
+          // non-fatal — fall back to anonymous share
+        }
+      }
+
       const result = await shareViaAtlas({
         portalBaseUrl: baseUrl,
         sessionId,
         entries,
         jobName,
         submitterEmail,
+        authToken,
       });
 
       await markPublished(sessionId);
@@ -138,7 +153,7 @@ export function PortalConfigProvider({ children }: { children: React.ReactNode }
         shareUrl: result.shareUrl || undefined,
       };
     },
-    [portalUrl, markPublished, storeAtlasSubmission]
+    [portalUrl, markPublished, storeAtlasSubmission, getToken, isSignedIn]
   );
 
   const importAtlasSubmissions = useCallback(

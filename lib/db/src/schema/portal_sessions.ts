@@ -36,6 +36,7 @@ export const portalSessionsTable = pgTable("portal_sessions", {
   thumbnailUrl: text("thumbnail_url"), // URL of first frame image used as preview
   isPublic: boolean("is_public").notNull().default(false), // whether this session appears on the public feed
   publishedAt: timestamp("published_at", { withTimezone: true }), // when it was made public
+  userId: text("user_id"), // Clerk user ID of the authenticated user who submitted this session (nullable — anonymous OK)
 });
 
 export const insertPortalSessionSchema = createInsertSchema(portalSessionsTable).omit({

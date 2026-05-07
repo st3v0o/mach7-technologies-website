@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { randomUUID } from "crypto";
+import { getAuth } from "@clerk/express";
 import { db } from "@workspace/db";
 import {
   portalSessionsTable,
@@ -28,6 +29,36 @@ import { haversineDistanceMiles, buildLineString } from "../lib/geo.js";
 import { XMLParser } from "fast-xml-parser";
 
 const router = Router();
+
+// ── Auth helpers ─────────────────────────────────────────────────────────────
+
+function optionalAuth(req: any, _res: any, next: any) {
+  try {
+    const auth = getAuth(req);
+    req.userId = auth?.userId ?? null;
+  } catch {
+    req.userId = null;
+  }
+  next();
+}
+
+function requireAuth(req: any, res: any, next: any) {
+  try {
+    const auth = getAuth(req);
+    if (!auth?.userId) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+    req.userId = auth.userId;
+  } catch {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  next();
+}
+
+// Apply optional auth to all portal routes so req.userId is always available
+router.use(optionalAuth);
 
 // ── Helper: strip sensitive fields before sending sessions to clients ────────
 
@@ -480,6 +511,7 @@ router.post("/import/session-json", async (req, res) => {
       thumbnailUrl: mappedFrames[0]?.imageUrl ?? null,
       isPublic: makePublic,
       publishedAt: makePublic ? new Date() : null,
+      userId: (req as any).userId ?? undefined,
     } satisfies InsertPortalSession)
     .returning();
 
@@ -878,5 +910,44 @@ router.delete("/sessions/:id", async (req, res) => {
 //   — Pull session data from a Supabase Storage manifest file
 //   — Body: { supabaseUrl, bucketName, manifestPath, anonKey }
 //   — Downloads manifest JSON, parses sessions/frames, inserts into portal DB
+
+// ── Authenticated user endpoints ─────────────────────────────────────────────
+
+router.get("/my-sessions", requireAuth, async (req, res) => {
+  const sessions = await db
+    .select()
+    .from(portalSessionsTable)
+    .where(eq(portalSessionsTable.userId, (req as any).userId))
+    .orderBy(desc(portalSessionsTable.createdAt));
+  res.json(sessions.map(omitSensitiveFields));
+});
+
+router.delete("/my-sessions/:id", requireAuth, async (req, res) => {
+  const id = Number(req.params.id);
+  if (isNaN(id)) {
+    res.status(400).json({ error: "Invalid session id" });
+    return;
+  }
+
+  const [session] = await db
+    .select()
+    .from(portalSessionsTable)
+    .where(
+      and(
+        eq(portalSessionsTable.id, id),
+        eq(portalSessionsTable.userId, (req as any).userId)
+      )
+    );
+
+  if (!session) {
+    res.status(404).json({ error: "Session not found or not owned by you" });
+    return;
+  }
+
+  await db.delete(portalFramesTable).where(eq(portalFramesTable.portalSessionId, id));
+  await db.delete(portalSessionsTable).where(eq(portalSessionsTable.id, id));
+
+  res.json({ deleted: true, id });
+});
 
 export default router;

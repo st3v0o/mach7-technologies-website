@@ -48,6 +48,7 @@ export default function DeleteConfirmPage() {
       const t = setTimeout(() => navigate("/"), 4000);
       return () => clearTimeout(t);
     }
+    return undefined;
   }, [status, navigate]);
 
   return (

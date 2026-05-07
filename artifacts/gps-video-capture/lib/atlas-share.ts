@@ -9,6 +9,7 @@ export interface AtlasShareInput {
   entries: LogEntry[];
   jobName?: string;
   submitterEmail?: string | null;
+  authToken?: string | null;
 }
 
 export interface AtlasShareResult {
@@ -19,7 +20,7 @@ export interface AtlasShareResult {
 }
 
 export async function shareViaAtlas(input: AtlasShareInput): Promise<AtlasShareResult> {
-  const { portalBaseUrl, sessionId, entries, jobName, submitterEmail } = input;
+  const { portalBaseUrl, sessionId, entries, jobName, submitterEmail, authToken } = input;
   const baseUrl = portalBaseUrl.replace(/\/+$/, '');
 
   const sorted = [...entries].sort((a, b) => a.timestamp - b.timestamp);
@@ -43,9 +44,14 @@ export async function shareViaAtlas(input: AtlasShareInput): Promise<AtlasShareR
     uploadStatus: e.supabaseUrl ? 'uploaded' : 'local',
   }));
 
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (authToken) {
+    headers['Authorization'] = `Bearer ${authToken}`;
+  }
+
   const response = await fetch(`${baseUrl}/api/portal/import/session-json`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify({
       session: {
         sessionId,
