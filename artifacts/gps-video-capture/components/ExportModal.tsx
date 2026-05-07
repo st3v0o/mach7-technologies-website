@@ -1,19 +1,19 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
-import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
-import * as ImageManipulator from 'expo-image-manipulator';
 import * as Sharing from 'expo-sharing';
+import { useRouter } from 'expo-router';
+import { useAuth } from '@clerk/expo';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Animated,
   Modal,
   Platform,
   Pressable,
   ScrollView,
-  Share,
   StyleSheet,
   Text,
   TextInput,
@@ -24,9 +24,6 @@ import { useTranslation } from 'react-i18next';
 import Colors from '@/constants/colors';
 import { LogEntry } from '@/contexts/RecordingContext';
 import { usePortalConfig } from '@/contexts/PortalConfigContext';
-import { shareViaAtlas } from '@/lib/atlas-share';
-import { useStorageConfig, ShareProjectPayload } from '@/contexts/StorageConfigContext';
-import { generateMapHtml } from '@/lib/map-share-generator';
 import {
   isoNow,
   generateGeoJSON,
@@ -60,11 +57,6 @@ interface ExportOption {
 
 type PeriodFilter = 'all' | 'today' | 'week' | 'month';
 
-type ShareMapResult =
-  | { type: 'local_done' }
-  | { type: 'url'; url: string; ownerUrl?: string }
-  | { type: 'sent_no_url' };
-
 function getPeriodCutoffMs(period: PeriodFilter): number {
   if (period === 'all') return 0;
   const now = new Date();
@@ -77,11 +69,10 @@ function getPeriodCutoffMs(period: PeriodFilter): number {
   return new Date(now.getFullYear(), now.getMonth(), 1).getTime();
 }
 
-const THUMBNAIL_KB = 20;
-const MAX_MAP_KB = 10 * 1024;
-
 export default function ExportModal({ visible, onClose, logEntries, sessionIds }: Props) {
   const { t } = useTranslation();
+  const { isSignedIn } = useAuth();
+  const router = useRouter();
   const [activeId, setActiveId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [atlasResult, setAtlasResult] = useState<{ success: boolean; message: string } | null>(null);
@@ -96,14 +87,7 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
   const [periodFilter, setPeriodFilter] = useState<PeriodFilter>('all');
   const [selectedJobNames, setSelectedJobNames] = useState<Set<string> | null>(null);
 
-  const [shareMapConfirmOpen, setShareMapConfirmOpen] = useState(false);
-  const shareMapAnim = useRef(new Animated.Value(0)).current;
-  const [shareMapWorking, setShareMapWorking] = useState(false);
-  const [shareMapResult, setShareMapResult] = useState<ShareMapResult | null>(null);
-  const [shareMapCopied, setShareMapCopied] = useState(false);
-
-  const { providerType, isCloudConfigured, shareProject } = useStorageConfig();
-  const { publishSession, portalUrl, atlasSubmissions, importAtlasSubmissions } = usePortalConfig();
+  const { publishSession, portalUrl, atlasSubmissions } = usePortalConfig();
 
   useEffect(() => {
     if (visible) {
@@ -159,26 +143,10 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
 
   const isFilterActive = periodFilter !== 'all' || selectedSessionIds !== null || selectedJobNames !== null;
 
-  const photoCount = useMemo(
-    () => filteredEntries.filter((e) => e.localPath).length,
-    [filteredEntries]
-  );
   const geotaggedCount = useMemo(
     () => filteredEntries.filter((e) => e.latitude !== 0 || e.longitude !== 0).length,
     [filteredEntries]
   );
-
-  const shareMapEstimate = useMemo(() => {
-    const localPhotoCount = filteredEntries.filter((e) => e.localPath).length;
-    const maxPhotos = Math.floor(MAX_MAP_KB / THUMBNAIL_KB);
-    const droppedCount = Math.max(0, localPhotoCount - maxPhotos);
-    const embeddedCount = localPhotoCount - droppedCount;
-    const estimatedKb = embeddedCount * THUMBNAIL_KB;
-    return { localPhotoCount, embeddedCount, droppedCount, estimatedKb };
-  }, [filteredEntries]);
-
-  const useCloud = (providerType === 'supabase' || providerType === 'webhook') && isCloudConfigured;
-  const useAtlas = !!portalUrl;
 
   function openAtlasConfirm() {
     setAtlasConfirmOpen(true);
@@ -198,36 +166,9 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
     }).start(() => setAtlasConfirmOpen(false));
   }
 
-  function openShareMapConfirm() {
-    setShareMapResult(null);
-    setShareMapCopied(false);
-    setShareMapConfirmOpen(true);
-    Animated.spring(shareMapAnim, {
-      toValue: 1,
-      useNativeDriver: true,
-      tension: 120,
-      friction: 10,
-    }).start();
-  }
-
-  function closeShareMapConfirm() {
-    Animated.timing(shareMapAnim, {
-      toValue: 0,
-      duration: 160,
-      useNativeDriver: true,
-    }).start(() => {
-      setShareMapConfirmOpen(false);
-      setShareMapResult(null);
-    });
-  }
-
   function handleClose() {
     setAtlasConfirmOpen(false);
     confirmAnim.setValue(0);
-    setShareMapConfirmOpen(false);
-    shareMapAnim.setValue(0);
-    setShareMapResult(null);
-    setShareMapWorking(false);
     setFilterOpen(false);
     setSelectedSessionIds(null);
     setPeriodFilter('all');
@@ -282,158 +223,6 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
     setSelectedJobNames(null);
   }
 
-  async function handleShareMap() {
-    if (filteredEntries.length === 0) {
-      setError(t('shareMap.noResults'));
-      setShareMapConfirmOpen(false);
-      return;
-    }
-    setShareMapWorking(true);
-    setError(null);
-    try {
-      // Atlas path: upload to portal and share hosted URL
-      if (useAtlas) {
-        const bySession = new Map<string, LogEntry[]>();
-        for (const e of filteredEntries) {
-          if (!bySession.has(e.sessionId)) bySession.set(e.sessionId, []);
-          bySession.get(e.sessionId)!.push(e);
-        }
-
-        const results: Array<{ shareUrl: string; claimToken: string }> = [];
-        const errors: string[] = [];
-
-        for (const [sid, entries] of bySession) {
-          const meta = derivedSessions.find((s) => s.id === sid);
-          try {
-            const result = await shareViaAtlas({
-              portalBaseUrl: portalUrl,
-              sessionId: sid,
-              entries,
-              jobName: meta?.jobName,
-            });
-            if (result.shareUrl) {
-              results.push({ shareUrl: result.shareUrl, claimToken: result.claimToken });
-            }
-          } catch (e) {
-            errors.push(e instanceof Error ? e.message : 'Upload failed');
-          }
-        }
-
-        if (results.length === 0) {
-          throw new Error(errors[0] ?? 'Upload failed. No share link was created.');
-        }
-
-        const { shareUrl, claimToken } = results[0]!;
-        const ownerUrl = claimToken ? `${shareUrl}?claimToken=${encodeURIComponent(claimToken)}` : undefined;
-        setShareMapResult({ type: 'url', url: shareUrl, ownerUrl });
-
-        // Open native share sheet automatically
-        try {
-          await Share.share(
-            { message: shareUrl, url: shareUrl },
-            { dialogTitle: 'Share Atlas Map Link' }
-          );
-        } catch {
-          // User dismissed — URL is still shown in result panel
-        }
-        return;
-      }
-
-      // Local HTML path (no portal configured)
-      if (!useCloud) {
-        const embedPhotos = new Map<string, string>();
-        const withPhotos = [...filteredEntries]
-          .filter((e) => e.localPath)
-          .sort((a, b) => b.timestamp - a.timestamp);
-
-        const baseHtml = generateMapHtml(filteredEntries, { mode: 'local', embedPhotos: new Map() });
-        const baseBytes = new TextEncoder().encode(baseHtml).length;
-        const maxBytes = Math.max(0, MAX_MAP_KB * 1024 - baseBytes);
-        let totalBytes = 0;
-
-        for (const entry of withPhotos) {
-          try {
-            const info = await FileSystem.getInfoAsync(entry.localPath);
-            if (!info.exists) continue;
-            const probe = await ImageManipulator.manipulateAsync(
-              entry.localPath,
-              [],
-              { compress: 1, format: ImageManipulator.SaveFormat.JPEG }
-            );
-            const isPortrait = probe.height > probe.width;
-            const result = await ImageManipulator.manipulateAsync(
-              entry.localPath,
-              [{ resize: isPortrait ? { height: 320 } : { width: 320 } }],
-              {
-                compress: 0.5,
-                format: ImageManipulator.SaveFormat.JPEG,
-                base64: true,
-              }
-            );
-            if (!result.base64) continue;
-            const bytes = result.base64.length * 0.75;
-            if (totalBytes + bytes > maxBytes) continue;
-            totalBytes += bytes;
-            embedPhotos.set(entry.filename, `data:image/jpeg;base64,${result.base64}`);
-          } catch {
-            continue;
-          }
-        }
-
-        const html = generateMapHtml(filteredEntries, { mode: 'local', embedPhotos });
-        const filename = `geospector_map_${isoNow()}.html`;
-        const dest = (FileSystem.cacheDirectory ?? '') + filename;
-        await FileSystem.writeAsStringAsync(dest, html, {
-          encoding: FileSystem.EncodingType.UTF8,
-        });
-        await Sharing.shareAsync(dest, {
-          mimeType: 'text/html',
-          dialogTitle: 'Share Map',
-          UTI: 'public.html',
-        });
-        setShareMapResult({ type: 'local_done' });
-      } else {
-        // Cloud (supabase / webhook) path
-        const html = generateMapHtml(filteredEntries, { mode: 'cloud' });
-        const sessionsMeta = derivedSessions
-          .filter((s) => filteredSessionIds.includes(s.id))
-          .map((s) => ({
-            id: s.id,
-            jobName: s.jobName,
-            frameCount: s.count,
-            firstFrameAt: new Date(s.firstAt).toISOString(),
-            lastFrameAt: new Date(s.lastAt).toISOString(),
-          }));
-        const payload: ShareProjectPayload = {
-          entries: filteredEntries,
-          sessionIds: filteredSessionIds,
-          mapHtml: html,
-          sessions: sessionsMeta,
-          metadata: {
-            totalFrames: filteredEntries.length,
-            geotaggedFrames: filteredEntries.filter(
-              (e) => e.latitude !== 0 || e.longitude !== 0
-            ).length,
-            exportedAt: new Date().toISOString(),
-          },
-        };
-        const url = await shareProject(payload);
-        setShareMapResult(url ? { type: 'url', url } : { type: 'sent_no_url' });
-      }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : t('export.exportFailed'));
-      setShareMapConfirmOpen(false);
-    } finally {
-      setShareMapWorking(false);
-    }
-  }
-
-  async function copyShareMapUrl(url: string) {
-    await Clipboard.setStringAsync(url);
-    setShareMapCopied(true);
-    setTimeout(() => setShareMapCopied(false), 2000);
-  }
-
   async function run(id: string, fn: () => Promise<void>) {
     setActiveId(id);
     setError(null);
@@ -455,13 +244,6 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
     setTimeout(() => setCopiedToken(null), 2000);
   }
 
-  const shareMapDesc = useMemo(() => {
-    if (useAtlas) return 'Upload this session to Geospector Atlas and get a shareable hosted map link. Anyone with the link can view the map — no app required.';
-    if (providerType === 'supabase' && isCloudConfigured) return t('shareMap.descSupabase');
-    if (providerType === 'webhook' && isCloudConfigured) return t('shareMap.descWebhook');
-    return t('shareMap.descLocal');
-  }, [useAtlas, providerType, isCloudConfigured, t]);
-
   const options: ExportOption[] = [
     {
       id: 'atlas',
@@ -471,7 +253,7 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
       badge: 'Live',
       badgeColor: Colors.blue,
       description:
-        'Publish sessions to the public Geospector Atlas map. Claim tokens are stored on this device only — use "Backup Atlas Tokens" below to save them so you can remove sessions after reinstalling the app.',
+        'Publish sessions to the public Geospector Atlas map. Your claim token is stored on this device — tap the Atlas badge on any session to copy your delete code.',
       tags: ['Portal', 'Live Map', 'Atlas'],
       handler: async () => {
         if (!portalUrl) {
@@ -488,7 +270,7 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
         const freshTokens: { sessionId: string; claimToken: string }[] = [];
         for (const [sid, entries] of bySession) {
           try {
-            const result = await publishSession(sid, entries, entries[0]?.jobName, atlasEmail.trim() || undefined);
+            const result = await publishSession(sid, entries, entries[0]?.jobName, isSignedIn ? undefined : atlasEmail.trim() || undefined);
             if (result.alreadyPublished) {
               alreadyCount++;
             } else {
@@ -504,14 +286,16 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
         if (errors.length > 0 && successCount === 0 && alreadyCount === 0) {
           throw new Error(errors[0]!);
         }
-        const trimmedEmail = atlasEmail.trim();
-        try {
-          if (trimmedEmail) {
-            await AsyncStorage.setItem('atlas_email', trimmedEmail);
-          } else {
-            await AsyncStorage.removeItem('atlas_email');
-          }
-        } catch {}
+        if (!isSignedIn) {
+          const trimmedEmail = atlasEmail.trim();
+          try {
+            if (trimmedEmail) {
+              await AsyncStorage.setItem('atlas_email', trimmedEmail);
+            } else {
+              await AsyncStorage.removeItem('atlas_email');
+            }
+          } catch {}
+        }
         const parts: string[] = [];
         if (successCount > 0) parts.push(`${successCount} submitted`);
         if (alreadyCount > 0) parts.push(`${alreadyCount} already in Atlas`);
@@ -522,85 +306,6 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
           message: parts.join(', '),
         });
       },
-    },
-    {
-      id: 'atlas_backup',
-      icon: 'key-outline',
-      iconColor: Colors.amber,
-      title: 'Backup Atlas Tokens',
-      description:
-        'Export your Atlas claim tokens as a JSON file. Store it safely — you need these to remove sessions from the Atlas if you reinstall the app or clear app storage.',
-      tags: ['Atlas', 'JSON', 'Backup'],
-      handler: async () => {
-        const entries = Object.entries(atlasSubmissions);
-        if (entries.length === 0) {
-          throw new Error('No Atlas submissions found. Submit sessions to the Atlas first.');
-        }
-        const backup = {
-          exported: new Date().toISOString(),
-          note: 'Keep this file safe. These tokens let you remove sessions from the Geospector Atlas. They are device-only and cannot be recovered if lost.',
-          sessions: atlasSubmissions,
-        };
-        await writeAndShare(
-          `geospector_atlas_tokens_${isoNow()}.json`,
-          JSON.stringify(backup, null, 2),
-          'application/json'
-        );
-      },
-    },
-    {
-      id: 'atlas_restore',
-      icon: 'download-outline',
-      iconColor: Colors.amber,
-      title: 'Restore Atlas Tokens',
-      description:
-        'Import a previously exported atlas_tokens.json backup. Restored tokens re-enable the Atlas badge and "Remove from Atlas" button for recovered sessions.',
-      tags: ['Atlas', 'JSON', 'Restore'],
-      handler: async () => {
-        const result = await DocumentPicker.getDocumentAsync({
-          type: 'application/json',
-          copyToCacheDirectory: true,
-        });
-        if (result.canceled || result.assets.length === 0) return;
-        const asset = result.assets[0];
-        if (!asset) return;
-        const raw = await FileSystem.readAsStringAsync(asset.uri);
-        let parsed: unknown;
-        try {
-          parsed = JSON.parse(raw);
-        } catch {
-          throw new Error('The selected file is not valid JSON.');
-        }
-        if (
-          typeof parsed !== 'object' ||
-          parsed === null ||
-          !('sessions' in parsed) ||
-          typeof (parsed as Record<string, unknown>).sessions !== 'object' ||
-          (parsed as Record<string, unknown>).sessions === null
-        ) {
-          throw new Error('Invalid backup file format. Expected a file with a "sessions" key.');
-        }
-        const sessions = (parsed as { sessions: Record<string, unknown> }).sessions;
-        const { added, skipped } = await importAtlasSubmissions(
-          sessions as Record<string, { atlasId: number; claimToken: string }>
-        );
-        const parts: string[] = [];
-        if (added > 0) parts.push(`${added} token${added !== 1 ? 's' : ''} restored`);
-        if (skipped > 0) parts.push(`${skipped} already present`);
-        if (parts.length === 0) parts.push('No valid tokens found in file');
-        setAtlasResult({ success: added > 0, message: parts.join(', ') });
-      },
-    },
-    {
-      id: 'shareMap',
-      icon: 'map-outline',
-      iconColor: '#4FC3F7',
-      title: useAtlas ? 'Share as Atlas link' : t('shareMap.title'),
-      badge: useAtlas ? 'Atlas' : t('shareMap.badge'),
-      badgeColor: '#4FC3F7',
-      description: shareMapDesc,
-      tags: useAtlas ? ['Atlas', 'Hosted link'] : [t('shareMap.tags'), 'HTML', 'Browser'],
-      handler: async () => {},
     },
     {
       id: 'full_archive',
@@ -1032,12 +737,8 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
           )}
 
           {options.map((opt) => {
-            const isLoading = opt.id === 'shareMap' ? shareMapWorking : activeId === opt.id;
-            const isDisabled =
-              opt.id === 'shareMap'
-                ? !!activeId
-                : !!activeId || shareMapWorking;
-            const isShareMap = opt.id === 'shareMap';
+            const isLoading = activeId === opt.id;
+            const isDisabled = !!activeId;
             const isAtlas = opt.id === 'atlas';
 
             return (
@@ -1046,25 +747,15 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
                   onPress={() => {
                     if (isAtlas) {
                       openAtlasConfirm();
-                    } else if (isShareMap) {
-                      openShareMapConfirm();
                     } else {
                       run(opt.id, opt.handler);
                     }
                   }}
-                  disabled={
-                    isDisabled ||
-                    (isAtlas && atlasConfirmOpen) ||
-                    (isShareMap && (shareMapConfirmOpen || shareMapWorking))
-                  }
+                  disabled={isDisabled || (isAtlas && atlasConfirmOpen)}
                   style={({ pressed }) => [
                     styles.card,
                     (isAtlas && atlasConfirmOpen) && styles.cardConfirmOpen,
-                    (isShareMap && shareMapConfirmOpen) && styles.cardConfirmOpen,
-                    pressed &&
-                      !isDisabled &&
-                      !(isAtlas && atlasConfirmOpen) &&
-                      !(isShareMap && shareMapConfirmOpen) && { opacity: 0.8 },
+                    pressed && !isDisabled && !(isAtlas && atlasConfirmOpen) && { opacity: 0.8 },
                     isDisabled && !isLoading && { opacity: 0.4 },
                   ]}
                 >
@@ -1107,11 +798,7 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
 
                   {!isLoading && (
                     <Ionicons
-                      name={
-                        (isAtlas && atlasConfirmOpen) || (isShareMap && shareMapConfirmOpen)
-                          ? 'chevron-down'
-                          : 'chevron-forward'
-                      }
+                      name={(isAtlas && atlasConfirmOpen) ? 'chevron-down' : 'chevron-forward'}
                       size={16}
                       color={Colors.textTertiary}
                     />
@@ -1136,21 +823,25 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
                       },
                     ]}
                   >
-                    <Text style={styles.atlasEmailLabel}>Your email (optional)</Text>
-                    <TextInput
-                      style={styles.atlasEmailInput}
-                      value={atlasEmail}
-                      onChangeText={setAtlasEmail}
-                      placeholder="you@example.com"
-                      keyboardType="email-address"
-                      autoCapitalize="none"
-                      autoCorrect={false}
-                      autoFocus
-                      placeholderTextColor={Colors.textTertiary}
-                    />
-                    <Text style={styles.atlasEmailHint}>
-                      Enter your email so you can request a delete link from the portal later — no delete code required.
-                    </Text>
+                    {!isSignedIn && (
+                      <>
+                        <Text style={styles.atlasEmailLabel}>Your email (optional)</Text>
+                        <TextInput
+                          style={styles.atlasEmailInput}
+                          value={atlasEmail}
+                          onChangeText={setAtlasEmail}
+                          placeholder="you@example.com"
+                          keyboardType="email-address"
+                          autoCapitalize="none"
+                          autoCorrect={false}
+                          autoFocus
+                          placeholderTextColor={Colors.textTertiary}
+                        />
+                        <Text style={styles.atlasEmailHint}>
+                          Enter your email so you can request a delete link from the portal later — no delete code required.
+                        </Text>
+                      </>
+                    )}
                     <View style={styles.confirmButtons}>
                       <Pressable
                         onPress={closeAtlasConfirm}
@@ -1163,8 +854,32 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
                       </Pressable>
                       <Pressable
                         onPress={() => {
-                          closeAtlasConfirm();
-                          run(opt.id, opt.handler);
+                          if (isSignedIn) {
+                            closeAtlasConfirm();
+                            run(opt.id, opt.handler);
+                          } else {
+                            Alert.alert(
+                              'Sign in to Atlas',
+                              'Sign in to link this session to your account, or continue as a guest.',
+                              [
+                                { text: 'Cancel', style: 'cancel' },
+                                {
+                                  text: 'Continue as Guest',
+                                  onPress: () => {
+                                    closeAtlasConfirm();
+                                    run(opt.id, opt.handler);
+                                  },
+                                },
+                                {
+                                  text: 'Sign In',
+                                  onPress: () => {
+                                    closeAtlasConfirm();
+                                    router.push('/(auth)/sign-in');
+                                  },
+                                },
+                              ],
+                            );
+                          }
                         }}
                         disabled={!!activeId}
                         style={({ pressed }) => [
@@ -1180,147 +895,6 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
                     </View>
                   </Animated.View>
                 )}
-
-                {isShareMap && shareMapConfirmOpen && (
-                  <Animated.View
-                    style={[
-                      styles.confirmPanel,
-                      styles.shareMapPanel,
-                      {
-                        opacity: shareMapAnim,
-                        transform: [
-                          {
-                            translateY: shareMapAnim.interpolate({
-                              inputRange: [0, 1],
-                              outputRange: [-8, 0],
-                            }),
-                          },
-                        ],
-                      },
-                    ]}
-                  >
-                    {shareMapWorking ? (
-                      <View style={styles.shareMapWorking}>
-                        <ActivityIndicator size="small" color="#4FC3F7" />
-                        <Text style={styles.shareMapWorkingText}>
-                          {useAtlas ? 'Uploading to Atlas…' : t('shareMap.generatingMap')}
-                        </Text>
-                      </View>
-                    ) : shareMapResult ? (
-                      <ShareMapResultPanel
-                        result={shareMapResult}
-                        copied={shareMapCopied}
-                        onCopy={copyShareMapUrl}
-                        onShare={async (url) => {
-                          const dest = (FileSystem.cacheDirectory ?? '') + 'map_link.txt';
-                          await FileSystem.writeAsStringAsync(dest, url);
-                          await Sharing.shareAsync(dest, {
-                            mimeType: 'text/plain',
-                            dialogTitle: 'Share Map Link',
-                          });
-                        }}
-                        onClose={closeShareMapConfirm}
-                        t={t}
-                      />
-                    ) : (
-                      <>
-                        <Text style={styles.confirmSectionTitle}>{t('shareMap.confirmTitle')}</Text>
-
-                        <View style={styles.shareMapStats}>
-                          <View style={styles.shareMapStatRow}>
-                            <Ionicons name="location-outline" size={13} color={Colors.textTertiary} />
-                            <Text style={styles.shareMapStatText}>
-                              <Text style={{ color: Colors.text }}>{geotaggedCount}</Text> geotagged points
-                            </Text>
-                          </View>
-
-                          {useCloud ? (
-                            filteredEntries.some((e) => e.supabaseUrl) ? (
-                              <View style={styles.shareMapStatRow}>
-                                <Ionicons name="image-outline" size={13} color={Colors.textTertiary} />
-                                <Text style={styles.shareMapStatText}>
-                                  {t('shareMap.photosByUrl')}
-                                </Text>
-                              </View>
-                            ) : photoCount > 0 ? (
-                              <View style={styles.shareMapStatRow}>
-                                <Ionicons name="image-outline" size={13} color={Colors.textTertiary} />
-                                <Text style={styles.shareMapStatText}>
-                                  {t('shareMap.noPhotos')}
-                                </Text>
-                              </View>
-                            ) : null
-                          ) : photoCount > 0 ? (
-                            <>
-                              <View style={styles.shareMapStatRow}>
-                                <Ionicons name="image-outline" size={13} color={Colors.textTertiary} />
-                                <Text style={styles.shareMapStatText}>
-                                  {t('shareMap.photosEmbedded', {
-                                    count: shareMapEstimate.embeddedCount,
-                                    size: shareMapEstimate.estimatedKb,
-                                  })}
-                                </Text>
-                              </View>
-                              {shareMapEstimate.droppedCount > 0 && (
-                                <View style={styles.shareMapStatRow}>
-                                  <Ionicons name="warning-outline" size={13} color={Colors.amber} />
-                                  <Text style={[styles.shareMapStatText, { color: Colors.amber }]}>
-                                    {t('shareMap.capWarning', {
-                                      dropped: shareMapEstimate.droppedCount,
-                                    })}
-                                  </Text>
-                                </View>
-                              )}
-                            </>
-                          ) : (
-                            <View style={styles.shareMapStatRow}>
-                              <Ionicons name="image-outline" size={13} color={Colors.textTertiary} />
-                              <Text style={styles.shareMapStatText}>{t('shareMap.noPhotos')}</Text>
-                            </View>
-                          )}
-
-                          <View style={styles.shareMapStatRow}>
-                            <Ionicons name="cloud-outline" size={13} color={Colors.textTertiary} />
-                            <Text style={styles.shareMapStatText}>
-                              {useAtlas
-                                ? 'Uploads to Geospector Atlas — generates a hosted link'
-                                : useCloud && providerType === 'supabase'
-                                ? t('shareMap.providerSupabase')
-                                : useCloud && providerType === 'webhook'
-                                ? t('shareMap.providerWebhook')
-                                : t('shareMap.providerLocal')}
-                            </Text>
-                          </View>
-                        </View>
-
-                        <View style={styles.confirmButtons}>
-                          <Pressable
-                            onPress={closeShareMapConfirm}
-                            style={({ pressed }) => [
-                              styles.confirmCancel,
-                              pressed && { opacity: 0.6 },
-                            ]}
-                          >
-                            <Text style={styles.confirmCancelText}>Cancel</Text>
-                          </Pressable>
-                          <Pressable
-                            onPress={handleShareMap}
-                            style={({ pressed }) => [
-                              styles.confirmSubmit,
-                              styles.shareMapSubmitBg,
-                              pressed && { opacity: 0.85 },
-                            ]}
-                          >
-                            <Ionicons name={useAtlas ? 'cloud-upload-outline' : 'map-outline'} size={15} color="#fff" />
-                            <Text style={styles.confirmSubmitText}>
-                              {useAtlas ? 'Create Atlas link' : t('shareMap.confirmButton')}
-                            </Text>
-                          </Pressable>
-                        </View>
-                      </>
-                    )}
-                  </Animated.View>
-                )}
               </React.Fragment>
             );
           })}
@@ -1334,118 +908,6 @@ export default function ExportModal({ visible, onClose, logEntries, sessionIds }
         </ScrollView>
       </View>
     </Modal>
-  );
-}
-
-interface ShareMapResultPanelProps {
-  result: ShareMapResult;
-  copied: boolean;
-  onCopy: (url: string) => void;
-  onShare: (url: string) => void;
-  onClose: () => void;
-  t: (key: string) => string;
-}
-
-function ShareMapResultPanel({
-  result,
-  copied,
-  onCopy,
-  onShare,
-  onClose,
-  t,
-}: ShareMapResultPanelProps) {
-  if (result.type === 'local_done') {
-    return (
-      <View style={styles.resultPanel}>
-        <View style={styles.resultHeader}>
-          <Ionicons name="checkmark-circle-outline" size={18} color={Colors.gpsGreen} />
-          <Text style={styles.resultTitle}>{t('shareMap.localDoneTitle')}</Text>
-        </View>
-        <Text style={styles.resultNote}>{t('shareMap.localDoneNote')}</Text>
-        <Pressable
-          onPress={onClose}
-          style={({ pressed }) => [styles.resultDismiss, pressed && { opacity: 0.6 }]}
-        >
-          <Text style={styles.resultDismissText}>{t('shareMap.done')}</Text>
-        </Pressable>
-      </View>
-    );
-  }
-
-  if (result.type === 'url') {
-    return (
-      <View style={styles.resultPanel}>
-        <View style={styles.resultHeader}>
-          <Ionicons name="checkmark-circle-outline" size={18} color={Colors.gpsGreen} />
-          <Text style={styles.resultTitle}>{t('shareMap.urlTitle')}</Text>
-        </View>
-        <Text style={styles.resultNote}>{t('shareMap.urlNote')}</Text>
-        <Text style={styles.resultUrl} selectable numberOfLines={2}>
-          {result.url}
-        </Text>
-        <View style={styles.resultActions}>
-          <Pressable
-            onPress={() => onCopy(result.url)}
-            style={({ pressed }) => [styles.resultActionBtn, pressed && { opacity: 0.7 }]}
-          >
-            <Ionicons
-              name={copied ? 'checkmark-outline' : 'copy-outline'}
-              size={14}
-              color={copied ? Colors.gpsGreen : Colors.blue}
-            />
-            <Text style={[styles.resultActionText, copied && { color: Colors.gpsGreen }]}>
-              {copied ? t('shareMap.copied') : t('shareMap.copyLink')}
-            </Text>
-          </Pressable>
-          <Pressable
-            onPress={() => onShare(result.url)}
-            style={({ pressed }) => [styles.resultActionBtn, pressed && { opacity: 0.7 }]}
-          >
-            <Ionicons name="share-outline" size={14} color={Colors.blue} />
-            <Text style={styles.resultActionText}>{t('shareMap.shareVia')}</Text>
-          </Pressable>
-          <Pressable
-            onPress={onClose}
-            style={({ pressed }) => [styles.resultDismiss, pressed && { opacity: 0.6 }]}
-          >
-            <Text style={styles.resultDismissText}>{t('shareMap.done')}</Text>
-          </Pressable>
-        </View>
-        {result.ownerUrl && (
-          <View style={styles.ownerUrlSection}>
-            <Text style={styles.ownerUrlLabel}>
-              Save your delete link (owner only)
-            </Text>
-            <Text style={styles.ownerUrlNote}>
-              Open this link from your device to remove the map from Atlas later.
-            </Text>
-            <Pressable
-              onPress={() => onCopy(result.ownerUrl!)}
-              style={({ pressed }) => [styles.ownerUrlBtn, pressed && { opacity: 0.6 }]}
-            >
-              <Ionicons name="key-outline" size={13} color={Colors.amber} />
-              <Text style={styles.ownerUrlBtnText}>Copy delete link</Text>
-            </Pressable>
-          </View>
-        )}
-      </View>
-    );
-  }
-
-  return (
-    <View style={styles.resultPanel}>
-      <View style={styles.resultHeader}>
-        <Ionicons name="checkmark-circle-outline" size={18} color={Colors.gpsGreen} />
-        <Text style={styles.resultTitle}>{t('shareMap.sentNoUrl')}</Text>
-      </View>
-      <Text style={styles.resultNote}>{t('shareMap.sentNoUrlNote')}</Text>
-      <Pressable
-        onPress={onClose}
-        style={({ pressed }) => [styles.resultDismiss, pressed && { opacity: 0.6 }]}
-      >
-        <Text style={styles.resultDismissText}>{t('shareMap.done')}</Text>
-      </Pressable>
-    </View>
   );
 }
 
@@ -1727,10 +1189,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(10, 132, 255, 0.06)',
     borderColor: 'rgba(10, 132, 255, 0.2)',
   },
-  shareMapPanel: {
-    backgroundColor: 'rgba(79, 195, 247, 0.06)',
-    borderColor: 'rgba(79, 195, 247, 0.2)',
-  },
   atlasEmailLabel: {
     color: Colors.textSecondary,
     fontFamily: 'Inter_600SemiBold',
@@ -1753,39 +1211,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_400Regular',
     fontSize: 11,
     lineHeight: 15,
-  },
-  confirmSectionTitle: {
-    color: Colors.textSecondary,
-    fontFamily: 'Inter_600SemiBold',
-    fontSize: 12,
-    letterSpacing: 0.3,
-    textTransform: 'uppercase',
-    marginBottom: 2,
-  },
-  shareMapStats: {
-    gap: 5,
-  },
-  shareMapStatRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-  },
-  shareMapStatText: {
-    color: Colors.textSecondary,
-    fontFamily: 'Inter_400Regular',
-    fontSize: 12,
-    flex: 1,
-  },
-  shareMapWorking: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingVertical: 6,
-  },
-  shareMapWorkingText: {
-    color: Colors.textSecondary,
-    fontFamily: 'Inter_400Regular',
-    fontSize: 13,
   },
   confirmButtons: {
     flexDirection: 'row',
@@ -1817,79 +1242,10 @@ const styles = StyleSheet.create({
   atlasSubmitBg: {
     backgroundColor: Colors.blue,
   },
-  shareMapSubmitBg: {
-    backgroundColor: '#0a7aa8',
-  },
   confirmSubmitText: {
     color: '#fff',
     fontFamily: 'Inter_600SemiBold',
     fontSize: 14,
-  },
-  resultPanel: {
-    gap: 8,
-  },
-  resultHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-  },
-  resultTitle: {
-    color: Colors.text,
-    fontFamily: 'Inter_600SemiBold',
-    fontSize: 13,
-  },
-  resultNote: {
-    color: Colors.textSecondary,
-    fontFamily: 'Inter_400Regular',
-    fontSize: 12,
-    lineHeight: 17,
-  },
-  resultUrl: {
-    color: Colors.blue,
-    fontFamily: 'Inter_400Regular',
-    fontSize: 11,
-    lineHeight: 16,
-    backgroundColor: Colors.background,
-    borderRadius: 6,
-    padding: 8,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  resultActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    flexWrap: 'wrap',
-    marginTop: 2,
-  },
-  resultActionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    borderRadius: 8,
-    backgroundColor: Colors.background,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  resultActionText: {
-    color: Colors.blue,
-    fontFamily: 'Inter_500Medium',
-    fontSize: 12,
-  },
-  resultDismiss: {
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 8,
-    backgroundColor: Colors.background,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  resultDismissText: {
-    color: Colors.textSecondary,
-    fontFamily: 'Inter_500Medium',
-    fontSize: 12,
   },
   footer: {
     flexDirection: 'row',
@@ -1958,42 +1314,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,159,10,0.1)',
   },
   copyBtnText: {
-    color: Colors.amber,
-    fontFamily: 'Inter_600SemiBold',
-    fontSize: 12,
-  },
-  ownerUrlSection: {
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: Colors.border,
-    gap: 4,
-  },
-  ownerUrlLabel: {
-    color: Colors.textSecondary,
-    fontFamily: 'Inter_600SemiBold',
-    fontSize: 12,
-  },
-  ownerUrlNote: {
-    color: Colors.textTertiary,
-    fontFamily: 'Inter_400Regular',
-    fontSize: 11,
-    lineHeight: 15,
-  },
-  ownerUrlBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    alignSelf: 'flex-start',
-    marginTop: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    backgroundColor: 'rgba(255,159,10,0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,159,10,0.25)',
-  },
-  ownerUrlBtnText: {
     color: Colors.amber,
     fontFamily: 'Inter_600SemiBold',
     fontSize: 12,

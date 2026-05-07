@@ -2,8 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
-import { useNavigation, useRouter } from 'expo-router';
-import { useAuth } from '@clerk/expo';
+import { useNavigation } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -386,31 +385,18 @@ function groupEntriesBySessions(entries: LogEntry[]): SessionSection[] {
 function SessionHeader({
   section,
   fullData,
-  onShareGpx,
-  bulkMode = false,
-  isSelected = false,
-  onToggleSelected,
   onEditJobName,
   onToggleCollapse,
   isCollapsed = false,
 }: {
   section: SessionSection;
   fullData: LogEntry[];
-  onShareGpx: () => void;
-  bulkMode?: boolean;
-  isSelected?: boolean;
-  onToggleSelected?: () => void;
   onEditJobName?: () => void;
   onToggleCollapse?: () => void;
   isCollapsed?: boolean;
 }) {
   const { t } = useTranslation();
-  const [sharing, setSharing] = useState(false);
-  const [publishing, setPublishing] = useState(false);
-  const [publishMsg, setPublishMsg] = useState<string | null>(null);
-  const { isPublished, publishSession, portalUrl, atlasSubmissions, removeFromAtlas } = usePortalConfig();
-  const { isSignedIn } = useAuth();
-  const router = useRouter();
+  const { isPublished, atlasSubmissions, removeFromAtlas } = usePortalConfig();
   const atlasSubmission = atlasSubmissions[section.sessionId];
 
   const d = new Date(section.startMs);
@@ -426,124 +412,37 @@ function SessionHeader({
 
   const alreadyPublished = isPublished(section.sessionId);
 
-  const handleGpx = async () => {
-    if (sharing) return;
-    setSharing(true);
-    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    await onShareGpx();
-    setSharing(false);
-  };
-
-  const handlePublish = async (email?: string) => {
-    if (publishing) return;
-    if (!portalUrl) {
-      Alert.alert(t('log.portalNotConfigured'), t('log.setPortalUrl'));
-      return;
-    }
-    setPublishing(true);
-    try {
-      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      const { alreadyPublished: wasAlready } = await publishSession(
-        section.sessionId,
-        fullData,
-        section.jobName || undefined,
-        email,
-      );
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      setPublishMsg(wasAlready ? 'Already in portal' : 'Published!');
-    } catch (err: unknown) {
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      const msg = err instanceof Error ? err.message : 'Publish failed';
-      setPublishMsg(`Error: ${msg.slice(0, 60)}`);
-    } finally {
-      setPublishing(false);
-      setTimeout(() => setPublishMsg(null), 3000);
-    }
-  };
-
-  /** Prompt for optional email then publish (guest / anonymous path). */
-  const promptAndPublish = () => {
-    if (Platform.OS === 'ios') {
-      Alert.prompt(
-        'Submit to Atlas',
-        'Enter your email so you can request a delete link from the portal later (optional).',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Submit', onPress: (email: string | undefined) => handlePublish(email?.trim() || undefined) },
-        ],
-        'plain-text',
-        '',
-        'email-address',
-      );
-    } else {
-      handlePublish(undefined);
-    }
-  };
-
-  const handlePublishTap = () => {
-    if (publishing || !portalUrl) {
-      if (!portalUrl) Alert.alert(t('log.portalNotConfigured'), t('log.setPortalUrl'));
-      return;
-    }
-
-    if (isSignedIn) {
-      // Already signed in — publish directly; account ownership replaces email link
-      handlePublish(undefined);
-      return;
-    }
-
-    // Auth gate: prompt to sign in or continue as guest
-    Alert.alert(
-      'Sign in to Atlas',
-      'Sign in to link this session to your account so you can manage it from any device. Or share anonymously.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Continue as Guest', onPress: promptAndPublish },
-        { text: 'Sign In', onPress: () => router.push('/(auth)/sign-in') },
-      ],
-    );
-  };
-
   return (
     <Pressable
-      onPress={bulkMode ? onToggleSelected : onToggleCollapse}
+      onPress={onToggleCollapse}
       style={({ pressed }) => [
         sessionStyles.header,
-        bulkMode && isSelected && sessionStyles.headerSelected,
         pressed && { opacity: 0.8 },
       ]}
     >
-      {bulkMode ? (
-        <View style={[sessionStyles.checkbox, isSelected && sessionStyles.checkboxSelected]}>
-          {isSelected && <Ionicons name="checkmark" size={12} color="#fff" />}
-        </View>
-      ) : (
-        <Ionicons
-          name={isCollapsed ? 'chevron-forward' : 'chevron-down'}
-          size={14}
-          color={Colors.textTertiary}
-          style={{ marginRight: 6 }}
-        />
-      )}
+      <Ionicons
+        name={isCollapsed ? 'chevron-forward' : 'chevron-down'}
+        size={14}
+        color={Colors.textTertiary}
+        style={{ marginRight: 6 }}
+      />
       <View style={sessionStyles.headerLeft}>
         <View style={[sessionStyles.modeBadge, { borderColor: modeColor }]}>
           <Text style={[sessionStyles.modeText, { color: modeColor }]}>{modeLabel}</Text>
         </View>
         <View>
-          {!bulkMode && (
-            <Pressable
-              onPress={(e) => { e.stopPropagation(); onEditJobName?.(); }}
-              hitSlop={4}
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 2 }}
-            >
-              {section.jobName ? (
-                <Text style={sessionStyles.jobNameText}>{section.jobName}</Text>
-              ) : (
-                <Text style={sessionStyles.jobNamePlaceholder}>{t('log.addJobName')}</Text>
-              )}
-              <Ionicons name="pencil-outline" size={11} color={Colors.textTertiary} />
-            </Pressable>
-          )}
+          <Pressable
+            onPress={(e) => { e.stopPropagation(); onEditJobName?.(); }}
+            hitSlop={4}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 2 }}
+          >
+            {section.jobName ? (
+              <Text style={sessionStyles.jobNameText}>{section.jobName}</Text>
+            ) : (
+              <Text style={sessionStyles.jobNamePlaceholder}>{t('log.addJobName')}</Text>
+            )}
+            <Ionicons name="pencil-outline" size={11} color={Colors.textTertiary} />
+          </Pressable>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
             <Text style={sessionStyles.dateText}>{dateStr} · {timeStr}</Text>
             {alreadyPublished && (
@@ -593,90 +492,22 @@ function SessionHeader({
           <Text style={sessionStyles.countText}>
             {isCollapsed ? t('log.framesCollapsed', { count: fullData.length }) : t('log.frames', { count: fullData.length })}
           </Text>
-          {publishMsg && (
-            <Text style={[
-              sessionStyles.publishMsg,
-              publishMsg.startsWith('Error') ? { color: Colors.accent } : { color: Colors.gpsGreen },
-            ]}>
-              {publishMsg}
-            </Text>
-          )}
         </View>
       </View>
-      {!bulkMode && (
-        <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
-          {!!portalUrl && !alreadyPublished && (
-            <Pressable
-              onPress={(e) => { e.stopPropagation(); handlePublishTap(); }}
-              disabled={publishing || Platform.OS === 'web'}
-              style={({ pressed }) => [sessionStyles.publishBtn, pressed && { opacity: 0.7 }]}
-            >
-              {publishing
-                ? <ActivityIndicator size="small" color={Colors.gpsGreen} style={{ width: 13, height: 13 }} />
-                : <Ionicons name="cloud-upload-outline" size={13} color={Colors.gpsGreen} />}
-              <Text style={sessionStyles.publishBtnText}>{publishing ? t('log.sending') : t('log.publish')}</Text>
-            </Pressable>
-          )}
-          <Pressable
-            onPress={(e) => { e.stopPropagation(); handleGpx(); }}
-            disabled={sharing || Platform.OS === 'web'}
-            style={({ pressed }) => [sessionStyles.gpxBtn, pressed && { opacity: 0.7 }]}
-          >
-            <Ionicons name="map-outline" size={13} color={Colors.amber} />
-            <Text style={sessionStyles.gpxBtnText}>{sharing ? t('log.sharing') : t('log.gpx')}</Text>
-          </Pressable>
-        </View>
-      )}
     </Pressable>
   );
-}
-
-type BulkPeriod = 'today' | 'week' | 'month' | 'year';
-
-function getSessionsForPeriod(sections: SessionSection[], period: BulkPeriod): Set<string> {
-  const now = new Date();
-  let cutoff: Date;
-  if (period === 'today') {
-    cutoff = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  } else if (period === 'week') {
-    cutoff = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-  } else if (period === 'month') {
-    cutoff = new Date(now.getFullYear(), now.getMonth(), 1);
-  } else {
-    cutoff = new Date(now.getFullYear(), 0, 1);
-  }
-  const cutoffMs = cutoff.getTime();
-  return new Set(sections.filter((s) => s.startMs >= cutoffMs).map((s) => s.sessionId));
-}
-
-function usePeriodLabels() {
-  const { t } = useTranslation();
-  return [
-    { key: 'today' as BulkPeriod, label: t('log.today') },
-    { key: 'week' as BulkPeriod, label: t('log.thisWeek') },
-    { key: 'month' as BulkPeriod, label: t('log.thisMonth') },
-    { key: 'year' as BulkPeriod, label: t('log.thisYear') },
-  ];
 }
 
 export default function LogScreen() {
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
-  const periodLabels = usePeriodLabels();
   const navigation = useNavigation();
-  const router = useRouter();
-  const { isSignedIn } = useAuth();
-  const { logEntries, shareGpx, clearLog, processingStatus, totalFrames, segmentCount, renameSessionJobName } = useRecording();
-  const { publishSession, portalUrl } = usePortalConfig();
+  const { logEntries, clearLog, processingStatus, segmentCount, renameSessionJobName } = useRecording();
   const [selectedEntry, setSelectedEntry] = useState<LogEntry | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'map' | 'table'>('list');
   const [isDemoMode, setIsDemoMode] = useState(false);
   const [mapSheetOpen, setMapSheetOpen] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
-  const [isBulkMode, setIsBulkMode] = useState(false);
-  const [selectedSessionIds, setSelectedSessionIds] = useState<Set<string>>(new Set());
-  const [activePeriod, setActivePeriod] = useState<BulkPeriod | null>(null);
-  const [bulkPublishing, setBulkPublishing] = useState(false);
   const [collapsedSessions, setCollapsedSessions] = useState<Set<string>>(new Set());
   const [editingJobSession, setEditingJobSession] = useState<{ sessionId: string; currentName: string } | null>(null);
   const [jobEditDraft, setJobEditDraft] = useState('');
@@ -698,11 +529,6 @@ export default function LogScreen() {
 
   useEffect(() => {
     setCollapsedSessions(new Set());
-    if (groupMode !== 'session') {
-      setIsBulkMode(false);
-      setSelectedSessionIds(new Set());
-      setActivePeriod(null);
-    }
   }, [groupMode]);
 
   const toggleCollapse = (sessionId: string) => {
@@ -723,114 +549,6 @@ export default function LogScreen() {
     if (!editingJobSession) return;
     await renameSessionJobName(editingJobSession.sessionId, jobEditDraft.trim());
     setEditingJobSession(null);
-  };
-
-  const toggleBulkMode = () => {
-    setIsBulkMode((v) => {
-      if (v) {
-        setSelectedSessionIds(new Set());
-        setActivePeriod(null);
-      }
-      return !v;
-    });
-  };
-
-  const togglePeriod = (period: BulkPeriod) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    if (activePeriod === period) {
-      setActivePeriod(null);
-      setSelectedSessionIds(new Set());
-    } else {
-      setActivePeriod(period);
-      setSelectedSessionIds(getSessionsForPeriod(sections, period));
-    }
-  };
-
-  const toggleSession = (sessionId: string) => {
-    setActivePeriod(null);
-    setSelectedSessionIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(sessionId)) next.delete(sessionId);
-      else next.add(sessionId);
-      return next;
-    });
-  };
-
-  const handleBulkPublish = async (email?: string) => {
-    if (!portalUrl) {
-      Alert.alert(t('log.portalNotConfigured'), t('log.setPortalUrl'));
-      return;
-    }
-    if (selectedSessionIds.size === 0) return;
-    setBulkPublishing(true);
-    let successCount = 0;
-    let errorCount = 0;
-    for (const sid of selectedSessionIds) {
-      const section = sections.find((s) => s.sessionId === sid);
-      if (!section) continue;
-      try {
-        await publishSession(sid, section.data, section.jobName || undefined, email);
-        successCount++;
-      } catch {
-        errorCount++;
-      }
-    }
-    setBulkPublishing(false);
-    setIsBulkMode(false);
-    setSelectedSessionIds(new Set());
-    setActivePeriod(null);
-    await Haptics.notificationAsync(
-      errorCount > 0 ? Haptics.NotificationFeedbackType.Error : Haptics.NotificationFeedbackType.Success
-    );
-    const msg = errorCount > 0
-      ? `Published ${successCount} sessions. ${errorCount} failed.`
-      : `Published ${successCount} session${successCount !== 1 ? 's' : ''} to portal.`;
-    Alert.alert('Bulk Publish', msg);
-  };
-
-  /** Prompt for optional email then bulk publish (guest / anonymous path). */
-  const promptAndBulkPublish = (count: number) => {
-    if (Platform.OS === 'ios') {
-      Alert.prompt(
-        `Publish ${count} session${count !== 1 ? 's' : ''} to Atlas`,
-        'Enter your email so you can request a delete link from the portal later (optional).',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Publish', onPress: (email: string | undefined) => handleBulkPublish(email?.trim() || undefined) },
-        ],
-        'plain-text',
-        '',
-        'email-address',
-      );
-    } else {
-      handleBulkPublish(undefined);
-    }
-  };
-
-  const handleBulkPublishTap = () => {
-    if (!portalUrl) {
-      Alert.alert(t('log.portalNotConfigured'), t('log.setPortalUrl'));
-      return;
-    }
-    if (selectedSessionIds.size === 0) return;
-    const count = selectedSessionIds.size;
-
-    if (isSignedIn) {
-      // Already signed in — publish directly without email prompt
-      handleBulkPublish(undefined);
-      return;
-    }
-
-    // Auth gate: prompt to sign in or continue as guest
-    Alert.alert(
-      'Sign in to Atlas',
-      'Sign in to link these sessions to your account so you can manage them from any device. Or share anonymously.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Continue as Guest', onPress: () => promptAndBulkPublish(count) },
-        { text: 'Sign In', onPress: () => router.push('/(auth)/sign-in') },
-      ],
-    );
   };
 
   // Hide the tab bar while the frame preview sheet is open
@@ -897,35 +615,8 @@ export default function LogScreen() {
             </Pressable>
           )}
 
-          {/* Select & Publish — only on list with portal configured */}
-          {logEntries.length > 0 && viewMode === 'list' && !!portalUrl && (
-            <Pressable
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                toggleBulkMode();
-              }}
-              style={({ pressed }) => [
-                styles.actionBtn,
-                isBulkMode ? styles.bulkModeActiveBtn : styles.bulkModeBtn,
-                pressed && { opacity: 0.7 },
-              ]}
-            >
-              <Ionicons
-                name={isBulkMode ? 'close-outline' : 'cloud-upload-outline'}
-                size={16}
-                color={isBulkMode ? Colors.text : Colors.gpsGreen}
-              />
-              <Text style={[
-                styles.actionBtnText,
-                { color: isBulkMode ? Colors.text : Colors.gpsGreen, fontSize: 12 },
-              ]}>
-                {isBulkMode ? t('log.cancel') : t('log.publish')}
-              </Text>
-            </Pressable>
-          )}
-
-          {/* Export + clear — only on list and not in bulk mode */}
-          {logEntries.length > 0 && viewMode === 'list' && !isBulkMode && (
+          {/* Export + clear — only on list */}
+          {logEntries.length > 0 && viewMode === 'list' && (
             <Pressable
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -942,7 +633,7 @@ export default function LogScreen() {
               <Text style={[styles.actionBtnText, { color: Colors.blue }]}>{t('log.export')}</Text>
             </Pressable>
           )}
-          {logEntries.length > 0 && viewMode === 'list' && !isBulkMode && (
+          {logEntries.length > 0 && viewMode === 'list' && (
             <Pressable
               onPress={handleClear}
               style={({ pressed }) => [
@@ -956,31 +647,6 @@ export default function LogScreen() {
           )}
         </View>
       </View>
-
-      {/* Bulk mode period chips */}
-      {isBulkMode && viewMode === 'list' && (
-        <View style={styles.bulkChipsRow}>
-          <Text style={styles.bulkChipsLabel}>{t('log.selectAll')}:</Text>
-          {periodLabels.map(({ key, label }) => (
-            <Pressable
-              key={key}
-              onPress={() => togglePeriod(key)}
-              style={({ pressed }) => [
-                styles.bulkChip,
-                activePeriod === key && styles.bulkChipActive,
-                pressed && { opacity: 0.7 },
-              ]}
-            >
-              <Text style={[
-                styles.bulkChipText,
-                activePeriod === key && styles.bulkChipTextActive,
-              ]}>
-                {label}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-      )}
 
       {/* View mode segmented control */}
       <View style={styles.segControl}>
@@ -1140,10 +806,6 @@ export default function LogScreen() {
               <SessionHeader
                 section={section}
                 fullData={fullData}
-                onShareGpx={() => shareGpx(section.sessionId)}
-                bulkMode={isBulkMode}
-                isSelected={selectedSessionIds.has(section.sessionId)}
-                onToggleSelected={() => toggleSession(section.sessionId)}
                 onEditJobName={() => openJobEdit(section.sessionId, section.jobName || '')}
                 onToggleCollapse={() => toggleCollapse(section.sessionId)}
                 isCollapsed={collapsedSessions.has(section.sessionId)}
@@ -1159,32 +821,6 @@ export default function LogScreen() {
           showsVerticalScrollIndicator={false}
           stickySectionHeadersEnabled={false}
         />
-      )}
-
-      {/* Sticky bulk publish button */}
-      {isBulkMode && viewMode === 'list' && (
-        <View style={[styles.bulkFooter, { bottom: insets.bottom + 49 + 8 }]}>
-          <Pressable
-            onPress={handleBulkPublishTap}
-            disabled={bulkPublishing || selectedSessionIds.size === 0}
-            style={({ pressed }) => [
-              styles.bulkPublishBtn,
-              (bulkPublishing || selectedSessionIds.size === 0) && styles.bulkPublishBtnDisabled,
-              pressed && { opacity: 0.8 },
-            ]}
-          >
-            {bulkPublishing
-              ? <ActivityIndicator size="small" color="#fff" />
-              : <Ionicons name="cloud-upload-outline" size={18} color="#fff" />}
-            <Text style={styles.bulkPublishBtnText}>
-              {bulkPublishing
-                ? t('log.publishing')
-                : selectedSessionIds.size === 0
-                  ? t('log.selectSessions')
-                  : t('log.publishN', { count: selectedSessionIds.size })}
-            </Text>
-          </Pressable>
-        </View>
       )}
 
       {selectedEntry && (
@@ -1292,80 +928,6 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 59, 48, 0.25)',
     backgroundColor: 'rgba(255, 59, 48, 0.06)',
     paddingHorizontal: 10,
-  },
-  bulkModeBtn: {
-    borderColor: 'rgba(48, 209, 88, 0.3)',
-    backgroundColor: 'rgba(48, 209, 88, 0.07)',
-    paddingHorizontal: 10,
-  },
-  bulkModeActiveBtn: {
-    borderColor: Colors.border,
-    backgroundColor: Colors.card,
-    paddingHorizontal: 10,
-  },
-  bulkChipsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 6,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    backgroundColor: 'rgba(48, 209, 88, 0.04)',
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(48, 209, 88, 0.1)',
-  },
-  bulkChipsLabel: {
-    color: Colors.textTertiary,
-    fontFamily: 'Inter_500Medium',
-    fontSize: 11,
-    marginRight: 2,
-  },
-  bulkChip: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.card,
-  },
-  bulkChipActive: {
-    borderColor: Colors.gpsGreen,
-    backgroundColor: 'rgba(48, 209, 88, 0.12)',
-  },
-  bulkChipText: {
-    color: Colors.textSecondary,
-    fontFamily: 'Inter_500Medium',
-    fontSize: 12,
-  },
-  bulkChipTextActive: {
-    color: Colors.gpsGreen,
-  },
-  bulkFooter: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    backgroundColor: Colors.background,
-    borderTopWidth: 1,
-    borderTopColor: Colors.border,
-  },
-  bulkPublishBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: Colors.gpsGreen,
-    borderRadius: 14,
-    paddingVertical: 14,
-  },
-  bulkPublishBtnDisabled: {
-    opacity: 0.4,
-  },
-  bulkPublishBtnText: {
-    color: '#fff',
-    fontFamily: 'Inter_600SemiBold',
-    fontSize: 15,
   },
   mapBtn: {
     borderColor: 'rgba(255, 184, 0, 0.3)',
@@ -1746,41 +1308,6 @@ const sessionStyles = StyleSheet.create({
     fontSize: 11,
     marginTop: 1,
   },
-  gpxBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 179, 0, 0.35)',
-    backgroundColor: 'rgba(255, 179, 0, 0.07)',
-  },
-  gpxBtnText: {
-    color: Colors.amber,
-    fontFamily: 'Inter_600SemiBold',
-    fontSize: 12,
-  },
-  headerSelected: {
-    backgroundColor: 'rgba(48, 209, 88, 0.07)',
-    borderColor: 'rgba(48, 209, 88, 0.3)',
-  },
-  checkbox: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 1.5,
-    borderColor: Colors.border,
-    backgroundColor: Colors.background,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 8,
-  },
-  checkboxSelected: {
-    backgroundColor: Colors.gpsGreen,
-    borderColor: Colors.gpsGreen,
-  },
   publishedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1797,27 +1324,6 @@ const sessionStyles = StyleSheet.create({
     fontFamily: 'Inter_600SemiBold',
     fontSize: 9,
     letterSpacing: 0.3,
-  },
-  publishBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(48, 209, 88, 0.35)',
-    backgroundColor: 'rgba(48, 209, 88, 0.07)',
-  },
-  publishBtnText: {
-    color: Colors.gpsGreen,
-    fontFamily: 'Inter_600SemiBold',
-    fontSize: 12,
-  },
-  publishMsg: {
-    fontFamily: 'Inter_400Regular',
-    fontSize: 11,
-    marginTop: 2,
   },
   atlasBadge: {
     flexDirection: 'row',
