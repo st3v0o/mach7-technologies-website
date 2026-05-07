@@ -200,7 +200,11 @@ router.get("/sessions/:id", async (req, res) => {
     return;
   }
 
-  res.json(omitClaimToken(session));
+  const authedUserId = (req as AuthedRequest).userId;
+  res.json({
+    ...omitClaimToken(session),
+    isOwnedByCurrentUser: authedUserId != null ? session.userId === authedUserId : false,
+  });
 });
 
 // ── GET /portal/sessions/:id/frames ─────────────────────────────────────────

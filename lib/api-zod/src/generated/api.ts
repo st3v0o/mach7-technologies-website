@@ -254,6 +254,7 @@ export const GetPortalSessionResponse = zod.object({
   thumbnailUrl: zod.string().nullish(),
   isPublic: zod.boolean(),
   publishedAt: zod.date().nullish(),
+  isOwnedByCurrentUser: zod.boolean().optional(),
 });
 
 /**

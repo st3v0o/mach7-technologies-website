@@ -51,6 +51,7 @@ export interface PortalSession {
   thumbnailUrl?: string | null;
   isPublic: boolean;
   publishedAt?: string | null;
+  isOwnedByCurrentUser?: boolean;
 }
 
 export type PortalFrameMetadata = { [key: string]: unknown } | null;

@@ -486,8 +486,8 @@ export default function SessionDetail() {
                       Check your inbox for a delete link. It expires in 1 hour.
                     </p>
                   </div>
-                ) : isSignedIn && !showEmailFallback ? (
-                  /* ── Authenticated delete ── */
+                ) : isSignedIn && session.isOwnedByCurrentUser && !showEmailFallback ? (
+                  /* ── Authenticated delete (owner) ── */
                   <>
                     <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-slate-200 font-medium">
                       <Trash2 className="h-4 w-4 text-red-500 flex-none" />

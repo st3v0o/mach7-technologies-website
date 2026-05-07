@@ -1,12 +1,13 @@
 import { useState } from "react";
-import { useParams } from "wouter";
+import { useParams, useLocation } from "wouter";
 import { useGetPortalShareSession, useGetPortalSessionFrames, useGetPortalSessionRoute } from "@workspace/api-client-react";
 import type { PortalFrame } from "@workspace/api-client-react";
 import MetricsBar from "@/components/MetricsBar";
 import SessionMap from "@/components/SessionMap";
 import FrameFilmstrip from "@/components/FrameFilmstrip";
-import { MapPin, AlertCircle, Map as MapIcon, Smartphone } from "lucide-react";
+import { MapPin, AlertCircle, Map as MapIcon, Smartphone, Trash2, X, CheckCircle } from "lucide-react";
 import { ChevronDown } from "lucide-react";
+import { useAuth } from "@clerk/react";
 
 function formatDate(dateStr: string | null | undefined): string {
   if (!dateStr) return "";
@@ -24,10 +25,17 @@ function formatDate(dateStr: string | null | undefined): string {
 export default function SharePage() {
   const params = useParams<{ token: string }>();
   const token = params.token;
+  const [, navigate] = useLocation();
+  const { isSignedIn, getToken } = useAuth();
 
   const [selectedFrame, setSelectedFrame] = useState<PortalFrame | null>(null);
   const [showRoute, setShowRoute] = useState(true);
   const [fitTrigger, setFitTrigger] = useState(0);
+
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleteDone, setDeleteDone] = useState(false);
 
   const { data: session, isLoading, error } = useGetPortalShareSession(token);
 
@@ -37,6 +45,36 @@ export default function SharePage() {
 
   const frames = session ? (framesData?.frames ?? []) : [];
   const routeGeojson = routeData?.geojson ?? session?.routeGeojson;
+
+  async function handleAuthDelete() {
+    setDeleteLoading(true);
+    setDeleteError(null);
+    try {
+      const authToken = await getToken();
+      const res = await fetch(`/api/portal/my-sessions/${sessionId}`, {
+        method: "DELETE",
+        headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
+      });
+      if (res.status === 401 || res.status === 403) {
+        setDeleteError("Not authorized to delete this session.");
+        return;
+      }
+      if (res.status === 404) {
+        setDeleteError("Session not found or you don't own it.");
+        return;
+      }
+      if (!res.ok) {
+        setDeleteError(`Unexpected error (${res.status}). Please try again.`);
+        return;
+      }
+      setDeleteDone(true);
+      setTimeout(() => navigate("/"), 2000);
+    } catch {
+      setDeleteError("Network error. Please check your connection and try again.");
+    } finally {
+      setDeleteLoading(false);
+    }
+  }
 
   if (isLoading) {
     return (
@@ -68,6 +106,7 @@ export default function SharePage() {
   }
 
   const sessionDate = formatDate(session.startedAt ?? session.createdAt);
+  const canDelete = isSignedIn && session.sourceType === "atlas";
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-slate-900 text-gray-900 dark:text-white flex flex-col">
@@ -99,8 +138,69 @@ export default function SharePage() {
             >
               <MapIcon className="h-4 w-4" />
             </button>
+            {canDelete && (
+              <button
+                onClick={() => { setShowDeleteConfirm((v) => !v); setDeleteError(null); }}
+                title="Delete this session"
+                className={`p-2 rounded-lg transition-colors ${
+                  showDeleteConfirm
+                    ? "text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20"
+                    : "text-gray-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 hover:bg-gray-100 dark:hover:bg-slate-800"
+                }`}
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            )}
           </div>
         </div>
+
+        {/* Delete confirmation panel */}
+        {canDelete && showDeleteConfirm && (
+          <div className="border-t border-red-200 dark:border-red-800/50 bg-red-50 dark:bg-red-900/10 px-4 py-3">
+            <div className="max-w-5xl mx-auto flex flex-col gap-2">
+              {deleteDone ? (
+                <div className="flex items-center gap-2 text-green-600 dark:text-green-400 text-sm">
+                  <CheckCircle className="h-4 w-4 flex-none" />
+                  <span>Session deleted. Redirecting…</span>
+                </div>
+              ) : (
+                <>
+                  <p className="text-sm text-gray-700 dark:text-slate-200 font-medium flex items-center gap-2">
+                    <Trash2 className="h-4 w-4 text-red-500 flex-none" />
+                    Delete this session permanently?
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-slate-400">
+                    This will remove the session and all frame data from the Atlas. This cannot be undone.
+                  </p>
+                  <div className="flex gap-2 items-center flex-wrap">
+                    <button
+                      onClick={handleAuthDelete}
+                      disabled={deleteLoading}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      {deleteLoading ? "Deleting…" : "Delete permanently"}
+                    </button>
+                    <button
+                      onClick={() => { setShowDeleteConfirm(false); setDeleteError(null); }}
+                      disabled={deleteLoading}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-300 dark:border-slate-600 text-gray-600 dark:text-slate-300 text-sm hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors disabled:opacity-50"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                      Cancel
+                    </button>
+                  </div>
+                  {deleteError && (
+                    <p className="text-sm text-red-600 dark:text-red-400 flex items-center gap-1.5">
+                      <X className="h-3.5 w-3.5 flex-none" />
+                      {deleteError}
+                    </p>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Map — fills viewport */}
