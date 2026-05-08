@@ -24,9 +24,12 @@ Run each command and paste the value when prompted:
 wrangler secret put SUPABASE_SERVICE_ROLE_KEY
 wrangler secret put SUPABASE_ANON_KEY
 wrangler secret put SUPABASE_JWT_SECRET        # Legacy JWT Secret from Supabase dashboard
-wrangler secret put RESEND_API_KEY
+wrangler secret put RESEND_API_KEY             # Canonical key name — use this one
 wrangler secret put RECAPTCHA_SECRET_KEY
 ```
+
+> **Note:** `RESEND_API_KEY` is the canonical secret name. The Worker also accepts the
+> legacy name `RESEND_EMAIL_KEY` as a fallback, but set `RESEND_API_KEY` for new deployments.
 
 `SUPABASE_URL` and `PORTAL_BASE_URL` are already set as non-secret `[vars]` in `wrangler.toml`.
 

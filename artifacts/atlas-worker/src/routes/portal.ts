@@ -773,7 +773,7 @@ portal.get("/feed", async (c) => {
   const limit = Math.min(Number(c.req.query("limit") ?? 50), 200);
   const offset = Number(c.req.query("offset") ?? 0);
 
-  const [{ data: sessions }, { count }] = await Promise.all([
+  const [{ data: sessions }, { count }, { data: allDistRows }] = await Promise.all([
     readDb(c.env)
       .from("portal_sessions")
       .select("*")
@@ -784,10 +784,14 @@ portal.get("/feed", async (c) => {
       .from("portal_sessions")
       .select("*", { count: "exact", head: true })
       .eq("is_public", true),
+    readDb(c.env)
+      .from("portal_sessions")
+      .select("total_distance_miles")
+      .eq("is_public", true),
   ]);
 
   const publicRows = sessions ?? [];
-  const totalPublicDistanceMiles = publicRows.reduce(
+  const totalPublicDistanceMiles = (allDistRows ?? []).reduce(
     (s, r) => s + (Number(r.total_distance_miles) || 0),
     0,
   );
