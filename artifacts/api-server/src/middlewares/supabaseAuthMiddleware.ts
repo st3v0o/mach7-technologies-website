@@ -1,28 +1,26 @@
-import { createClient } from "@supabase/supabase-js";
+import jwt from "jsonwebtoken";
 import type { Request, Response, NextFunction } from "express";
 
-const supabaseUrl = process.env.SUPABASE_URL!;
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-const supabase = createClient(supabaseUrl, supabaseServiceRoleKey, {
-  auth: { autoRefreshToken: false, persistSession: false },
-});
+const jwtSecret = process.env.SUPABASE_JWT_SECRET;
 
 export interface AuthedRequest extends Request {
   userId?: string | null;
 }
 
-export async function optionalSupabaseAuth(
+export function optionalSupabaseAuth(
   req: AuthedRequest,
   _res: Response,
   next: NextFunction,
-): Promise<void> {
+): void {
   const authHeader = req.headers.authorization;
-  if (authHeader?.startsWith("Bearer ")) {
+  if (authHeader?.startsWith("Bearer ") && jwtSecret) {
     const token = authHeader.slice(7);
     try {
-      const { data: { user }, error } = await supabase.auth.getUser(token);
-      req.userId = (!error && user) ? user.id : null;
+      const payload = jwt.verify(token, jwtSecret, { algorithms: ["HS256"] }) as {
+        sub?: string;
+        role?: string;
+      };
+      req.userId = payload.sub ?? null;
     } catch {
       req.userId = null;
     }

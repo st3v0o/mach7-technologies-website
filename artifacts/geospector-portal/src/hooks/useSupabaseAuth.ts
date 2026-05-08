@@ -1,8 +1,7 @@
-import { createContext, useContext, useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { createContext, useContext } from "react";
 import type { User, Session } from "@supabase/supabase-js";
 
-interface SupabaseAuthContextType {
+export interface SupabaseAuthContextType {
   user: User | null;
   session: Session | null;
   isLoaded: boolean;
@@ -18,13 +17,3 @@ export function useSupabaseAuth(): SupabaseAuthContextType {
   if (!ctx) throw new Error("useSupabaseAuth must be used within SupabaseAuthProvider");
   return ctx;
 }
-
-export function createSupabaseAuthState() {
-  let user: User | null = null;
-  let session: Session | null = null;
-  let isLoaded = false;
-
-  return { user, session, isLoaded };
-}
-
-export { type SupabaseAuthContextType };
