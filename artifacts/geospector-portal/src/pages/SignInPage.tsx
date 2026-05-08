@@ -66,6 +66,7 @@ export default function SignInPage() {
       if (error) setError(error.message);
     } catch (err) {
       setError(err instanceof Error ? err.message : `${provider} sign-in failed`);
+    } finally {
       setOauthLoading(null);
     }
   }
