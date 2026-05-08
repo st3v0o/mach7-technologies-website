@@ -14,9 +14,17 @@ import type { Bindings, Variables } from "../index.js";
 
 const portal = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
-// ── DB client helper ─────────────────────────────────────────────────────────
+// ── DB client helpers ─────────────────────────────────────────────────────────
+// readDb  — anon key; subject to Row Level Security (least privilege for reads)
+// writeDb — service role key; bypasses RLS for trusted server-side mutations
 
-function db(env: Bindings) {
+function readDb(env: Bindings) {
+  return createClient(env.SUPABASE_URL, env.SUPABASE_ANON_KEY, {
+    auth: { persistSession: false },
+  });
+}
+
+function writeDb(env: Bindings) {
   return createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
     auth: { persistSession: false },
   });

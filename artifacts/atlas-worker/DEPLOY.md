@@ -24,7 +24,7 @@ Run each command and paste the value when prompted:
 wrangler secret put SUPABASE_SERVICE_ROLE_KEY
 wrangler secret put SUPABASE_ANON_KEY
 wrangler secret put SUPABASE_JWT_SECRET        # Legacy JWT Secret from Supabase dashboard
-wrangler secret put RESEND_EMAIL_KEY
+wrangler secret put RESEND_API_KEY
 wrangler secret put RECAPTCHA_SECRET_KEY
 ```
 

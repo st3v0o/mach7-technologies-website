@@ -8,11 +8,15 @@ compatibility_flags = ["nodejs_compat"]
 SUPABASE_URL = "https://unfddiecgfyzpincussj.supabase.co"
 PORTAL_BASE_URL = "https://atlas.mach7technologies.com"
 
+[[routes]]
+pattern = "atlas-api.mach7technologies.com/*"
+custom_domain = true
+
 # ── Secrets ───────────────────────────────────────────────────────────────────
 # Set each with `wrangler secret put <KEY>` — do NOT commit actual values.
 #
 # wrangler secret put SUPABASE_SERVICE_ROLE_KEY
 # wrangler secret put SUPABASE_ANON_KEY
 # wrangler secret put SUPABASE_JWT_SECRET
-# wrangler secret put RESEND_EMAIL_KEY
+# wrangler secret put RESEND_API_KEY
 # wrangler secret put RECAPTCHA_SECRET_KEY
