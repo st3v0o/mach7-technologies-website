@@ -73,9 +73,6 @@ CREATE INDEX IF NOT EXISTS idx_portal_sessions_user_id
 CREATE INDEX IF NOT EXISTS idx_portal_sessions_is_public
   ON portal_sessions(is_public);
 
-CREATE INDEX IF NOT EXISTS idx_portal_sessions_created_at
-  ON portal_sessions(created_at DESC);
-
 CREATE INDEX IF NOT EXISTS idx_portal_frames_portal_session_id
   ON portal_frames(portal_session_id);
 
@@ -86,16 +83,20 @@ ALTER TABLE portal_frames   ENABLE ROW LEVEL SECURITY;
 
 -- service_role bypasses RLS automatically in Supabase — no policy needed.
 
--- Allow anyone (anon + authenticated) to read public sessions (for the Atlas feed and share pages)
-CREATE POLICY "Public sessions are readable by anyone"
+-- anon (and authenticated) may SELECT sessions that have been made public.
+-- Required for: Atlas public feed, /share/:token pages.
+CREATE POLICY "anon can read public sessions"
   ON portal_sessions
   FOR SELECT
+  TO anon, authenticated
   USING (is_public = TRUE);
 
--- Allow anyone to read frames that belong to a public session
-CREATE POLICY "Frames of public sessions are readable by anyone"
+-- anon (and authenticated) may SELECT frames whose parent session is public.
+-- Required for: share page map + frame list rendering.
+CREATE POLICY "anon can read frames of public sessions"
   ON portal_frames
   FOR SELECT
+  TO anon, authenticated
   USING (
     EXISTS (
       SELECT 1 FROM portal_sessions ps
