@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -10,179 +10,51 @@ import {
   Platform,
   KeyboardAvoidingView,
 } from 'react-native';
-import { useSignIn, useSSO } from '@clerk/expo';
-import * as WebBrowser from 'expo-web-browser';
-import * as AuthSession from 'expo-auth-session';
-import { type Href, useRouter, Link } from 'expo-router';
+import { useRouter, Link } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
-WebBrowser.maybeCompleteAuthSession();
+import { supabase } from '@/lib/supabaseClient';
 
 export default function SignInScreen() {
-  const { signIn, errors, fetchStatus } = useSignIn();
-  const { startSSOFlow } = useSSO();
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [verifyCode, setVerifyCode] = useState('');
-  const [googleLoading, setGoogleLoading] = useState(false);
-  const [appleLoading, setAppleLoading] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (Platform.OS !== 'android') return;
-    WebBrowser.warmUpAsync();
-    return () => { WebBrowser.coolDownAsync(); };
-  }, []);
-
-  const handleEmailSignIn = async () => {
-    const { error } = await signIn.password({ emailAddress: email, password });
-    if (error) {
-      console.error(JSON.stringify(error, null, 2));
-      return;
-    }
-
-    if (signIn.status === 'complete') {
-      await signIn.finalize({
-        navigate: ({ session, decorateUrl }) => {
-          if (session?.currentTask) {
-            console.log(session.currentTask);
-            return;
-          }
-          const url = decorateUrl('/');
-          if (!url.startsWith('http')) {
-            router.push(url as Href);
-          }
-        },
-      });
-    } else if (signIn.status === 'needs_client_trust') {
-      const emailCodeFactor = signIn.supportedSecondFactors.find(
-        (f) => f.strategy === 'email_code',
-      );
-      if (emailCodeFactor) {
-        await signIn.mfa.sendEmailCode();
-      }
-    } else if (signIn.status === 'needs_second_factor') {
-      console.log('MFA required:', signIn.status);
-    }
-  };
-
-  const handleVerify = async () => {
-    await signIn.mfa.verifyEmailCode({ code: verifyCode });
-    if (signIn.status === 'complete') {
-      await signIn.finalize({
-        navigate: ({ session, decorateUrl }) => {
-          if (session?.currentTask) {
-            console.log(session.currentTask);
-            return;
-          }
-          const url = decorateUrl('/');
-          if (!url.startsWith('http')) {
-            router.push(url as Href);
-          }
-        },
-      });
-    }
-  };
-
-  const handleSSO = useCallback(async (strategy: 'oauth_google' | 'oauth_apple') => {
-    const setLoading = strategy === 'oauth_google' ? setGoogleLoading : setAppleLoading;
+  async function handleSignIn() {
+    if (!email.trim() || !password) return;
+    setLoading(true);
+    setError(null);
     try {
-      setLoading(true);
-      const { createdSessionId, setActive } = await startSSOFlow({
-        strategy,
-        redirectUrl: AuthSession.makeRedirectUri(),
+      const { error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
       });
-      if (createdSessionId) {
-        await setActive!({
-          session: createdSessionId,
-          navigate: async ({ session, decorateUrl }) => {
-            if (session?.currentTask) {
-              console.log(session.currentTask);
-              return;
-            }
-            router.push(decorateUrl('/') as Href);
-          },
-        });
+      if (error) {
+        setError(error.message);
+        return;
       }
+      router.back();
     } catch (e) {
-      console.error(`${strategy} SSO error:`, JSON.stringify(e, null, 2));
+      setError(e instanceof Error ? e.message : 'Sign in failed');
     } finally {
       setLoading(false);
     }
-  }, [startSSOFlow, router]);
-
-  const isPasswordLoading = fetchStatus === 'fetching';
-  const anySsoLoading = googleLoading || appleLoading;
-
-  if (signIn.status === 'needs_client_trust') {
-    return (
-      <View style={[styles.container, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 16 }]}>
-        <Text style={styles.title}>Verify your account</Text>
-        <TextInput
-          style={styles.input}
-          value={verifyCode}
-          placeholder="Enter verification code"
-          placeholderTextColor="#64748b"
-          onChangeText={setVerifyCode}
-          keyboardType="numeric"
-          autoFocus
-        />
-        {errors.fields.code && <Text style={styles.error}>{errors.fields.code.message}</Text>}
-        <Pressable
-          style={[styles.primaryBtn, isPasswordLoading && styles.disabled]}
-          onPress={handleVerify}
-          disabled={isPasswordLoading}
-        >
-          {isPasswordLoading
-            ? <ActivityIndicator color="#fff" />
-            : <Text style={styles.primaryBtnText}>Verify</Text>}
-        </Pressable>
-        <Pressable onPress={() => signIn.mfa.sendEmailCode()}>
-          <Text style={styles.link}>Resend code</Text>
-        </Pressable>
-        <Pressable onPress={() => signIn.reset()}>
-          <Text style={[styles.link, { color: '#64748b' }]}>Start over</Text>
-        </Pressable>
-      </View>
-    );
   }
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView
-        contentContainerStyle={[styles.container, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 16 }]}
+        contentContainerStyle={[
+          styles.container,
+          { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 16 },
+        ]}
         keyboardShouldPersistTaps="handled"
       >
         <Text style={styles.title}>Sign in to Geospector</Text>
         <Text style={styles.subtitle}>Access your Atlas maps on any device</Text>
-
-        <Pressable
-          style={[styles.socialBtn, (anySsoLoading || isPasswordLoading) && styles.disabled]}
-          onPress={() => handleSSO('oauth_google')}
-          disabled={anySsoLoading || isPasswordLoading}
-        >
-          {googleLoading
-            ? <ActivityIndicator color="#e2e8f0" size="small" />
-            : <Text style={styles.socialBtnText}>Continue with Google</Text>}
-        </Pressable>
-
-        <Pressable
-          style={[styles.socialBtn, styles.appleSocialBtn, (anySsoLoading || isPasswordLoading) && styles.disabled]}
-          onPress={() => handleSSO('oauth_apple')}
-          disabled={anySsoLoading || isPasswordLoading}
-        >
-          {appleLoading
-            ? <ActivityIndicator color="#000" size="small" />
-            : <Text style={[styles.socialBtnText, styles.appleBtnText]}>Continue with Apple</Text>}
-        </Pressable>
-
-        <View style={styles.dividerRow}>
-          <View style={styles.dividerLine} />
-          <Text style={styles.dividerText}>or sign in with email</Text>
-          <View style={styles.dividerLine} />
-        </View>
 
         <Text style={styles.label}>Email</Text>
         <TextInput
@@ -195,7 +67,6 @@ export default function SignInScreen() {
           autoCapitalize="none"
           autoCorrect={false}
         />
-        {errors.fields.identifier && <Text style={styles.error}>{errors.fields.identifier.message}</Text>}
 
         <Text style={styles.label}>Password</Text>
         <TextInput
@@ -205,23 +76,35 @@ export default function SignInScreen() {
           placeholder="Your password"
           placeholderTextColor="#64748b"
           secureTextEntry
+          returnKeyType="go"
+          onSubmitEditing={handleSignIn}
         />
-        {errors.fields.password && <Text style={styles.error}>{errors.fields.password.message}</Text>}
+
+        {error && (
+          <Text style={styles.error}>{error}</Text>
+        )}
 
         <Pressable
-          style={[styles.primaryBtn, (isPasswordLoading || anySsoLoading || !email || !password) && styles.disabled]}
-          onPress={handleEmailSignIn}
-          disabled={isPasswordLoading || anySsoLoading || !email || !password}
+          style={[
+            styles.primaryBtn,
+            (loading || !email.trim() || !password) && styles.disabled,
+          ]}
+          onPress={handleSignIn}
+          disabled={loading || !email.trim() || !password}
         >
-          {isPasswordLoading
-            ? <ActivityIndicator color="#fff" />
-            : <Text style={styles.primaryBtnText}>Sign in</Text>}
+          {loading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.primaryBtnText}>Sign in</Text>
+          )}
         </Pressable>
 
         <View style={styles.footer}>
           <Text style={styles.footerText}>Don't have an account? </Text>
           <Link href="/(auth)/sign-up" asChild>
-            <Pressable><Text style={styles.link}>Sign up</Text></Pressable>
+            <Pressable>
+              <Text style={styles.link}>Sign up</Text>
+            </Pressable>
           </Link>
         </View>
 
@@ -271,25 +154,8 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   primaryBtnText: { color: '#fff', fontWeight: '600', fontSize: 15 },
-  socialBtn: {
-    backgroundColor: '#1e293b',
-    borderWidth: 1,
-    borderColor: '#334155',
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  appleSocialBtn: {
-    backgroundColor: '#fff',
-    borderColor: '#fff',
-  },
-  socialBtnText: { color: '#e2e8f0', fontWeight: '600', fontSize: 15 },
-  appleBtnText: { color: '#000' },
   disabled: { opacity: 0.5 },
-  dividerRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  dividerLine: { flex: 1, height: 1, backgroundColor: '#1e293b' },
-  dividerText: { color: '#64748b', fontSize: 12 },
-  error: { color: '#ef4444', fontSize: 12, marginTop: -4 },
+  error: { color: '#ef4444', fontSize: 13 },
   footer: { flexDirection: 'row', justifyContent: 'center', marginTop: 8 },
   footerText: { color: '#94a3b8', fontSize: 14 },
   link: { color: '#3b82f6', fontSize: 14, fontWeight: '500', textAlign: 'center', marginTop: 4 },

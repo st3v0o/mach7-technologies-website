@@ -7,7 +7,7 @@ import SessionMap from "@/components/SessionMap";
 import FrameFilmstrip from "@/components/FrameFilmstrip";
 import { MapPin, AlertCircle, Map as MapIcon, Smartphone, Trash2, X, CheckCircle } from "lucide-react";
 import { ChevronDown } from "lucide-react";
-import { useAuth } from "@clerk/react";
+import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
 
 function formatDate(dateStr: string | null | undefined): string {
   if (!dateStr) return "";
@@ -26,7 +26,7 @@ export default function SharePage() {
   const params = useParams<{ token: string }>();
   const token = params.token;
   const [, navigate] = useLocation();
-  const { isSignedIn, getToken } = useAuth();
+  const { isSignedIn, getToken } = useSupabaseAuth();
 
   const [selectedFrame, setSelectedFrame] = useState<PortalFrame | null>(null);
   const [showRoute, setShowRoute] = useState(true);

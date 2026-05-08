@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { useRouter } from 'expo-router';
-import { useAuth } from '@clerk/expo';
+import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -68,7 +68,7 @@ function getPeriodCutoffMs(period: PeriodFilter): number {
 
 export default function ExportModal({ visible, onClose, logEntries, sessionIds }: Props) {
   const { t } = useTranslation();
-  const { isSignedIn } = useAuth();
+  const { isSignedIn } = useSupabaseAuth();
   const router = useRouter();
   const [activeId, setActiveId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);

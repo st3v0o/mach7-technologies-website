@@ -6,7 +6,7 @@ import React, {
   useEffect,
   useState,
 } from 'react';
-import { useAuth } from '@clerk/expo';
+import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 
 import { LogEntry } from '@/contexts/RecordingContext';
 import { shareViaAtlas } from '@/lib/atlas-share';
@@ -40,7 +40,7 @@ export function PortalConfigProvider({ children }: { children: React.ReactNode }
   const [portalUrl, setPortalUrlState] = useState<string>(DEFAULT_PORTAL_URL);
   const [publishedSessionIds, setPublishedSessionIds] = useState<Set<string>>(new Set());
 
-  const { getToken, isSignedIn } = useAuth();
+  const { getToken, isSignedIn } = useSupabaseAuth();
 
   useEffect(() => {
     Promise.all([

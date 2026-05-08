@@ -1,11 +1,10 @@
 import { MapPin, Link as LinkIcon, LayoutDashboard } from "lucide-react";
-import { useAuth, useClerk } from "@clerk/react";
+import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
 import { Link, useLocation } from "wouter";
 import { useEffect } from "react";
 
 export default function AtlasLandingPage() {
-  const { isSignedIn, isLoaded } = useAuth();
-  const { signOut } = useClerk();
+  const { isSignedIn, isLoaded, signOut } = useSupabaseAuth();
   const [, setLocation] = useLocation();
   const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -66,7 +65,7 @@ export default function AtlasLandingPage() {
               My Maps
             </Link>
             <button
-              onClick={() => signOut({ redirectUrl: `${basePath}/` })}
+              onClick={() => signOut().then(() => setLocation(`${basePath}/`))}
               className="w-full text-slate-500 hover:text-slate-300 transition-colors text-sm"
             >
               Sign out

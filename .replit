@@ -53,6 +53,8 @@ EXPO_PUBLIC_SUPABASE_URL = "https://unfddiecgfyzpincussj.supabase.co"
 EXPO_PUBLIC_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVuZmRkaWVjZ2Z5enBpbmN1c3NqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxNzU2MDEsImV4cCI6MjA5Mzc1MTYwMX0.e60ZpvynqX00avKxvap3yeQyO3GqwtNBhhY9CQd0yvU"
 VITE_RECAPTCHA_SITE_KEY = "6LeRwrcsAAAAAFI9dpOKMVUg1laNfOA57Vne8OJa"
 RESEND_EMAIL_KEY = "re_DV6DoD7R_3H75ba6QmMouTqFNN3FrU4e5"
+VITE_SUPABASE_URL = "https://unfddiecgfyzpincussj.supabase.co"
+SUPABASE_URL = "https://unfddiecgfyzpincussj.supabase.co"
 
 [nix]
 channel = "stable-25_05"

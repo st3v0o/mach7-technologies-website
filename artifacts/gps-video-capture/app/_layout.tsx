@@ -13,8 +13,6 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { ClerkProvider, ClerkLoaded } from '@clerk/expo';
-import { tokenCache } from '@clerk/expo/token-cache';
 
 import OnboardingModal, { ONBOARDING_KEY } from '@/components/OnboardingModal';
 
@@ -23,6 +21,7 @@ import { DetectionProvider } from '@/contexts/DetectionContext';
 import { PortalConfigProvider } from '@/contexts/PortalConfigContext';
 import { SettingsProvider } from '@/contexts/SettingsContext';
 import { StorageConfigProvider } from '@/contexts/StorageConfigContext';
+import { SupabaseAuthProvider } from '@/contexts/SupabaseAuthContext';
 import { UploadProvider, useUpload } from '@/contexts/UploadContext';
 import { RecordingProvider, useRecording } from '@/contexts/RecordingContext';
 import { initI18n } from '@/src/i18n';
@@ -30,8 +29,6 @@ import { initI18n } from '@/src/i18n';
 SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient();
-
-const clerkPublishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!;
 
 function UploadConnector() {
   const { logEntries } = useRecording();
@@ -122,35 +119,33 @@ export default function RootLayout() {
   if ((!fontsLoaded && !fontError) || !i18nReady) return null;
 
   return (
-    <ClerkProvider publishableKey={clerkPublishableKey} tokenCache={tokenCache}>
-      <ClerkLoaded>
-        <SafeAreaProvider>
-          <ErrorBoundary>
-            <QueryClientProvider client={queryClient}>
-              <SettingsProvider>
-                <PortalConfigProvider>
-                  <DetectionProvider>
-                    <StorageConfigProvider>
-                      <UploadProvider>
-                        <RecordingProvider>
-                          <UploadConnector />
-                          <UploadSyncConnector />
-                          <GestureHandlerRootView>
-                            <KeyboardProvider>
-                              <RootLayoutNav />
-                            </KeyboardProvider>
-                          </GestureHandlerRootView>
-                          <OnboardingModal visible={showOnboarding} onDismiss={handleDismiss} />
-                        </RecordingProvider>
-                      </UploadProvider>
-                    </StorageConfigProvider>
-                  </DetectionProvider>
-                </PortalConfigProvider>
-              </SettingsProvider>
-            </QueryClientProvider>
-          </ErrorBoundary>
-        </SafeAreaProvider>
-      </ClerkLoaded>
-    </ClerkProvider>
+    <SupabaseAuthProvider>
+      <SafeAreaProvider>
+        <ErrorBoundary>
+          <QueryClientProvider client={queryClient}>
+            <SettingsProvider>
+              <PortalConfigProvider>
+                <DetectionProvider>
+                  <StorageConfigProvider>
+                    <UploadProvider>
+                      <RecordingProvider>
+                        <UploadConnector />
+                        <UploadSyncConnector />
+                        <GestureHandlerRootView>
+                          <KeyboardProvider>
+                            <RootLayoutNav />
+                          </KeyboardProvider>
+                        </GestureHandlerRootView>
+                        <OnboardingModal visible={showOnboarding} onDismiss={handleDismiss} />
+                      </RecordingProvider>
+                    </UploadProvider>
+                  </StorageConfigProvider>
+                </DetectionProvider>
+              </PortalConfigProvider>
+            </SettingsProvider>
+          </QueryClientProvider>
+        </ErrorBoundary>
+      </SafeAreaProvider>
+    </SupabaseAuthProvider>
   );
 }

@@ -10,79 +10,60 @@ import {
   Platform,
   KeyboardAvoidingView,
 } from 'react-native';
-import { useSignUp } from '@clerk/expo';
-import { type Href, useRouter, Link } from 'expo-router';
+import { useRouter, Link } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { supabase } from '@/lib/supabaseClient';
 
 export default function SignUpScreen() {
-  const { signUp, errors, fetchStatus } = useSignUp();
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [code, setCode] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [verifyPending, setVerifyPending] = useState(false);
 
   const handleSignUp = async () => {
-    const { error } = await signUp.password({ emailAddress: email, password });
-    if (error) {
-      console.error(JSON.stringify(error, null, 2));
-      return;
-    }
-    if (!error) await signUp.verifications.sendEmailCode();
-  };
-
-  const handleVerify = async () => {
-    await signUp.verifications.verifyEmailCode({ code });
-    if (signUp.status === 'complete') {
-      await signUp.finalize({
-        navigate: ({ session, decorateUrl }) => {
-          if (session?.currentTask) {
-            console.log(session.currentTask);
-            return;
-          }
-          const url = decorateUrl('/');
-          if (url.startsWith('http')) {
-            return;
-          }
-          router.push(url as Href);
-        },
+    if (!email.trim() || !password) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email: email.trim(),
+        password,
       });
-    } else {
-      console.error('Sign-up not complete:', signUp);
+      if (error) {
+        setError(error.message);
+        return;
+      }
+      if (data.session) {
+        router.back();
+      } else {
+        setVerifyPending(true);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Sign up failed');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const isLoading = fetchStatus === 'fetching';
-
-  if (
-    signUp.status === 'missing_requirements' &&
-    signUp.unverifiedFields.includes('email_address') &&
-    signUp.missingFields.length === 0
-  ) {
+  if (verifyPending) {
     return (
-      <View style={[styles.container, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 16 }]}>
+      <View
+        style={[
+          styles.container,
+          styles.centered,
+          { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 16 },
+        ]}
+      >
         <Text style={styles.title}>Check your email</Text>
-        <Text style={styles.subtitle}>Enter the code we sent to {email}</Text>
-        <TextInput
-          style={styles.input}
-          value={code}
-          onChangeText={setCode}
-          placeholder="6-digit code"
-          placeholderTextColor="#64748b"
-          keyboardType="numeric"
-          autoFocus
-        />
-        {errors.fields.code && <Text style={styles.error}>{errors.fields.code.message}</Text>}
-        <Pressable
-          style={[styles.primaryBtn, isLoading && styles.disabled]}
-          onPress={handleVerify}
-          disabled={isLoading}
-        >
-          {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryBtnText}>Verify email</Text>}
-        </Pressable>
-        <Pressable onPress={() => signUp.verifications.sendEmailCode()}>
-          <Text style={styles.link}>Resend code</Text>
+        <Text style={styles.subtitle}>
+          We sent a confirmation link to {email}. Tap it to activate your account, then sign in.
+        </Text>
+        <Pressable onPress={() => router.back()} style={styles.primaryBtn}>
+          <Text style={styles.primaryBtnText}>Done</Text>
         </Pressable>
       </View>
     );
@@ -91,7 +72,10 @@ export default function SignUpScreen() {
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView
-        contentContainerStyle={[styles.container, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 16 }]}
+        contentContainerStyle={[
+          styles.container,
+          { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 16 },
+        ]}
         keyboardShouldPersistTaps="handled"
       >
         <Text style={styles.title}>Create account</Text>
@@ -108,7 +92,6 @@ export default function SignUpScreen() {
           autoCapitalize="none"
           autoCorrect={false}
         />
-        {errors.fields.emailAddress && <Text style={styles.error}>{errors.fields.emailAddress.message}</Text>}
 
         <Text style={styles.label}>Password</Text>
         <TextInput
@@ -118,29 +101,39 @@ export default function SignUpScreen() {
           placeholder="Create a strong password"
           placeholderTextColor="#64748b"
           secureTextEntry
+          returnKeyType="go"
+          onSubmitEditing={handleSignUp}
         />
-        {errors.fields.password && <Text style={styles.error}>{errors.fields.password.message}</Text>}
+
+        {error && <Text style={styles.error}>{error}</Text>}
 
         <Pressable
-          style={[styles.primaryBtn, (isLoading || !email || !password) && styles.disabled]}
+          style={[
+            styles.primaryBtn,
+            (loading || !email.trim() || !password) && styles.disabled,
+          ]}
           onPress={handleSignUp}
-          disabled={isLoading || !email || !password}
+          disabled={loading || !email.trim() || !password}
         >
-          {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryBtnText}>Create account</Text>}
+          {loading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.primaryBtnText}>Create account</Text>
+          )}
         </Pressable>
 
         <View style={styles.footer}>
           <Text style={styles.footerText}>Already have an account? </Text>
           <Link href="/(auth)/sign-in" asChild>
-            <Pressable><Text style={styles.link}>Sign in</Text></Pressable>
+            <Pressable>
+              <Text style={styles.link}>Sign in</Text>
+            </Pressable>
           </Link>
         </View>
 
         <Pressable onPress={() => router.back()} style={{ marginTop: 8 }}>
           <Text style={[styles.link, { color: '#64748b', textAlign: 'center' }]}>Cancel</Text>
         </Pressable>
-
-        <View nativeID="clerk-captcha" />
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -153,17 +146,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     gap: 12,
   },
+  centered: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   title: {
     fontSize: 22,
     fontWeight: '700',
     color: '#f8fafc',
     marginBottom: 2,
     marginTop: 8,
+    textAlign: 'center',
   },
   subtitle: {
     fontSize: 14,
     color: '#94a3b8',
     marginBottom: 8,
+    textAlign: 'center',
+    lineHeight: 20,
   },
   label: { fontSize: 13, color: '#cbd5e1', fontWeight: '500' },
   input: {
@@ -185,7 +185,7 @@ const styles = StyleSheet.create({
   },
   primaryBtnText: { color: '#fff', fontWeight: '600', fontSize: 15 },
   disabled: { opacity: 0.5 },
-  error: { color: '#ef4444', fontSize: 12, marginTop: -4 },
+  error: { color: '#ef4444', fontSize: 13 },
   footer: { flexDirection: 'row', justifyContent: 'center', marginTop: 8 },
   footerText: { color: '#94a3b8', fontSize: 14 },
   link: { color: '#3b82f6', fontSize: 14, fontWeight: '500', textAlign: 'center', marginTop: 4 },

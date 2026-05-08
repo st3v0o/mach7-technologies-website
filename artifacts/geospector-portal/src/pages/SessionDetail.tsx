@@ -19,7 +19,7 @@ import {
   Route, SlidersHorizontal, X, CheckCircle, Smartphone,
   ChevronDown, ChevronRight, Trash2, Mail, MailCheck,
 } from "lucide-react";
-import { useAuth } from "@clerk/react";
+import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -40,7 +40,7 @@ export default function SessionDetail() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const qc = useQueryClient();
-  const { isSignedIn, getToken } = useAuth();
+  const { isSignedIn, getToken } = useSupabaseAuth();
   const [selectedFrame, setSelectedFrame] = useState<PortalFrame | null>(null);
 
   const [showRoute, setShowRoute] = useState(true);

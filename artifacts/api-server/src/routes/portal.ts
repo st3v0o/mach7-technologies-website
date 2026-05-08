@@ -1,6 +1,5 @@
-import { Router, type Request, type Response, type NextFunction } from "express";
+import { Router, type Response, type NextFunction } from "express";
 import { randomUUID } from "crypto";
-import { getAuth } from "@clerk/express";
 import { db } from "@workspace/db";
 import {
   portalSessionsTable,
@@ -28,42 +27,19 @@ import {
 import { haversineDistanceMiles, buildLineString } from "../lib/geo.js";
 import { XMLParser } from "fast-xml-parser";
 
-/** Express Request extended with the Clerk userId resolved by auth middleware. */
-interface AuthedRequest extends Request {
-  userId?: string | null;
-}
+import type { AuthedRequest } from "../middlewares/supabaseAuthMiddleware.js";
 
 const router = Router();
 
 // ── Auth helpers ─────────────────────────────────────────────────────────────
 
-function optionalAuth(req: AuthedRequest, _res: Response, next: NextFunction): void {
-  try {
-    const auth = getAuth(req);
-    req.userId = auth?.userId ?? null;
-  } catch {
-    req.userId = null;
-  }
-  next();
-}
-
 function requireAuth(req: AuthedRequest, res: Response, next: NextFunction): void {
-  try {
-    const auth = getAuth(req);
-    if (!auth?.userId) {
-      res.status(401).json({ error: "Unauthorized" });
-      return;
-    }
-    req.userId = auth.userId;
-  } catch {
+  if (!req.userId) {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
   next();
 }
-
-// Apply optional auth to all portal routes so req.userId is always available
-router.use(optionalAuth);
 
 // ── Helper: strip sensitive fields before sending sessions to clients ────────
 
@@ -903,7 +879,7 @@ router.delete("/sessions/:id", async (req, res) => {
     return;
   }
 
-  // Sessions with an owner require matching Clerk auth
+  // Sessions with an owner require matching auth
   if (session.userId) {
     const authedReq = req as AuthedRequest;
     if (!authedReq.userId || authedReq.userId !== session.userId) {
