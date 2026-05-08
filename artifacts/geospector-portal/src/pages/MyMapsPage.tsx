@@ -4,7 +4,8 @@ import { Link, Redirect } from "wouter";
 import { MapPin, Share2, Trash2, ExternalLink, LogOut, ChevronLeft, UserCircle2, List } from "lucide-react";
 import { useState } from "react";
 
-const apiBase = import.meta.env.BASE_URL.replace(/\/$/, "").replace(/\/geospector-portal$/, "");
+import { getApiBase } from "@/lib/api-base";
+const apiBase = getApiBase();
 
 async function fetchWithAuth(url: string, token: string | null, options?: RequestInit) {
   const headers: Record<string, string> = {

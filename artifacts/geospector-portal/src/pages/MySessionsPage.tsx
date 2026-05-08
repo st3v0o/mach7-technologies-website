@@ -14,7 +14,8 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 
-const apiBase = import.meta.env.BASE_URL.replace(/\/$/, "").replace(/\/geospector-portal$/, "");
+import { getApiBase } from "@/lib/api-base";
+const apiBase = getApiBase();
 
 async function fetchWithAuth(url: string, token: string | null, options?: RequestInit) {
   const headers: Record<string, string> = {
