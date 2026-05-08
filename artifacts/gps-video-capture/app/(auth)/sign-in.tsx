@@ -88,9 +88,11 @@ export default function SignInScreen() {
 
       const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
       if (result.type === 'success' && result.url) {
-        const urlObj = new URL(result.url);
-        const accessToken = urlObj.searchParams.get('access_token');
-        const refreshToken = urlObj.searchParams.get('refresh_token');
+        // Supabase returns tokens in the URL fragment (#access_token=...&refresh_token=...)
+        const fragment = result.url.split('#')[1] ?? '';
+        const params = Object.fromEntries(new URLSearchParams(fragment));
+        const accessToken = params['access_token'];
+        const refreshToken = params['refresh_token'];
         if (accessToken && refreshToken) {
           await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
           router.back();
@@ -252,7 +254,6 @@ const styles = StyleSheet.create({
   centered: {
     justifyContent: 'center',
     alignItems: 'center',
-    textAlign: 'center' as any,
   },
   title: { fontSize: 22, fontWeight: '700', color: '#f8fafc', marginBottom: 2, marginTop: 8 },
   subtitle: { fontSize: 14, color: '#94a3b8', marginBottom: 8 },
