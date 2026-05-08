@@ -18,10 +18,32 @@ export type Bindings = {
 
 export type Variables = { userId: string | null };
 
+const ALLOWED_ORIGINS = [
+  "https://atlas.mach7technologies.com",
+  "https://www.mach7technologies.com",
+  "https://mach7technologies.com",
+];
+
 const app = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
 app.use("*", logger());
-app.use("*", cors({ origin: "*", credentials: true }));
+app.use(
+  "*",
+  cors({
+    origin: (origin) => {
+      if (!origin) return ALLOWED_ORIGINS[0]!;
+      if (ALLOWED_ORIGINS.includes(origin)) return origin;
+      // Allow any localhost / replit.dev preview origin in development
+      if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) return origin;
+      if (origin.endsWith(".replit.dev") || origin.endsWith(".worf.replit.dev")) return origin;
+      return null;
+    },
+    allowHeaders: ["Authorization", "Content-Type"],
+    allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    credentials: true,
+    maxAge: 86400,
+  }),
+);
 app.use("*", optionalAuth());
 
 app.get("/", (c) => c.json({ ok: true, service: "atlas-api" }));

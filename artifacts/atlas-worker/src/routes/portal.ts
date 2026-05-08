@@ -508,6 +508,131 @@ portal.post("/import/session-json", requireAuth(), async (c) => {
   return c.json(safeSession(sessionRow as Record<string, unknown>));
 });
 
+// ── POST /portal/atlas/submit — alias for /import/session-json ───────────────
+// The mobile Atlas app targets this dedicated endpoint; behaviour is identical.
+
+portal.post("/atlas/submit", requireAuth(), async (c) => {
+  return c.req
+    .raw.clone()
+    .json()
+    .then(async (body: unknown) => {
+      const parsed = ImportSessionJsonBody.safeParse(body);
+      if (!parsed.success) return c.json({ error: "Invalid request body" }, 400);
+
+      const { session: rawSession, frames: rawFrames } = parsed.data;
+      const incomingSessionId = (rawSession["session_id"] ?? rawSession["sessionId"]) as
+        | string
+        | undefined;
+
+      if (incomingSessionId) {
+        const { data: existing } = await readDb(c.env)
+          .from("portal_sessions")
+          .select("*")
+          .eq("session_id", String(incomingSessionId))
+          .limit(1);
+        if (existing?.[0]) {
+          return c.json({ ...safeSession(existing[0]), alreadyPublished: true });
+        }
+      }
+
+      const mappedFrames = rawFrames.map((f, i) => {
+        const rawImageUrl = (f["image_url"] ?? f["imageUrl"] ?? null) as string | null;
+        const rawImageData = (f["image_data"] ?? f["imageData"] ?? null) as string | null;
+        let imageUrl: string | null = rawImageUrl;
+        if (!imageUrl && rawImageData) {
+          imageUrl = rawImageData.startsWith("data:")
+            ? rawImageData
+            : `data:image/jpeg;base64,${rawImageData}`;
+        }
+        return {
+          lat: Number(f["latitude"] ?? f["lat"] ?? 0),
+          lon: Number(f["longitude"] ?? f["lon"] ?? 0),
+          speed: (f["speed_mph"] ?? f["speedMph"] ?? f["speed"] ?? null) as number | null,
+          heading: (f["heading"] ?? null) as number | null,
+          imageUrl,
+          thumbnailUrl: (imageUrl ??
+            f["thumbnail_url"] ??
+            f["thumbnailUrl"] ??
+            null) as string | null,
+          capturedAt: new Date(
+            String(f["timestamp"] ?? f["captured_at"] ?? f["capturedAt"] ?? new Date()),
+          ),
+          frameIndex: Number(f["frame_index"] ?? f["frameIndex"] ?? i),
+          uploadStatus: String(f["upload_status"] ?? f["uploadStatus"] ?? "uploaded"),
+        };
+      });
+
+      const coords = mappedFrames.map((f): [number, number] => [f.lat, f.lon]);
+      const geojson = buildLineString(coords);
+      const sortedFrames = [...mappedFrames].sort(
+        (a, b) => a.capturedAt.getTime() - b.capturedAt.getTime(),
+      );
+      const metrics = computeMetrics(
+        mappedFrames.map((f) => ({
+          latitude: f.lat,
+          longitude: f.lon,
+          speed_mph: f.speed !== null ? Number(f.speed) : null,
+          captured_at: f.capturedAt.toISOString(),
+        })),
+      );
+
+      const s = rawSession;
+      const sessionId = String(s["session_id"] ?? s["sessionId"] ?? crypto.randomUUID());
+      const shareToken = crypto.randomUUID();
+      const makePublic = s["isPublic"] === true || s["is_public"] === true;
+      const submitterEmail = (s["submitterEmail"] ?? s["submitter_email"] ?? null) as
+        | string
+        | null;
+      const userId = c.get("userId");
+
+      const { data: sessionRow, error } = await writeDb(c.env)
+        .from("portal_sessions")
+        .insert({
+          session_id: sessionId,
+          title: (s["title"] as string | undefined) ?? null,
+          started_at: sortedFrames[0]?.capturedAt.toISOString() ?? null,
+          ended_at: sortedFrames[sortedFrames.length - 1]?.capturedAt.toISOString() ?? null,
+          capture_mode:
+            ((s["capture_mode"] ?? s["captureMode"]) as string | undefined) ?? null,
+          total_frames: mappedFrames.length,
+          uploaded_frames: mappedFrames.filter((f) => f.uploadStatus === "uploaded").length,
+          ...metrics,
+          route_geojson: geojson,
+          source_type: "atlas",
+          public_share_token: shareToken,
+          submitter_email: submitterEmail,
+          status: "active",
+          thumbnail_url: mappedFrames[0]?.imageUrl ?? null,
+          is_public: makePublic,
+          published_at: makePublic ? new Date().toISOString() : null,
+          user_id: userId ?? null,
+        })
+        .select()
+        .single();
+
+      if (error || !sessionRow) return c.json({ error: "Failed to create session" }, 500);
+
+      const frameValues = mappedFrames.map((f) => ({
+        portal_session_id: sessionRow.id,
+        frame_index: f.frameIndex,
+        captured_at: f.capturedAt.toISOString(),
+        latitude: f.lat,
+        longitude: f.lon,
+        heading: f.heading !== null ? Number(f.heading) : null,
+        speed_mph: f.speed !== null ? Number(f.speed) : null,
+        image_url: f.imageUrl,
+        thumbnail_url: f.thumbnailUrl,
+        upload_status: f.uploadStatus,
+        metadata: null,
+      }));
+
+      await writeDb(c.env).from("portal_frames").insert(frameValues);
+
+      return c.json(safeSession(sessionRow as Record<string, unknown>));
+    })
+    .catch(() => c.json({ error: "Invalid request body" }, 400));
+});
+
 // ── POST /portal/import/gpx ──────────────────────────────────────────────────
 
 const ImportGpxBody = z.object({
@@ -517,8 +642,22 @@ const ImportGpxBody = z.object({
 });
 
 portal.post("/import/gpx", async (c) => {
-  const body = await c.req.json().catch(() => null);
-  const parsed = ImportGpxBody.safeParse(body);
+  const contentType = c.req.header("content-type") ?? "";
+  let rawBody: unknown;
+  if (contentType.includes("multipart/form-data")) {
+    const form = await c.req.parseBody().catch(() => null);
+    if (!form) return c.json({ error: "Failed to parse multipart body" }, 400);
+    const gpxFile = form["gpx"];
+    const gpxText = gpxFile instanceof File ? await gpxFile.text() : String(gpxFile ?? "");
+    const titleVal = form["title"];
+    rawBody = {
+      gpx: gpxText,
+      title: titleVal ? String(titleVal) : undefined,
+    };
+  } else {
+    rawBody = await c.req.json().catch(() => null);
+  }
+  const parsed = ImportGpxBody.safeParse(rawBody);
   if (!parsed.success) return c.json({ error: "Invalid request body — gpx field required" }, 400);
 
   const { gpx: gpxXml, title, frames: supplementalFrames } = parsed.data;

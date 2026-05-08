@@ -20,6 +20,7 @@ const SCORE_THRESHOLD = 0.5;
 async function verifyRecaptcha(
   token: string,
   secret: string,
+  expectedAction: string,
 ): Promise<{ success: boolean; score: number }> {
   const params = new URLSearchParams({ secret, response: token });
   const res = await fetch(`${RECAPTCHA_VERIFY_URL}?${params.toString()}`, {
@@ -30,6 +31,9 @@ async function verifyRecaptcha(
     score?: number;
     action?: string;
   };
+  if (data.action && data.action !== expectedAction) {
+    return { success: false, score: 0 };
+  }
   return { success: data.success, score: data.score ?? 0 };
 }
 
@@ -47,7 +51,7 @@ contact.post("/contact", async (c) => {
     if (secret) {
       let result: { success: boolean; score: number };
       try {
-        result = await verifyRecaptcha(recaptchaToken, secret);
+        result = await verifyRecaptcha(recaptchaToken, secret, "contact_form");
       } catch {
         return c.json({ error: "CAPTCHA verification failed" }, 500);
       }
