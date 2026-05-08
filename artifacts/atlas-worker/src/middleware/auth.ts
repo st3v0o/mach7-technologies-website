@@ -22,19 +22,26 @@ async function verifyJwt(
       ["verify"],
     );
 
-    const b64ToBytes = (b64: string): Uint8Array => {
-      const padded = b64.replace(/-/g, "+").replace(/_/g, "/");
+    const b64urlToBytes = (b64url: string): Uint8Array => {
+      const std = b64url.replace(/-/g, "+").replace(/_/g, "/");
+      const padded = std + "=".repeat((4 - (std.length % 4)) % 4);
       const binary = atob(padded);
-      return Uint8Array.from(binary, (c) => c.charCodeAt(0));
+      return Uint8Array.from(binary, (ch) => ch.charCodeAt(0));
+    };
+
+    const b64urlToString = (b64url: string): string => {
+      const std = b64url.replace(/-/g, "+").replace(/_/g, "/");
+      const padded = std + "=".repeat((4 - (std.length % 4)) % 4);
+      return atob(padded);
     };
 
     const signedData = encoder.encode(`${headerB64}.${payloadB64}`);
-    const signature = b64ToBytes(sigB64);
+    const signature = b64urlToBytes(sigB64);
 
     const valid = await crypto.subtle.verify("HMAC", cryptoKey, signature, signedData);
     if (!valid) return null;
 
-    const payload = JSON.parse(atob(payloadB64.replace(/-/g, "+").replace(/_/g, "/")));
+    const payload = JSON.parse(b64urlToString(payloadB64));
     if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) return null;
 
     return payload;

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useParams, useLocation } from "wouter";
+import { getApiBase } from "@/lib/api-base";
 import { useGetPortalShareSession, useGetPortalSessionFrames, useGetPortalSessionRoute } from "@workspace/api-client-react";
 import type { PortalFrame } from "@workspace/api-client-react";
 import MetricsBar from "@/components/MetricsBar";
@@ -51,7 +52,7 @@ export default function SharePage() {
     setDeleteError(null);
     try {
       const authToken = await getToken();
-      const res = await fetch(`/api/portal/my-sessions/${sessionId}`, {
+      const res = await fetch(`${getApiBase()}api/portal/my-sessions/${sessionId}`, {
         method: "DELETE",
         headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
       });

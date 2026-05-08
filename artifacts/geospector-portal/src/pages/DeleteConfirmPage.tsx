@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useLocation } from "wouter";
 import { CheckCircle, XCircle, Loader2 } from "lucide-react";
 import Layout from "@/components/Layout";
+import { getApiBase } from "@/lib/api-base";
 
 type Status = "loading" | "success" | "error";
 
@@ -19,7 +20,7 @@ export default function DeleteConfirmPage() {
       return;
     }
 
-    fetch(`/api/portal/sessions/delete-confirm/${encodeURIComponent(token)}`)
+    fetch(`${getApiBase()}api/portal/sessions/delete-confirm/${encodeURIComponent(token)}`)
       .then(async (res) => {
         if (res.ok) {
           setStatus("success");
