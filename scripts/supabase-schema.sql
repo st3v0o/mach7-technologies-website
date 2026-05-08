@@ -104,8 +104,22 @@ CREATE POLICY "Frames of public sessions are readable by anyone"
     )
   );
 
+-- ── Role grants ──────────────────────────────────────────────
+-- Required because "Automatically expose new tables" is disabled.
+-- Without these, PostgREST returns "permission denied" even for service_role.
+
+GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
+
+GRANT ALL ON portal_sessions TO service_role;
+GRANT ALL ON portal_frames TO service_role;
+GRANT USAGE, SELECT ON SEQUENCE portal_sessions_id_seq TO service_role;
+GRANT USAGE, SELECT ON SEQUENCE portal_frames_id_seq TO service_role;
+
+GRANT SELECT ON portal_sessions TO anon, authenticated;
+GRANT SELECT ON portal_frames TO anon, authenticated;
+
 -- ── Done ──────────────────────────────────────────────────────
 -- After running this script:
 --   1. Go to Supabase Dashboard → Settings → API
---   2. Copy the "service_role" key (NOT the anon key)
+--   2. Copy the "service_role" legacy key (eyJ... format)
 --   3. Add it as SUPABASE_SERVICE_ROLE_KEY in your Replit secrets
