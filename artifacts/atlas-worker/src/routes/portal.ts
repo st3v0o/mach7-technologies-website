@@ -88,7 +88,7 @@ function computeMetrics(
 // ── GET /portal/stats ────────────────────────────────────────────────────────
 
 portal.get("/stats", async (c) => {
-  const { data: rows, error } = await db(c.env)
+  const { data: rows, error } = await readDb(c.env)
     .from("portal_sessions")
     .select("total_frames, total_distance_miles");
 
@@ -111,7 +111,7 @@ portal.get("/sessions", async (c) => {
   const limit = Math.min(Number(c.req.query("limit") ?? 50), 200);
   const offset = Number(c.req.query("offset") ?? 0);
 
-  let query = db(c.env)
+  let query = readDb(c.env)
     .from("portal_sessions")
     .select("*")
     .order("created_at", { ascending: false })
@@ -131,7 +131,7 @@ portal.get("/sessions/delete-confirm/:token", async (c) => {
   const token = c.req.param("token");
   if (!token) return c.json({ error: "token is required" }, 400);
 
-  const { data: rows } = await db(c.env)
+  const { data: rows } = await readDb(c.env)
     .from("portal_sessions")
     .select("*")
     .eq("delete_token", token)
@@ -147,7 +147,7 @@ portal.get("/sessions/delete-confirm/:token", async (c) => {
     return c.json({ error: "This delete link has expired. Please request a new one." }, 410);
   }
 
-  await db(c.env).from("portal_sessions").delete().eq("id", session.id);
+  await writeDb(c.env).from("portal_sessions").delete().eq("id", session.id);
 
   return c.json({ deleted: true, id: session.id });
 });
@@ -158,7 +158,7 @@ portal.get("/sessions/:id", async (c) => {
   const id = Number(c.req.param("id"));
   if (isNaN(id)) return c.json({ error: "Invalid session id" }, 400);
 
-  const { data: rows } = await db(c.env)
+  const { data: rows } = await readDb(c.env)
     .from("portal_sessions")
     .select("*")
     .eq("id", id)
@@ -183,7 +183,7 @@ portal.get("/sessions/:id/frames", async (c) => {
   const limit = Math.min(Number(c.req.query("limit") ?? 200), 1000);
   const offset = Number(c.req.query("offset") ?? 0);
 
-  const { data: sessionRows } = await db(c.env)
+  const { data: sessionRows } = await readDb(c.env)
     .from("portal_sessions")
     .select("id")
     .eq("id", id)
@@ -192,13 +192,13 @@ portal.get("/sessions/:id/frames", async (c) => {
   if (!sessionRows?.[0]) return c.json({ error: "Session not found" }, 404);
 
   const [{ data: frames }, { count }] = await Promise.all([
-    db(c.env)
+    readDb(c.env)
       .from("portal_frames")
       .select("*")
       .eq("portal_session_id", id)
       .order("frame_index", { ascending: true })
       .range(offset, offset + limit - 1),
-    db(c.env)
+    readDb(c.env)
       .from("portal_frames")
       .select("*", { count: "exact", head: true })
       .eq("portal_session_id", id),
@@ -216,7 +216,7 @@ portal.get("/sessions/:id/summary", async (c) => {
   const id = Number(c.req.param("id"));
   if (isNaN(id)) return c.json({ error: "Invalid session id" }, 400);
 
-  const { data: sessionRows } = await db(c.env)
+  const { data: sessionRows } = await readDb(c.env)
     .from("portal_sessions")
     .select("*")
     .eq("id", id)
@@ -225,7 +225,7 @@ portal.get("/sessions/:id/summary", async (c) => {
   const session = sessionRows?.[0];
   if (!session) return c.json({ error: "Session not found" }, 404);
 
-  const { data: frames } = await db(c.env)
+  const { data: frames } = await readDb(c.env)
     .from("portal_frames")
     .select("*")
     .eq("portal_session_id", id)
@@ -259,7 +259,7 @@ portal.get("/sessions/:id/route", async (c) => {
   const id = Number(c.req.param("id"));
   if (isNaN(id)) return c.json({ error: "Invalid session id" }, 400);
 
-  const { data: sessionRows } = await db(c.env)
+  const { data: sessionRows } = await readDb(c.env)
     .from("portal_sessions")
     .select("*")
     .eq("id", id)
@@ -272,7 +272,7 @@ portal.get("/sessions/:id/route", async (c) => {
     return c.json({ geojson: session.route_geojson });
   }
 
-  const { data: frames } = await db(c.env)
+  const { data: frames } = await readDb(c.env)
     .from("portal_frames")
     .select("latitude, longitude")
     .eq("portal_session_id", id)
@@ -291,7 +291,7 @@ portal.get("/share/:token", async (c) => {
   const token = c.req.param("token");
   if (!token) return c.json({ error: "Invalid token" }, 400);
 
-  const { data: rows } = await db(c.env)
+  const { data: rows } = await readDb(c.env)
     .from("portal_sessions")
     .select("*")
     .eq("public_share_token", token)
@@ -340,7 +340,7 @@ portal.post("/import/mock", async (c) => {
   const startedAt = baseTime.toISOString();
   const endedAt = new Date(baseTime.getTime() + durationSec * 1000).toISOString();
 
-  const { data: sessionRows, error } = await db(c.env)
+  const { data: sessionRows, error } = await writeDb(c.env)
     .from("portal_sessions")
     .insert({
       session_id: sessionUUID,
@@ -379,7 +379,7 @@ portal.post("/import/mock", async (c) => {
     metadata: null,
   }));
 
-  await db(c.env).from("portal_frames").insert(frameValues);
+  await writeDb(c.env).from("portal_frames").insert(frameValues);
 
   return c.json(toCamel(sessionRows as Record<string, unknown>));
 });
@@ -402,7 +402,7 @@ portal.post("/import/session-json", requireAuth(), async (c) => {
     (rawSession["session_id"] ?? rawSession["sessionId"]) as string | undefined;
 
   if (incomingSessionId) {
-    const { data: existing } = await db(c.env)
+    const { data: existing } = await readDb(c.env)
       .from("portal_sessions")
       .select("*")
       .eq("session_id", String(incomingSessionId))
@@ -462,7 +462,7 @@ portal.post("/import/session-json", requireAuth(), async (c) => {
     | null;
   const userId = c.get("userId");
 
-  const { data: sessionRow, error } = await db(c.env)
+  const { data: sessionRow, error } = await writeDb(c.env)
     .from("portal_sessions")
     .insert({
       session_id: sessionId,
@@ -503,7 +503,7 @@ portal.post("/import/session-json", requireAuth(), async (c) => {
     metadata: null,
   }));
 
-  await db(c.env).from("portal_frames").insert(frameValues);
+  await writeDb(c.env).from("portal_frames").insert(frameValues);
 
   return c.json(safeSession(sessionRow as Record<string, unknown>));
 });
@@ -584,7 +584,7 @@ portal.post("/import/gpx", async (c) => {
         )
       : null;
 
-  const { data: sessionRow, error } = await db(c.env)
+  const { data: sessionRow, error } = await writeDb(c.env)
     .from("portal_sessions")
     .insert({
       session_id: crypto.randomUUID(),
@@ -623,7 +623,7 @@ portal.post("/import/gpx", async (c) => {
     metadata: null,
   }));
 
-  await db(c.env).from("portal_frames").insert(frameValues);
+  await writeDb(c.env).from("portal_frames").insert(frameValues);
 
   return c.json(toCamel(sessionRow as Record<string, unknown>));
 });
@@ -635,13 +635,13 @@ portal.get("/feed", async (c) => {
   const offset = Number(c.req.query("offset") ?? 0);
 
   const [{ data: sessions }, { count }] = await Promise.all([
-    db(c.env)
+    readDb(c.env)
       .from("portal_sessions")
       .select("*")
       .eq("is_public", true)
       .order("published_at", { ascending: false })
       .range(offset, offset + limit - 1),
-    db(c.env)
+    readDb(c.env)
       .from("portal_sessions")
       .select("*", { count: "exact", head: true })
       .eq("is_public", true),
@@ -673,7 +673,7 @@ portal.patch("/sessions/:id/publish", requireAuth(), async (c) => {
 
   const userId = c.get("userId");
 
-  const { data: existing } = await db(c.env)
+  const { data: existing } = await readDb(c.env)
     .from("portal_sessions")
     .select("id")
     .eq("id", id)
@@ -684,7 +684,7 @@ portal.patch("/sessions/:id/publish", requireAuth(), async (c) => {
     return c.json({ error: "Session not found or not owned by you" }, 404);
   }
 
-  const { data: updated, error } = await db(c.env)
+  const { data: updated, error } = await writeDb(c.env)
     .from("portal_sessions")
     .update({
       is_public: body.isPublic,
@@ -721,7 +721,7 @@ portal.post("/sessions/:id/request-delete", async (c) => {
     message: "If that email matches our records, you'll receive a delete link shortly.",
   };
 
-  const { data: rows } = await db(c.env)
+  const { data: rows } = await readDb(c.env)
     .from("portal_sessions")
     .select("*")
     .eq("id", id)
@@ -738,7 +738,7 @@ portal.post("/sessions/:id/request-delete", async (c) => {
   const deleteToken = crypto.randomUUID();
   const deleteTokenExpiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
 
-  await db(c.env)
+  await writeDb(c.env)
     .from("portal_sessions")
     .update({ delete_token: deleteToken, delete_token_expires_at: deleteTokenExpiresAt })
     .eq("id", id);
@@ -787,7 +787,7 @@ portal.delete("/sessions/:id", async (c) => {
   const id = Number(c.req.param("id"));
   if (isNaN(id)) return c.json({ error: "Invalid session id" }, 400);
 
-  const { data: rows } = await db(c.env)
+  const { data: rows } = await readDb(c.env)
     .from("portal_sessions")
     .select("*")
     .eq("id", id)
@@ -803,7 +803,7 @@ portal.delete("/sessions/:id", async (c) => {
     }
   }
 
-  await db(c.env).from("portal_sessions").delete().eq("id", id);
+  await writeDb(c.env).from("portal_sessions").delete().eq("id", id);
 
   return c.json({ deleted: true, id });
 });
@@ -813,7 +813,7 @@ portal.delete("/sessions/:id", async (c) => {
 portal.get("/my-sessions", requireAuth(), async (c) => {
   const userId = c.get("userId");
 
-  const { data, error } = await db(c.env)
+  const { data, error } = await readDb(c.env)
     .from("portal_sessions")
     .select("*")
     .eq("user_id", userId!)
@@ -832,7 +832,7 @@ portal.delete("/my-sessions/:id", requireAuth(), async (c) => {
 
   const userId = c.get("userId");
 
-  const { data: rows } = await db(c.env)
+  const { data: rows } = await readDb(c.env)
     .from("portal_sessions")
     .select("id")
     .eq("id", id)
@@ -841,8 +841,8 @@ portal.delete("/my-sessions/:id", requireAuth(), async (c) => {
 
   if (!rows?.[0]) return c.json({ error: "Session not found or not owned by you" }, 404);
 
-  await db(c.env).from("portal_frames").delete().eq("portal_session_id", id);
-  await db(c.env).from("portal_sessions").delete().eq("id", id);
+  await writeDb(c.env).from("portal_frames").delete().eq("portal_session_id", id);
+  await writeDb(c.env).from("portal_sessions").delete().eq("id", id);
 
   return c.json({ deleted: true, id });
 });
