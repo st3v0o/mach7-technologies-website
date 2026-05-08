@@ -20,7 +20,7 @@ export default function DeleteConfirmPage() {
       return;
     }
 
-    fetch(`${getApiBase()}api/portal/sessions/delete-confirm/${encodeURIComponent(token)}`)
+    fetch(`${getApiBase()}/api/portal/sessions/delete-confirm/${encodeURIComponent(token)}`)
       .then(async (res) => {
         if (res.ok) {
           setStatus("success");

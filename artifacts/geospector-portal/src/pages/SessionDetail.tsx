@@ -137,7 +137,7 @@ export default function SessionDetail() {
     setDeleteError(null);
     try {
       const token = await getToken();
-      const res = await fetch(`${getApiBase()}api/portal/my-sessions/${sessionId}`, {
+      const res = await fetch(`${getApiBase()}/api/portal/my-sessions/${sessionId}`, {
         method: "DELETE",
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
@@ -173,7 +173,7 @@ export default function SessionDetail() {
     setDeleteLoading(true);
     setDeleteError(null);
     try {
-      const res = await fetch(`${getApiBase()}api/portal/sessions/${sessionId}/request-delete`, {
+      const res = await fetch(`${getApiBase()}/api/portal/sessions/${sessionId}/request-delete`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
@@ -194,7 +194,7 @@ export default function SessionDetail() {
     setDeleteLoading(true);
     setDeleteError(null);
     try {
-      const res = await fetch(`${getApiBase()}api/portal/sessions/${sessionId}`, { method: "DELETE" });
+      const res = await fetch(`${getApiBase()}/api/portal/sessions/${sessionId}`, { method: "DELETE" });
       if (res.status === 404) {
         setDeleteError("Session not found.");
         return;

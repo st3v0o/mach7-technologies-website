@@ -52,7 +52,7 @@ export default function SharePage() {
     setDeleteError(null);
     try {
       const authToken = await getToken();
-      const res = await fetch(`${getApiBase()}api/portal/my-sessions/${sessionId}`, {
+      const res = await fetch(`${getApiBase()}/api/portal/my-sessions/${sessionId}`, {
         method: "DELETE",
         headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
       });
