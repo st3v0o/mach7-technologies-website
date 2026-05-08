@@ -81,7 +81,9 @@ CREATE INDEX IF NOT EXISTS idx_portal_frames_portal_session_id
 ALTER TABLE portal_sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE portal_frames   ENABLE ROW LEVEL SECURITY;
 
--- service_role bypasses RLS automatically in Supabase — no policy needed.
+-- service_role bypasses RLS automatically via Supabase's built-in BYPASSRLS
+-- privilege on the service_role PostgreSQL role. No explicit policy is needed —
+-- this is the recommended Supabase pattern for server-side admin access.
 
 -- anon (and authenticated) may SELECT sessions that have been made public.
 -- Required for: Atlas public feed, /share/:token pages.

@@ -1,10 +1,11 @@
 /**
  * Verify that the Geospector Atlas tables exist and are accessible in Supabase.
  *
- * Usage:
- *   SUPABASE_SERVICE_ROLE_KEY=<your-key> pnpm exec tsx scripts/verify-supabase-schema.ts
+ * Usage (from workspace root):
+ *   pnpm --filter @workspace/scripts exec tsx scripts/verify-supabase-schema.ts
  *
- * Requires EXPO_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY to be set.
+ * Requires these secrets to be set in the environment:
+ *   EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY
  */
 
 import { createClient } from "@supabase/supabase-js";
