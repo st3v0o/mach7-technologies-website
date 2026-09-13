@@ -3,7 +3,7 @@ export default function Terms() {
     <div className="container mx-auto px-4 py-24 max-w-3xl">
       <div className="mb-12">
         <h1 className="font-display text-4xl font-bold mb-4">Terms of Use</h1>
-        <p className="text-muted-foreground font-mono text-sm">Last Updated: April 14, 2026</p>
+        <p className="text-muted-foreground font-mono text-sm">Last Updated: September 12, 2026</p>
       </div>
 
       <div className="prose prose-invert prose-orange max-w-none">
@@ -34,35 +34,59 @@ export default function Terms() {
           All media (video, photos) and location data you capture using the Service remain your sole property. We do not claim any ownership rights over the content you create. You are solely responsible for ensuring that you have all necessary rights, permissions, and authorizations to capture media and location data in the locations where you use the Service.
         </p>
         <p>
-          Content captured with the Service is stored locally on your device by default. If you enable optional cloud upload features, your content will be transmitted to the cloud storage provider of your choice. You are responsible for reviewing and complying with the terms and privacy policies of any third-party cloud services you connect.
+          Content captured with the Service is stored locally on your device by default. If you choose to publish a session to Geospector Cloud (the Atlas portal), the media and location data in that session are uploaded to and stored on infrastructure operated by MACH 7 Technologies LLC, as described in our <a href="/privacy" className="text-primary hover:underline">Privacy Policy</a>. You grant us only the rights needed to store, process, and display that content in order to provide the Service to you.
         </p>
 
         <h2>4. Location Data</h2>
         <p>
-          The Service requires access to your device's location services to function. Location data is used solely to tag your captured media with geographic coordinates. This data is stored locally on your device and is not transmitted to MACH 7 Technologies LLC unless you explicitly choose to upload it through a connected cloud service. You may disable location access at any time through your device settings, though doing so will prevent core functionality.
+          The Service requires access to your device's location services to function. Location data is used to tag your captured media with geographic coordinates. This data is stored locally on your device and is transmitted to MACH 7 Technologies LLC only when you choose to publish a session to Geospector Cloud. You may disable location access at any time through your device settings, though doing so will prevent core functionality.
         </p>
 
-        <h2>5. Disclaimer of Warranties</h2>
+        <h2>5. Subscriptions</h2>
+        <p>
+          Geospector Cloud is available only with an auto-renewable subscription. Each plan includes a storage allowance for the media you upload; the plans, their allowances, prices, and billing periods are shown in the app before you confirm a purchase. When you reach your plan's allowance, new uploads are paused until you upgrade or delete sessions.
+        </p>
+        <ul>
+          <li>Payment is charged to your Apple ID account when you confirm the purchase.</li>
+          <li>The subscription renews automatically at the same price and for the same period unless auto-renew is turned off at least 24 hours before the end of the current period. Your account is charged for renewal within 24 hours before the current period ends.</li>
+          <li>You can manage or cancel your subscription in your Apple ID account settings on your device. Cancellation takes effect at the end of the current billing period.</li>
+          <li>If a free trial is offered, any unused portion of it is forfeited when you purchase a subscription.</li>
+          <li>Refunds are handled by Apple under its own policies.</li>
+        </ul>
+        <p>
+          Deleting your Geospector account does not cancel an active subscription; cancel it through your Apple ID first.
+        </p>
+        <p>
+          <strong>If your subscription ends:</strong> uploads stop immediately, and the content you uploaded to Geospector Cloud remains viewable for 90 days. After 90 days it is permanently deleted. Resubscribing within those 90 days restores full access.
+        </p>
+        <p>
+          <strong>If you change to a plan with a smaller allowance</strong> while storing more than it includes, uploads are paused. If your stored content still exceeds the new allowance 90 days later, your oldest Geospector Cloud sessions are permanently deleted until it fits.
+        </p>
+        <p>
+          In both cases we show a warning with the scheduled deletion date in the app beforehand. Captures stored on your device are never affected.
+        </p>
+
+        <h2>6. Disclaimer of Warranties</h2>
         <p>
           THE SERVICE IS PROVIDED "AS IS" AND "AS AVAILABLE" WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT. WE DO NOT WARRANT THAT THE SERVICE WILL BE UNINTERRUPTED, ERROR-FREE, OR FREE OF VIRUSES OR OTHER HARMFUL COMPONENTS.
         </p>
 
-        <h2>6. Limitation of Liability</h2>
+        <h2>7. Limitation of Liability</h2>
         <p>
           TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, MACH 7 TECHNOLOGIES LLC SHALL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, INCLUDING BUT NOT LIMITED TO LOSS OF DATA, LOSS OF PROFITS, OR LOSS OF GOODWILL, ARISING OUT OF OR IN CONNECTION WITH YOUR USE OF OR INABILITY TO USE THE SERVICE, EVEN IF WE HAVE BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
         </p>
 
-        <h2>7. Changes to These Terms</h2>
+        <h2>8. Changes to These Terms</h2>
         <p>
           We reserve the right to modify these Terms at any time. We will notify you of material changes by updating the "Last Updated" date at the top of this page. Your continued use of the Service after changes are posted constitutes your acceptance of the revised Terms.
         </p>
 
-        <h2>8. Governing Law</h2>
+        <h2>9. Governing Law</h2>
         <p>
           These Terms are governed by and construed in accordance with the laws of the United States, without regard to its conflict of law provisions.
         </p>
 
-        <h2>9. Contact Us</h2>
+        <h2>10. Contact Us</h2>
         <p>
           If you have questions about these Terms, please contact us at:{" "}
           <a href="mailto:info@mach7technologies.com" className="text-primary hover:underline">info@mach7technologies.com</a>

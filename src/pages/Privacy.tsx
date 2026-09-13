@@ -3,7 +3,7 @@ export default function Privacy() {
     <div className="container mx-auto px-4 py-24 max-w-3xl">
       <div className="mb-12">
         <h1 className="font-display text-4xl font-bold mb-4">Privacy Policy</h1>
-        <p className="text-muted-foreground font-mono text-sm">Last Updated: April 14, 2026</p>
+        <p className="text-muted-foreground font-mono text-sm">Last Updated: September 12, 2026</p>
       </div>
 
       <div className="prose prose-invert prose-orange max-w-none">
@@ -15,10 +15,16 @@ export default function Privacy() {
         <p>We collect the following categories of information:</p>
         <ul>
           <li>
-            <strong>Location Data:</strong> The Service accesses your device's GPS to attach geographic coordinates to captured media. This data is processed locally on your device and is not transmitted to us.
+            <strong>Location Data:</strong> The Service accesses your device's GPS to attach geographic coordinates, heading, and speed to captured media. This data is stored on your device. It is transmitted to us only if you choose to publish a session to the Atlas portal.
           </li>
           <li>
-            <strong>Media Files:</strong> Photos and video you capture using the Service are stored locally on your device. We do not have access to these files unless you explicitly upload them to a connected cloud service.
+            <strong>Media Files:</strong> Photos and video you capture using the Service are stored locally on your device. We do not have access to them unless you explicitly upload them by publishing a session to the Atlas portal.
+          </li>
+          <li>
+            <strong>Account Information:</strong> Creating an account is optional; the Service's core capture, review, and export features work without one. If you do create an account — with an email address and password, or by signing in with Google or Apple — we store your email address and an associated username in order to identify your uploads and let you sign back in. If you sign in with Google or Apple, we receive your email address from that provider; we never receive your password.
+          </li>
+          <li>
+            <strong>Purchase Information:</strong> If you subscribe to a Geospector Cloud plan, the purchase is processed by Apple; we never receive your payment card details. We use RevenueCat, a subscription-management service, to confirm your subscription status. RevenueCat receives your account's user ID along with the purchase record Apple provides (such as the product, purchase date, and renewal status), and we store that status so your storage allowance matches your plan.
           </li>
           <li>
             <strong>Contact Information:</strong> If you reach out to us via the contact form or directly by email, we collect your name, organization, and email address solely to respond to your inquiry.
@@ -42,10 +48,10 @@ export default function Privacy() {
 
         <h2>3. Data Storage and Security</h2>
         <p>
-          All media and location data captured by the Service is stored locally on your device by default. MACH 7 Technologies LLC does not maintain servers that store your captured content.
+          By default, all media and location data captured by the Service is stored locally on your device, and nothing is transmitted to us.
         </p>
         <p>
-          If you choose to enable optional cloud upload features, your content will be transmitted directly to the cloud storage provider you configure (e.g., your own cloud account). We do not have access to that cloud storage unless you explicitly grant it. You are responsible for the security practices of any third-party services you connect.
+          If you publish a session to the Atlas portal, the frames you publish and their associated GPS coordinates, timestamps, heading, and speed are uploaded to and stored on infrastructure we operate. You choose what to publish and when; nothing is uploaded automatically.
         </p>
         <p>
           We implement reasonable technical measures to protect any information we do handle, including contact form submissions, against unauthorized access or disclosure.
@@ -64,6 +70,12 @@ export default function Privacy() {
         <h2>6. Your Rights</h2>
         <p>
           Depending on your jurisdiction, you may have the right to access, correct, or delete personal information we hold about you. Since we store minimal personal information and your captured data remains on your device, most data control is exercised directly through your device settings. For any other requests, please contact us at the address below.
+        </p>
+        <p>
+          <strong>Geospector Cloud retention:</strong> If your Geospector Cloud subscription ends, the content you uploaded to it is permanently deleted 90 days later unless you resubscribe. If you move to a plan whose storage allowance is smaller than what you have stored and remain over it for 90 days, your oldest Geospector Cloud sessions are deleted until you are within the allowance. The app shows the scheduled deletion date in advance.
+        </p>
+        <p>
+          <strong>Deleting your account:</strong> You can permanently delete your account from inside the app, at Settings → Profile → Delete account. This immediately and permanently deletes your account together with every session, frame, and media file you have uploaded to the Atlas portal. It cannot be undone. Captures stored only on your device are unaffected and remain on your device. You may also request deletion by contacting us at the address below.
         </p>
 
         <h2>7. Changes to This Policy</h2>

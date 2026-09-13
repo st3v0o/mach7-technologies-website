@@ -9,6 +9,15 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Headers": "Content-Type",
 };
 
+function escapeHtml(str) {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
@@ -66,13 +75,15 @@ export async function onRequestPost(context) {
     return json({ error: "Email service is not configured" }, 500);
   }
 
-  const subject = `Access Request from ${name.trim()}${org ? ` — ${org.trim()}` : ""}`;
+  const orgText = typeof org === "string" ? org.trim() : "";
+  // Subject is a header, not HTML — just strip line breaks.
+  const subject = `Access Request from ${name.trim()}${orgText ? ` — ${orgText}` : ""}`.replace(/[\r\n]+/g, " ");
   const html = `
-    <p><strong>Name:</strong> ${name.trim()}</p>
-    <p><strong>Email:</strong> ${email.trim()}</p>
-    ${org ? `<p><strong>Organization:</strong> ${org.trim()}</p>` : ""}
+    <p><strong>Name:</strong> ${escapeHtml(name.trim())}</p>
+    <p><strong>Email:</strong> ${escapeHtml(email.trim())}</p>
+    ${orgText ? `<p><strong>Organization:</strong> ${escapeHtml(orgText)}</p>` : ""}
     <p><strong>Message:</strong></p>
-    <p style="white-space: pre-wrap;">${message.trim()}</p>
+    <p style="white-space: pre-wrap;">${escapeHtml(message.trim())}</p>
   `;
 
   try {

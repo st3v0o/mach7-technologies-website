@@ -32,7 +32,14 @@ export default function Home() {
     setError(null);
 
     try {
-      const token = executeRecaptcha ? await executeRecaptcha("contact_form") : undefined;
+      // Without a GoogleReCaptchaProvider (no site key), the hook's default
+      // executeRecaptcha throws — treat the token as optional instead.
+      let token: string | undefined;
+      try {
+        token = executeRecaptcha ? await executeRecaptcha("contact_form") : undefined;
+      } catch {
+        token = undefined;
+      }
 
       const origin = API_ORIGIN || window.location.origin;
       const apiUrl = `${origin}${API_BASE}/api/contact`.replace(/([^:])\/\/+/, "$1/");
