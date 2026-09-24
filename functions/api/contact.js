@@ -1,4 +1,4 @@
-const DELIVER_TO = "info@mach7technologies.com";
+const DELIVER_TO = "steven@mach7technologies.com";
 const FROM = "MACH 7 Contact Form <noreply@mach7technologies.com>";
 const RECAPTCHA_VERIFY_URL = "https://www.google.com/recaptcha/api/siteverify";
 const SCORE_THRESHOLD = 0.5;
@@ -77,7 +77,7 @@ export async function onRequestPost(context) {
 
   const orgText = typeof org === "string" ? org.trim() : "";
   // Subject is a header, not HTML — just strip line breaks.
-  const subject = `Access Request from ${name.trim()}${orgText ? ` — ${orgText}` : ""}`.replace(/[\r\n]+/g, " ");
+  const subject = `Contact form: ${name.trim()}${orgText ? ` — ${orgText}` : ""}`.replace(/[\r\n]+/g, " ");
   const html = `
     <p><strong>Name:</strong> ${escapeHtml(name.trim())}</p>
     <p><strong>Email:</strong> ${escapeHtml(email.trim())}</p>
