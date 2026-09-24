@@ -1,142 +1,139 @@
-export function SettingsMockup({ screenOnly = false }: { screenOnly?: boolean }) {
-  const viewBox = screenOnly ? "12 56 276 548" : "0 0 300 620";
+import type { ReactNode } from "react";
+import { Video, Camera, Aperture, Infinity as InfinityIcon, Info, Images } from "lucide-react";
+import { APP, pt, AppScreen, StatusBar, TabBar } from "@/components/appScreen";
 
+// Recreates the Geospector 1.0 Settings tab (app/(tabs)/settings.tsx), scrolled to the
+// capture options, as seen in the App Store screenshot.
+
+const MODES = [
+  { title: "Video", desc: "More frames, less detail", Icon: Video },
+  { title: "Auto Photo", desc: "Sharper photos, fewer frames", Icon: Camera },
+  { title: "Manual", desc: "Full quality, on demand", Icon: Aperture, active: true },
+];
+
+export function SettingsMockup() {
   return (
-    <svg
-      viewBox={viewBox}
-      width="100%"
-      height="100%"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      style={{ display: "block" }}
-      aria-hidden="true"
-    >
-      <defs>
-        <linearGradient id="settingsBodyGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#161616" />
-          <stop offset="100%" stopColor="#0e0e0e" />
-        </linearGradient>
-        <clipPath id="settingsScreen">
-          <rect x="12" y="56" width="276" height="548" rx="2" />
-        </clipPath>
-      </defs>
+    <AppScreen background={APP.background}>
+      <StatusBar />
+      <div className="absolute inset-x-0 flex flex-col" style={{ top: pt(62), padding: `0 ${pt(20)}`, gap: pt(22) }}>
+        <div>
+          <div style={{ fontSize: pt(28), fontWeight: 700 }}>Settings</div>
+          <div style={{ fontSize: pt(14), color: APP.textSecondary, marginTop: pt(2) }}>Frame extraction configuration</div>
+        </div>
 
-      {/* Phone body — only when not screenOnly */}
-      {!screenOnly && (
-        <>
-          <rect x="2" y="2" width="296" height="616" rx="44" fill="url(#settingsBodyGrad)" stroke="#2a2a2a" strokeWidth="2" />
-          <rect x="0" y="148" width="3" height="38" rx="1.5" fill="#2a2a2a" />
-          <rect x="0" y="198" width="3" height="58" rx="1.5" fill="#2a2a2a" />
-          <rect x="0" y="268" width="3" height="58" rx="1.5" fill="#2a2a2a" />
-          <rect x="297" y="198" width="3" height="78" rx="1.5" fill="#2a2a2a" />
-          <rect x="106" y="14" width="88" height="28" rx="14" fill="#000" />
-        </>
-      )}
+        <Section title="ACTIVE JOB">
+          <Card>
+            <div style={{ padding: pt(14), display: "flex", flexDirection: "column", gap: pt(10) }}>
+              <span style={{ fontSize: pt(13), color: APP.textSecondary, fontWeight: 500 }}>Job Name</span>
+              <span
+                style={{
+                  fontSize: pt(16), padding: `${pt(12)} ${pt(14)}`, borderRadius: pt(10),
+                  background: "rgba(255,255,255,0.06)", border: `${pt(1)} solid rgba(255,255,255,0.15)`,
+                }}
+              >
+                Native Plant Inventory
+              </span>
+              <span style={{ fontSize: pt(11.5), color: APP.textTertiary, lineHeight: 1.4 }}>
+                Sessions captured while this name is active are grouped under the same project. Visible in the camera HUD.
+              </span>
+            </div>
+          </Card>
+        </Section>
 
-      {/* Screen background */}
-      <rect x="12" y="56" width="276" height="548" fill="#0a0a0a" clipPath="url(#settingsScreen)" />
+        <Section title="CAPTURE MODE">
+          <div className="grid grid-cols-3" style={{ gap: pt(10) }}>
+            {MODES.map(({ title, desc, Icon, active }) => (
+              <div
+                key={title}
+                className="flex flex-col"
+                style={{
+                  padding: pt(14), gap: pt(4), borderRadius: pt(14), height: pt(128),
+                  border: `${pt(1)} solid ${active ? APP.blue : APP.border}`,
+                  background: active ? "rgba(10,132,255,0.10)" : APP.card,
+                }}
+              >
+                <Icon stroke={active ? APP.blue : "rgba(255,255,255,0.75)"} strokeWidth={1.5} style={{ width: pt(22), height: pt(22), marginBottom: pt(12) }} />
+                <span style={{ fontSize: pt(16), fontWeight: 500 }}>{title}</span>
+                <span style={{ fontSize: pt(13), color: APP.textTertiary, lineHeight: 1.25 }}>{desc}</span>
+              </div>
+            ))}
+          </div>
+        </Section>
 
-      {/* Header */}
-      <rect x="12" y="56" width="276" height="64" fill="#111111" />
-      <text x="24" y="88" fontFamily="'Space Grotesk', system-ui, sans-serif" fontSize="20" fontWeight="700" fill="#ffffff">Settings</text>
-      <text x="24" y="106" fontFamily="monospace" fontSize="9" fill="#555555">MACH 7 · v1.0</text>
+        <Section title="IMAGE QUALITY">
+          <Card>
+            <div style={{ padding: pt(16) }}>
+              <div className="flex" style={{ gap: pt(10) }}>
+                {["Max", "High", "Standard"].map((q) => (
+                  <span
+                    key={q}
+                    style={{
+                      fontSize: pt(15), padding: `${pt(8)} ${pt(18)}`, borderRadius: pt(20),
+                      border: `${pt(1)} solid ${q === "Max" ? APP.blue : APP.border}`,
+                      background: q === "Max" ? "rgba(10,132,255,0.10)" : "rgba(255,255,255,0.06)",
+                      color: q === "Max" ? APP.blue : "rgba(255,255,255,0.75)",
+                    }}
+                  >
+                    {q}
+                  </span>
+                ))}
+              </div>
+              <div style={{ height: pt(1), background: APP.separator, margin: `${pt(14)} 0` }} />
+              <div className="flex" style={{ gap: pt(10), fontSize: pt(13.5), color: APP.textSecondary, lineHeight: 1.35 }}>
+                <Info stroke={APP.textSecondary} style={{ width: pt(15), height: pt(15), flexShrink: 0, marginTop: pt(2) }} />
+                Applies to photos and video-extracted frames. Higher quality means larger files.
+              </div>
+            </div>
+          </Card>
+        </Section>
 
-      {/* Separator */}
-      <rect x="12" y="120" width="276" height="1" fill="#1e1e1e" />
+        <Section title="CAMERA">
+          <Card>
+            <Row Icon={InfinityIcon} title="Lock Focus at Infinity" desc="Prevents autofocus from locking onto the dashboard" on={false} />
+          </Card>
+        </Section>
 
-      {/* Section label: Capture Mode */}
-      <text x="24" y="142" fontFamily="monospace" fontSize="9" fill="#555555" letterSpacing="1">CAPTURE MODE</text>
+        <Section title="LOCAL SAVE">
+          <Card>
+            <Row Icon={Images} title="Save Photos to Camera Roll" desc="Each captured photo is also saved to your Camera Roll" on blue />
+          </Card>
+        </Section>
+      </div>
+      <TabBar active="settings" />
+    </AppScreen>
+  );
+}
 
-      {/* Mode buttons row */}
-      <rect x="20" y="150" width="82" height="54" rx="6" fill="#1a1a1a" stroke="#0070f3" strokeWidth="1.5" />
-      <text x="61" y="170" fontFamily="monospace" fontSize="8.5" fill="#0070f3" textAnchor="middle">VIDEO</text>
-      <text x="61" y="183" fontFamily="monospace" fontSize="7" fill="#0070f3" textAnchor="middle" opacity="0.7">Auto-segment</text>
-      <text x="61" y="195" fontFamily="monospace" fontSize="7" fill="#555555" textAnchor="middle">250 MB clips</text>
+function Section({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <div className="flex flex-col" style={{ gap: pt(10) }}>
+      <span style={{ fontSize: pt(11), fontWeight: 600, letterSpacing: pt(1.2), color: APP.textTertiary }}>{title}</span>
+      {children}
+    </div>
+  );
+}
 
-      <rect x="110" y="150" width="82" height="54" rx="6" fill="#161616" stroke="#2a2a2a" strokeWidth="1" />
-      <text x="151" y="170" fontFamily="monospace" fontSize="8.5" fill="#777777" textAnchor="middle">PHOTO</text>
-      <text x="151" y="183" fontFamily="monospace" fontSize="7" fill="#555555" textAnchor="middle">Burst capture</text>
-      <text x="151" y="195" fontFamily="monospace" fontSize="7" fill="#555555" textAnchor="middle">Auto-interval</text>
+function Card({ children }: { children: ReactNode }) {
+  return <div style={{ borderRadius: pt(14), background: APP.card, border: `${pt(1)} solid ${APP.border}` }}>{children}</div>;
+}
 
-      <rect x="200" y="150" width="82" height="54" rx="6" fill="#161616" stroke="#2a2a2a" strokeWidth="1" />
-      <text x="241" y="170" fontFamily="monospace" fontSize="8.5" fill="#777777" textAnchor="middle">MANUAL</text>
-      <text x="241" y="183" fontFamily="monospace" fontSize="7" fill="#555555" textAnchor="middle">Tap to capture</text>
-      <text x="241" y="195" fontFamily="monospace" fontSize="7" fill="#555555" textAnchor="middle">+ GPX route</text>
-
-      {/* Section label: GPS Sampling */}
-      <text x="24" y="228" fontFamily="monospace" fontSize="9" fill="#555555" letterSpacing="1">GPS SAMPLING</text>
-
-      {/* Sampling card */}
-      <rect x="20" y="236" width="262" height="56" rx="6" fill="#161616" stroke="#222222" strokeWidth="1" />
-      <rect x="30" y="244" width="108" height="24" rx="4" fill="#0070f3" opacity="0.18" stroke="#0070f3" strokeWidth="1" />
-      <text x="84" y="260" fontFamily="monospace" fontSize="8.5" fill="#0070f3" textAnchor="middle">TIME-BASED</text>
-      <rect x="148" y="244" width="122" height="24" rx="4" fill="transparent" />
-      <text x="209" y="260" fontFamily="monospace" fontSize="8.5" fill="#555555" textAnchor="middle">DISTANCE-BASED</text>
-      <text x="30" y="284" fontFamily="monospace" fontSize="8" fill="#666666">One frame every 2 seconds · ~0.5 fps</text>
-
-      {/* Section label: Frame Rate */}
-      <text x="24" y="314" fontFamily="monospace" fontSize="9" fill="#555555" letterSpacing="1">FRAME RATE</text>
-      <rect x="20" y="322" width="262" height="36" rx="6" fill="#161616" stroke="#222222" strokeWidth="1" />
-      {["0.2", "0.5", "1", "2", "5", "10"].map((fps, i) => {
-        const x = 28 + i * 42;
-        const selected = fps === "0.5";
-        return (
-          <g key={fps}>
-            <rect x={x} y="330" width="34" height="20" rx="4" fill={selected ? "#0070f3" : "transparent"} opacity={selected ? 0.2 : 1} />
-            {selected && <rect x={x} y="330" width="34" height="20" rx="4" fill="transparent" stroke="#0070f3" strokeWidth="1" />}
-            <text x={x + 17} y="344" fontFamily="monospace" fontSize="8" fill={selected ? "#0070f3" : "#555555"} textAnchor="middle">{fps}</text>
-          </g>
-        );
-      })}
-
-      {/* Section label: Cloud Upload */}
-      <text x="24" y="382" fontFamily="monospace" fontSize="9" fill="#555555" letterSpacing="1">CLOUD UPLOAD</text>
-      <rect x="20" y="390" width="262" height="70" rx="6" fill="#161616" stroke="#222222" strokeWidth="1" />
-      <circle cx="40" cy="408" r="8" fill="#1a1a1a" stroke="#333" strokeWidth="1" />
-      <text x="40" y="412" fontFamily="monospace" fontSize="7" fill="#555555" textAnchor="middle">⬡</text>
-      <text x="56" y="406" fontFamily="monospace" fontSize="9" fontWeight="bold" fill="#ffffff">Local Storage Only</text>
-      <text x="56" y="419" fontFamily="monospace" fontSize="8" fill="#555555">No cloud configured</text>
-      <rect x="24" y="432" width="120" height="20" rx="4" fill="#1a1a1a" stroke="#333" strokeWidth="1" />
-      <text x="84" y="446" fontFamily="monospace" fontSize="8" fill="#666666" textAnchor="middle">Configure Cloud →</text>
-      <rect x="152" y="432" width="122" height="20" rx="4" fill="#1a1a1a" stroke="#0070f3" strokeWidth="0.8" />
-      <text x="213" y="446" fontFamily="monospace" fontSize="8" fill="#0070f3" textAnchor="middle">Cloud Providers →</text>
-
-      {/* Video quality */}
-      <text x="24" y="482" fontFamily="monospace" fontSize="9" fill="#555555" letterSpacing="1">VIDEO QUALITY</text>
-      <rect x="20" y="490" width="262" height="36" rx="6" fill="#161616" stroke="#222222" strokeWidth="1" />
-      {["720p", "1080p", "4K"].map((q, i) => {
-        const x = 28 + i * 88;
-        const selected = q === "4K";
-        return (
-          <g key={q}>
-            <rect x={x} y="498" width="72" height="20" rx="4" fill={selected ? "#ff5500" : "transparent"} opacity={selected ? 0.15 : 1} />
-            {selected && <rect x={x} y="498" width="72" height="20" rx="4" fill="transparent" stroke="#ff5500" strokeWidth="1" />}
-            <text x={x + 36} y="512" fontFamily="monospace" fontSize="8.5" fill={selected ? "#ff5500" : "#555555"} textAnchor="middle">{q}</text>
-          </g>
-        );
-      })}
-
-      {/* Segment size */}
-      <text x="24" y="548" fontFamily="monospace" fontSize="9" fill="#555555" letterSpacing="1">SEGMENT SIZE</text>
-      <rect x="20" y="556" width="262" height="28" rx="6" fill="#161616" stroke="#222222" strokeWidth="1" />
-      <text x="30" y="574" fontFamily="monospace" fontSize="8.5" fill="#aaaaaa">250 MB per segment</text>
-      <rect x="202" y="560" width="72" height="18" rx="4" fill="#1a1a1a" stroke="#333" strokeWidth="1" />
-      <text x="238" y="573" fontFamily="monospace" fontSize="8" fill="#666666" textAnchor="middle">Adjust →</text>
-
-      {/* Tab bar */}
-      <rect x="12" y="574" width="276" height="48" rx="0" fill="#111111" />
-      <line x1="12" y1="574" x2="288" y2="574" stroke="#1e1e1e" strokeWidth="1" />
-      <text x="56" y="592" fontFamily="monospace" fontSize="7.5" fill="#555555" textAnchor="middle">⊙</text>
-      <text x="56" y="604" fontFamily="monospace" fontSize="7" fill="#555555" textAnchor="middle">Capture</text>
-      <text x="111" y="592" fontFamily="monospace" fontSize="7.5" fill="#555555" textAnchor="middle">☰</text>
-      <text x="111" y="604" fontFamily="monospace" fontSize="7" fill="#555555" textAnchor="middle">Log</text>
-      <text x="166" y="592" fontFamily="monospace" fontSize="7.5" fill="#555555" textAnchor="middle">⊡</text>
-      <text x="166" y="604" fontFamily="monospace" fontSize="7" fill="#555555" textAnchor="middle">External</text>
-      <text x="222" y="592" fontFamily="monospace" fontSize="7.5" fill="#ff5500" textAnchor="middle">⚙</text>
-      <text x="222" y="604" fontFamily="monospace" fontSize="7" fill="#ff5500" textAnchor="middle">Settings</text>
-
-      {/* Home indicator — only when not screenOnly */}
-      {!screenOnly && <rect x="118" y="608" width="64" height="4" rx="2" fill="#2a2a2a" />}
-    </svg>
+function Row({ Icon, title, desc, on, blue }: { Icon: typeof Info; title: string; desc: string; on: boolean; blue?: boolean }) {
+  return (
+    <div className="flex items-center" style={{ padding: pt(16), gap: pt(14) }}>
+      <Icon stroke={blue ? APP.blue : "rgba(255,255,255,0.75)"} strokeWidth={1.5} style={{ width: pt(22), height: pt(22), flexShrink: 0 }} />
+      <div className="flex-1 flex flex-col" style={{ gap: pt(3) }}>
+        <span style={{ fontSize: pt(16), color: blue ? APP.blue : APP.text }}>{title}</span>
+        <span style={{ fontSize: pt(13), color: APP.textSecondary, lineHeight: 1.3 }}>{desc}</span>
+      </div>
+      <span
+        className="relative rounded-full shrink-0"
+        style={{ width: pt(51), height: pt(31), background: on ? APP.blue : "rgba(120,120,128,0.32)" }}
+      >
+        <span
+          className="absolute rounded-full"
+          style={{ top: pt(2), left: on ? pt(22) : pt(2), width: pt(27), height: pt(27), background: on ? "#fff" : "rgba(255,255,255,0.45)" }}
+        />
+      </span>
+    </div>
   );
 }

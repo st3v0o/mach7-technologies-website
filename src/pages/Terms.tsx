@@ -6,7 +6,7 @@ export default function Terms() {
         <p className="text-muted-foreground font-mono text-sm">Last Updated: September 12, 2026</p>
       </div>
 
-      <div className="prose prose-invert prose-orange max-w-none">
+      <div className="prose prose-invert prose-red max-w-none">
         <p>
           These Terms of Use govern your access to and use of the software and services provided by MACH 7 Technologies LLC ("we", "us", or "our"), including the mobile application and any associated services (collectively, the "Service"). By downloading, installing, or using the Service, you agree to be bound by these Terms.
         </p>

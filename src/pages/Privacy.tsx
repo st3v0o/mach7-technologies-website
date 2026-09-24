@@ -6,7 +6,7 @@ export default function Privacy() {
         <p className="text-muted-foreground font-mono text-sm">Last Updated: September 12, 2026</p>
       </div>
 
-      <div className="prose prose-invert prose-orange max-w-none">
+      <div className="prose prose-invert prose-red max-w-none">
         <p>
           This Privacy Policy describes how MACH 7 Technologies LLC ("we", "us", or "our") handles information when you use our mobile application, website, and related services (collectively, the "Service"). We are committed to being transparent about our data practices.
         </p>

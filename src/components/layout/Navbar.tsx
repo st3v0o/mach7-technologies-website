@@ -1,5 +1,6 @@
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
+import { APP_STORE_URL } from "@/lib/links";
 
 export function Navbar() {
   return (
@@ -22,7 +23,7 @@ export function Navbar() {
 
         <div className="flex items-center gap-4">
           <Button asChild variant="default" size="sm" className="font-display font-medium">
-            <a href="#contact">Request Access</a>
+            <a href={APP_STORE_URL} target="_blank" rel="noopener noreferrer">Download</a>
           </Button>
         </div>
       </div>

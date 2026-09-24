@@ -6,6 +6,7 @@ import { PhoneMockup } from "@/components/PhoneMockup";
 import { ScreenGallery } from "@/components/ScreenGallery";
 import { UseCaseTicker } from "@/components/UseCaseTicker";
 import { FrameLogMockup } from "@/components/FrameLogMockup";
+import { APP_STORE_URL } from "@/lib/links";
 
 // In dev: proxy through Vite (vite.config.ts forwards /mach7/api → :8080/api).
 // In production (Cloudflare Pages): set VITE_API_BASE_URL to the deployed API
@@ -67,16 +68,16 @@ export default function Home() {
     <div className="flex flex-col">
       {/* HERO */}
       <section className="relative pt-24 pb-20 md:pt-32 md:pb-28 overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_60%_-20%,_hsl(15_100%_50%_/_0.12),_transparent)] -z-10" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_60%_-20%,_hsl(3_100%_59%_/_0.10),_transparent)] -z-10" />
         <div className="container mx-auto px-4 grid lg:grid-cols-2 gap-12 lg:gap-8 items-center">
           <div className="flex flex-col gap-7 max-w-2xl">
-            <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/20 px-4 py-1.5 text-sm font-medium text-primary/90 rounded-full w-fit">
-              <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-              Currently in development
+            <div className="inline-flex items-center gap-2 bg-gps/10 border border-gps/25 px-4 py-1.5 text-sm font-semibold tracking-wide text-gps rounded-full w-fit">
+              <span className="w-2 h-2 rounded-full bg-gps animate-pulse" />
+              Now on the App Store
             </div>
             <h1 className="font-display text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight leading-[1.08]">
               Every frame.<br/>
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-orange-400">
+              <span className="text-gps">
                 Every coordinate.
               </span>
             </h1>
@@ -85,8 +86,8 @@ export default function Home() {
             </p>
             <div className="flex flex-col sm:flex-row gap-4 pt-2">
               <Button asChild size="lg" className="font-display font-semibold group h-13 px-8 text-base">
-                <a href="#contact">
-                  Request Access
+                <a href={APP_STORE_URL} target="_blank" rel="noopener noreferrer">
+                  Download on the App Store
                   <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
                 </a>
               </Button>
@@ -125,7 +126,7 @@ export default function Home() {
               <Zap className="w-9 h-9 text-primary" />
               <h3 className="font-display font-semibold text-2xl">Speed-Adaptive Capture</h3>
               <p className="text-muted-foreground leading-relaxed text-lg">
-                Dynamic FPS reads your vehicle speed and adjusts in real-time. Consistent spatial coverage at any pace. Manual interval control when you need it.
+                Capture by distance — one frame every N feet — and the rate follows your speed. Even coverage whether you're walking a site or driving a route. Fixed rates when you need them.
               </p>
             </div>
             <div className="p-8 border border-border/60 bg-background/60 rounded-lg flex flex-col gap-5">
@@ -158,7 +159,7 @@ export default function Home() {
                   <div className="w-11 h-11 shrink-0 rounded-full bg-primary/15 border border-primary/30 text-primary flex items-center justify-center font-display text-base font-bold">1</div>
                   <div>
                     <h4 className="font-display font-semibold text-xl mb-2">Video capture — fixed or dynamic FPS</h4>
-                    <p className="text-muted-foreground text-lg leading-relaxed">Record continuous GPS-tagged video at a set frame rate, or switch to dynamic mode and let your vehicle speed drive the FPS automatically for consistent spatial coverage density.</p>
+                    <p className="text-muted-foreground text-lg leading-relaxed">Record continuous GPS-tagged video at a set frame rate, or capture by distance so your speed drives the frame rate and coverage stays evenly spaced along the route.</p>
                   </div>
                 </div>
                 <div className="flex gap-5">
@@ -215,9 +216,9 @@ export default function Home() {
             <div className="border border-border/60 p-8 bg-background/60 rounded-lg">
               <div className="flex items-center gap-2 mb-5">
                 <span className="w-6 h-6 rounded-full bg-primary/20 text-primary text-xs font-bold flex items-center justify-center">4</span>
-                <span className="text-sm font-semibold text-foreground/80 tracking-wide">Flexible Storage</span>
+                <span className="text-sm font-semibold text-foreground/80 tracking-wide">GIS-Ready Exports</span>
               </div>
-              <p className="text-lg text-muted-foreground leading-relaxed">Local-first. No internet required in the field. Auto-segmented recordings. Sync to your cloud database when ready.</p>
+              <p className="text-lg text-muted-foreground leading-relaxed">Local-first and fully offline. Export GeoJSON, GPX, and CSV for QGIS, ArcGIS, or Google Earth — or sync to Geospector Cloud.</p>
             </div>
           </div>
         </div>
@@ -228,13 +229,13 @@ export default function Home() {
 
       {/* CONTACT */}
       <section id="contact" className="py-32 relative overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_80%_at_50%_50%,_hsl(15_100%_50%_/_0.06),_transparent)] -z-10" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_80%_at_50%_50%,_hsl(3_100%_59%_/_0.06),_transparent)] -z-10" />
         <div className="container mx-auto px-4 max-w-2xl">
           <div className="text-center mb-12">
             <Database className="w-12 h-12 mx-auto text-primary mb-6" />
             <h2 className="font-display text-4xl md:text-5xl font-bold tracking-tight mb-5">Equip your team.</h2>
             <p className="text-xl text-muted-foreground leading-relaxed">
-              Geospector is in active development. If your organization needs frame-accurate spatial documentation, we want to hear from you.
+              Geospector is available now on the App Store. Rolling it out across a team, or need a workflow we don't cover yet? Tell us about it.
             </p>
           </div>
 
@@ -306,7 +307,7 @@ export default function Home() {
                   disabled={submitting}
                   className="font-display font-semibold h-13 px-8 text-base w-full sm:w-auto"
                 >
-                  {submitting ? "Sending…" : "Send Request"}
+                  {submitting ? "Sending…" : "Send Message"}
                 </Button>
                 <p className="text-sm text-muted-foreground">
                   Protected by reCAPTCHA
@@ -316,7 +317,10 @@ export default function Home() {
           )}
 
           <p className="mt-12 text-center text-base text-muted-foreground">
-            Coming soon to iOS.
+            Available now for iPhone.{" "}
+            <a href={APP_STORE_URL} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+              Download on the App Store
+            </a>
           </p>
         </div>
       </section>

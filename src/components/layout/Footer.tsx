@@ -1,4 +1,5 @@
 import { Link } from "wouter";
+import { APP_STORE_URL } from "@/lib/links";
 
 export function Footer() {
   return (
@@ -41,9 +42,9 @@ export function Footer() {
         <p className="text-xs text-muted-foreground">
           &copy; 2026 MACH 7 Technologies LLC. All rights reserved.
         </p>
-        <p className="text-xs text-muted-foreground">
-          Geospector — coming soon to iOS.
-        </p>
+        <a href={APP_STORE_URL} target="_blank" rel="noopener noreferrer" className="text-xs text-muted-foreground hover:text-primary transition-colors">
+          Geospector — available now on the App Store
+        </a>
       </div>
     </footer>
   );
