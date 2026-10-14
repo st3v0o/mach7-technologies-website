@@ -3,7 +3,7 @@ export default function Terms() {
     <div className="container mx-auto px-4 py-24 max-w-3xl">
       <div className="mb-12">
         <h1 className="font-display text-4xl font-bold mb-4">Terms of Use</h1>
-        <p className="text-muted-foreground font-mono text-sm">Last Updated: September 12, 2026</p>
+        <p className="text-muted-foreground font-mono text-sm">Last Updated: October 14, 2026</p>
       </div>
 
       <div className="prose prose-invert prose-red max-w-none">
@@ -34,17 +34,17 @@ export default function Terms() {
           All media (video, photos) and location data you capture using the Service remain your sole property. We do not claim any ownership rights over the content you create. You are solely responsible for ensuring that you have all necessary rights, permissions, and authorizations to capture media and location data in the locations where you use the Service.
         </p>
         <p>
-          Content captured with the Service is stored locally on your device by default. If you choose to publish a session to Geospector Cloud (the Atlas portal), the media and location data in that session are uploaded to and stored on infrastructure operated by MACH 7 Technologies LLC, as described in our <a href="/privacy" className="text-primary hover:underline">Privacy Policy</a>. You grant us only the rights needed to store, process, and display that content in order to provide the Service to you.
+          Content captured with the Service is stored locally on your device by default. If you choose to publish a session to Geospector Cloud (the Atlas portal), or to complete a Geospector Dispatch job, the media, location data and form answers involved are uploaded to and stored on infrastructure operated by MACH 7 Technologies LLC, as described in our <a href="/privacy" className="text-primary hover:underline">Privacy Policy</a>. You grant us only the rights needed to store, process, and display that content in order to provide the Service to you.
         </p>
 
         <h2>4. Location Data</h2>
         <p>
-          The Service requires access to your device's location services to function. Location data is used to tag your captured media with geographic coordinates. This data is stored locally on your device and is transmitted to MACH 7 Technologies LLC only when you choose to publish a session to Geospector Cloud. You may disable location access at any time through your device settings, though doing so will prevent core functionality.
+          The Service requires access to your device's location services to function. Location data is used to tag your captured media with geographic coordinates. This data is stored locally on your device and is transmitted to MACH 7 Technologies LLC only when you choose to publish a session to Geospector Cloud or upload photos to a Geospector Dispatch job. You may disable location access at any time through your device settings, though doing so will prevent core functionality.
         </p>
 
         <h2>5. Subscriptions</h2>
         <p>
-          Geospector Cloud is available only with an auto-renewable subscription. Each plan includes a storage allowance for the media you upload; the plans, their allowances, prices, and billing periods are shown in the app before you confirm a purchase. When you reach your plan's allowance, new uploads are paused until you upgrade or delete sessions.
+          Geospector Pro is an auto-renewable subscription. Every Geospector Pro subscription includes Cloud backup of the media you upload and Geospector Dispatch; subscriptions differ only in their storage allowance (25 GB, 200 GB or 500 GB). Photos and video frames you upload for Dispatch jobs count toward that allowance. The allowances, prices and billing periods are shown in the app before you confirm a purchase. When you reach your allowance, new uploads are paused until you choose a larger allowance or delete content.
         </p>
         <ul>
           <li>Payment is charged to your Apple ID account when you confirm the purchase.</li>
@@ -57,10 +57,10 @@ export default function Terms() {
           Deleting your Geospector account does not cancel an active subscription; cancel it through your Apple ID first.
         </p>
         <p>
-          <strong>If your subscription ends:</strong> uploads stop immediately, and the content you uploaded to Geospector Cloud remains viewable for 90 days. After 90 days it is permanently deleted. Resubscribing within those 90 days restores full access.
+          <strong>If your subscription ends:</strong> uploads stop immediately. The content you uploaded to Geospector Cloud and your Dispatch jobs remain viewable for 90 days, but you can't add or change jobs. After 90 days your uploaded sessions and Dispatch job photos are permanently deleted; your Dispatch jobs and their written answers stay until you delete them. Resubscribing within those 90 days restores full access.
         </p>
         <p>
-          <strong>If you change to a plan with a smaller allowance</strong> while storing more than it includes, uploads are paused. If your stored content still exceeds the new allowance 90 days later, your oldest Geospector Cloud sessions are permanently deleted until it fits.
+          <strong>If you change to a smaller storage allowance</strong> while storing more than it includes, uploads are paused. If your stored content still exceeds the new allowance 90 days later, your oldest stored items (Geospector Cloud sessions and Dispatch job photos, oldest first) are permanently deleted until it fits. Your Dispatch jobs and their written answers are not deleted.
         </p>
         <p>
           In both cases we show a warning with the scheduled deletion date in the app beforehand. Captures stored on your device are never affected.
