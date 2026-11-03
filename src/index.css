@@ -153,6 +153,18 @@
   --destructive-border: hsl(var(--destructive));
 }
 
+/* Outsidey's accent: the app's teal (#2DD4BF) in place of Geospector's red, faded between pages. */
+:root[data-product="outsidey"] {
+  --primary: 172 66% 50%;
+  --primary-foreground: 240 20% 5%;
+  --accent: 172 66% 50%;
+  --ring: 172 66% 50%;
+  --gps: 142 71% 55%;
+  --sidebar-primary: 172 66% 50%;
+  --sidebar-ring: 172 66% 50%;
+  --chart-1: 172 66% 50%;
+}
+
 .dark {
   /* Inherits same theme */
 }
