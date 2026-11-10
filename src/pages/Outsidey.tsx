@@ -13,7 +13,7 @@ const SHOTS = [
 ];
 
 // The states live in the app today (the site's daily build adds them one at a time).
-const STATES = ["Virginia", "Maryland", "Delaware", "Connecticut", "Washington DC", "West Virginia", "North Carolina", "Tennessee", "Kentucky", "Alabama", "Georgia", "Illinois", "Florida", "Arizona", "Colorado", "California", "Alaska", "Maine", "Rhode Island", "New Hampshire", "Vermont", "New Jersey", "Massachusetts", "New York", "South Carolina", "Pennsylvania", "Indiana", "Ohio", "Mississippi", "Michigan", "Louisiana", "Wisconsin", "Missouri", "Oklahoma", "Iowa", "Kansas", "Nebraska", "South Dakota", "Wyoming", "Montana", "Utah", "Minnesota", "Hawaii"];
+const STATES = ["Virginia", "Maryland", "Delaware", "Connecticut", "Washington DC", "West Virginia", "North Carolina", "Tennessee", "Kentucky", "Alabama", "Georgia", "Illinois", "Florida", "Arizona", "Colorado", "California", "Alaska", "Maine", "Rhode Island", "New Hampshire", "Vermont", "New Jersey", "Massachusetts", "New York", "South Carolina", "Pennsylvania", "Indiana", "Ohio", "Mississippi", "Michigan", "Louisiana", "Wisconsin", "Missouri", "Oklahoma", "Iowa", "Kansas", "Nebraska", "South Dakota", "Wyoming", "Montana", "Utah", "Minnesota", "Idaho", "Nevada", "Hawaii"];
 
 function OutsideyPhone() {
   const [current, setCurrent] = useState(0);
