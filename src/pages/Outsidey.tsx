@@ -13,7 +13,7 @@ const SHOTS = [
 ];
 
 // The states live in the app today (the site's daily build adds them one at a time).
-const STATES = ["Virginia", "Maryland", "Delaware", "Connecticut", "Washington DC", "West Virginia", "North Carolina", "Tennessee", "Kentucky", "Alabama", "Georgia", "Illinois", "Florida", "Arizona", "Colorado", "California", "Alaska", "Maine", "Rhode Island", "New Hampshire", "Vermont", "New Jersey", "Massachusetts", "New York", "South Carolina", "Pennsylvania", "Indiana", "Ohio", "Mississippi", "Michigan", "Louisiana", "Wisconsin", "Missouri", "Oklahoma", "Iowa", "Kansas", "Nebraska", "South Dakota", "Wyoming", "Montana", "Utah", "Minnesota", "Idaho", "Nevada", "North Dakota", "New Mexico", "Texas", "Washington", "Oregon", "Hawaii"];
+const STATES = ["Virginia", "Maryland", "Delaware", "Connecticut", "Washington DC", "West Virginia", "North Carolina", "Tennessee", "Kentucky", "Alabama", "Georgia", "Illinois", "Florida", "Arizona", "Colorado", "California", "Alaska", "Maine", "Rhode Island", "New Hampshire", "Vermont", "New Jersey", "Massachusetts", "New York", "South Carolina", "Pennsylvania", "Indiana", "Ohio", "Mississippi", "Michigan", "Louisiana", "Wisconsin", "Missouri", "Oklahoma", "Iowa", "Kansas", "Nebraska", "South Dakota", "Wyoming", "Montana", "Utah", "Minnesota", "Idaho", "Nevada", "North Dakota", "New Mexico", "Texas", "Washington", "Oregon", "Arkansas", "Hawaii"];
 
 function OutsideyPhone() {
   const [current, setCurrent] = useState(0);
@@ -155,9 +155,9 @@ export default function Outsidey() {
       <section id="states" className="py-28 bg-card border-y border-border">
         <div className="container mx-auto px-4 text-center">
           <div className="max-w-2xl mx-auto mb-12">
-            <h2 className="font-display text-4xl md:text-5xl font-bold tracking-tight mb-5">{STATES.length} states and growing.</h2>
+            <h2 className="font-display text-4xl md:text-5xl font-bold tracking-tight mb-5">All 50 states, plus DC.</h2>
             <p className="text-muted-foreground text-xl leading-relaxed">
-              Each state is checked against its own agencies before it goes live — on the way to all 50.
+              Every state is checked against its own agencies before it goes live.
             </p>
           </div>
           <div className="flex flex-wrap justify-center gap-3 max-w-4xl mx-auto">
@@ -167,9 +167,9 @@ export default function Outsidey() {
           </div>
           <div className="mt-14 grid sm:grid-cols-3 gap-6 max-w-3xl mx-auto">
             {[
-              ["28,000+", "trails and parks"],
-              ["1,300", "campgrounds"],
-              ["7,900", "fishing spots and water accesses"],
+              ["240,000+", "trails and parks"],
+              ["14,000", "campgrounds"],
+              ["55,000", "fishing spots and water accesses"],
             ].map(([n, label]) => (
               <div key={label} className="p-6 border border-border/60 bg-background/60 rounded-lg">
                 <div className="font-display text-4xl font-bold text-primary">{n}</div>
